@@ -1,0 +1,311 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: 139, 92, 246;
+  --accent: 99, 102, 241;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+@layer utilities {
+  /* Override bg-purple-600 with gradient */
+  .bg-purple-600 {
+    background: linear-gradient(180deg, #9186FF 0%, #6356E5 100%) !important;
+  }
+  
+  .bg-purple-600:hover {
+    background: linear-gradient(180deg, #A196FF 0%, #7366F5 100%) !important;
+  }
+  
+  /* Override text-purple-600 with gradient text */
+  .text-purple-600 {
+    background: linear-gradient(180deg, #9186FF 0%, #6356E5 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+  }
+  
+  .text-purple-600:hover {
+    background: linear-gradient(180deg, #A196FF 0%, #7366F5 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+  }
+}
+
+@layer components {
+  /* Button Design System - All buttons are pill-shaped */
+  
+  /* Button 1: Purple Gradient (Primary) - Style từ thiết kế */
+  .btn-primary {
+    @apply text-white font-bold py-3 px-6 rounded-full transition-all duration-200;
+    /* Background: Linear gradient từ rgba(145, 134, 255, 1) đến rgba(99, 86, 229, 1) */
+    background: linear-gradient(180deg, rgba(145, 134, 255, 1) 0%, rgba(99, 86, 229, 1) 100%);
+    /* Border: 1px với linear gradient từ rgba(255, 255, 255, 0.62) đến rgba(255, 255, 255, 0.08) */
+    border: 1px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+    /* Drop shadow: 0 0 0 1px rgba(99, 86, 229, 1) */
+    box-shadow: 0 0 0 1px rgba(99, 86, 229, 1);
+  }
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    padding: 1px;
+    /* background: linear-gradient(180deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.08) 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude; */
+    pointer-events: none;
+  }
+  .btn-primary:hover {
+    background: linear-gradient(180deg, rgba(155, 144, 255, 1) 0%, rgba(109, 96, 239, 1) 100%);
+    box-shadow: 0 0 0 1px rgba(99, 86, 229, 0.9);
+  }
+  
+  /* Button 2: Orange/Golden Gradient - Glossy effect */
+  .btn-orange {
+    @apply text-purple-800 font-bold py-3 px-6 rounded-full transition-all duration-200 shadow-md hover:shadow-lg;
+    background: linear-gradient(135deg, #FFB84D 0%, #FFA726 50%, #FF9800 100%);
+    box-shadow: 0 4px 15px rgba(255, 184, 77, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  .btn-orange:hover {
+    background: linear-gradient(135deg, #FFC85D 0%, #FFB84D 50%, #FFA726 100%);
+    box-shadow: 0 6px 20px rgba(255, 184, 77, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+  
+  /* Button 3: Darker Purple Gradient - Glossy effect */
+  .btn-purple-dark {
+    @apply text-white font-bold py-3 px-6 rounded-full transition-all duration-200 shadow-md hover:shadow-lg;
+    background: linear-gradient(135deg, #6B4CE6 0%, #5B3FD4 50%, #4B2FC2 100%);
+    box-shadow: 0 4px 15px rgba(107, 76, 230, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  .btn-purple-dark:hover {
+    background: linear-gradient(135deg, #7B61FF 0%, #6B4CE6 50%, #5B3FD4 100%);
+    box-shadow: 0 6px 20px rgba(107, 76, 230, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+  
+  /* Button 4: White Background - Flat */
+  .btn-white {
+    @apply bg-white text-purple-800 font-bold py-3 px-6 rounded-full transition-all duration-200;
+  }
+  .btn-white:hover {
+    @apply bg-gray-50;
+  }
+  
+  /* Button 5: Dark Purple with Border - Flat */
+  .btn-outline-purple {
+    @apply bg-purple-900 text-purple-200 font-bold py-3 px-6 rounded-full border-2 border-purple-300 transition-all duration-200;
+  }
+  .btn-outline-purple:hover {
+    @apply bg-purple-800 border-purple-200;
+  }
+  
+  /* Button 6: Black with White Border - Flat */
+  .btn-outline-black {
+    @apply bg-black text-white font-bold py-3 px-6 rounded-full border-2 border-white transition-all duration-200;
+  }
+  .btn-outline-black:hover {
+    @apply bg-gray-900;
+  }
+  
+  /* Button 7: Light Purple - Flat */
+  .btn-purple-light {
+    @apply bg-purple-100 text-purple-800 font-bold py-3 px-6 rounded-full transition-all duration-200;
+  }
+  .btn-purple-light:hover {
+    @apply bg-purple-200;
+  }
+  
+  /* Button 8: Light Gray - Flat */
+  .btn-gray-light {
+    @apply bg-gray-200 text-gray-800 font-bold py-3 px-6 rounded-full transition-all duration-200;
+  }
+  .btn-gray-light:hover {
+    @apply bg-gray-300;
+  }
+  
+  /* Button 9: Light Green - Flat */
+  .btn-green-light {
+    @apply bg-green-100 text-green-800 font-bold py-3 px-6 rounded-full transition-all duration-200;
+  }
+  .btn-green-light:hover {
+    @apply bg-green-200;
+  }
+  
+  /* Button 10: Light Red/Pink - Flat */
+  .btn-red-light {
+    @apply bg-red-100 text-red-800 font-bold py-3 px-6 rounded-full transition-all duration-200;
+  }
+  .btn-red-light:hover {
+    @apply bg-red-200;
+  }
+  
+  /* Secondary Button (Outline style) - For "Log in" */
+  /* Style từ thiết kế: White background với drop shadow purple */
+  .btn-secondary {
+    @apply text-purple-600 font-bold py-3 px-6 rounded-full transition-all duration-200;
+    background-color: rgba(255, 255, 255, 1);
+    border: none;
+    box-shadow: 0 0 0 1px rgba(99, 86, 229, 1);
+  }
+  .btn-secondary:hover {
+    @apply text-purple-700 bg-gray-50;
+    box-shadow: 0 0 0 1px rgba(99, 86, 229, 0.9);
+  }
+  
+  .card {
+    @apply bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300;
+  }
+  
+  .gradient-purple {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+}
+
+/* Rich Text Editor Content Styles */
+.rich-text-content {
+  line-height: 1.75;
+}
+
+.rich-text-content p {
+  margin-bottom: 1rem;
+}
+
+.rich-text-content h1,
+.rich-text-content h2,
+.rich-text-content h3,
+.rich-text-content h4,
+.rich-text-content h5,
+.rich-text-content h6 {
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  line-height: 1.3;
+}
+
+.rich-text-content h1 {
+  font-size: 2rem;
+}
+
+.rich-text-content h2 {
+  font-size: 1.5rem;
+}
+
+.rich-text-content h3 {
+  font-size: 1.25rem;
+}
+
+.rich-text-content ul,
+.rich-text-content ol {
+  margin: 1rem 0;
+  padding-left: 2rem;
+}
+
+.rich-text-content ul {
+  list-style-type: disc;
+}
+
+.rich-text-content ol {
+  list-style-type: decimal;
+}
+
+.rich-text-content li {
+  margin: 0.5rem 0;
+  line-height: 1.75;
+}
+
+.rich-text-content ul ul,
+.rich-text-content ol ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.rich-text-content ul ul {
+  list-style-type: circle;
+}
+
+.rich-text-content ul ul ul {
+  list-style-type: square;
+}
+
+.rich-text-content a {
+  color: rgb(99, 102, 241);
+  text-decoration: underline;
+}
+
+.rich-text-content a:hover {
+  color: rgb(139, 92, 246);
+}
+
+.rich-text-content strong {
+  font-weight: 700;
+}
+
+.rich-text-content em {
+  font-style: italic;
+}
+
+.rich-text-content blockquote {
+  border-left: 4px solid rgb(99, 102, 241);
+  padding-left: 1rem;
+  margin: 1rem 0;
+  font-style: italic;
+  color: rgb(107, 114, 128);
+}
+
+.rich-text-content img {
+  max-width: 100%;
+  height: auto;
+  margin: 1rem 0;
+  border-radius: 0.5rem;
+}
+
+.rich-text-content code {
+  background-color: rgb(243, 244, 246);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  font-family: 'Courier New', monospace;
+}
+
+.rich-text-content pre {
+  background-color: rgb(243, 244, 246);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.rich-text-content pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+.rich-text-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.rich-text-content th,
+.rich-text-content td {
+  border: 1px solid rgb(229, 231, 235);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.rich-text-content th {
+  background-color: rgb(243, 244, 246);
+  font-weight: 700;
+}
+
+.flex.items-center.space-x-4 a {
+  padding: 8px 40px;
+}
