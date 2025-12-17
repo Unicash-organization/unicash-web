@@ -71,6 +71,8 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
   const hasActiveMembership = membership?.status === 'active' && 
     membership?.currentPeriodEnd && 
     new Date(membership.currentPeriodEnd) > new Date();
+  const isCancelled = membership?.status === 'canceled' || membership?.cancelAtPeriodEnd;
+  const isPaused = membership?.isPaused;
 
   // Check if moving from current plan to this plan is an upgrade
   const isPlanUpgrade = (oldPlan: any, newPlan: any): boolean => {
@@ -120,8 +122,8 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
   // Get tier color
   const getTierColor = () => {
     if (plan.tier === 'uni_one') return 'text-gray-600'; // Silver
-    if (plan.tier === 'uni_plus') return 'text-yellow-600'; // Gold
-    if (plan.tier === 'uni_max') return 'text-purple-600'; // Platinum
+    if (plan.tier === 'uni_plus') return 'text-purple-600'; // Gold
+    if (plan.tier === 'uni_max') return 'text-gray-600'; // Platinum
     return 'text-gray-600';
   };
 
@@ -131,7 +133,7 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
       return 'bg-purple-600 text-white';
     }
     if (badgeType === 'best_value') {
-      return 'bg-yellow-400 text-black';
+      return 'bg-yellow-400 text-white';
     }
     return 'bg-gray-600 text-white';
   };
@@ -185,39 +187,40 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
   };
 
   return (
-    <div className={`bg-white rounded-xl shadow-lg p-8 relative transition-all hover:shadow-xl ${
-      badgeType === 'popular' ? 'border-2 border-purple-500 scale-105' : 'border border-gray-200'
+    <div className={`bg-white rounded-xl shadow-lg p-8 relative transition-all hover:shadow-xl h-full flex flex-col ${
+      badgeType === 'popular' ? 'border-2 border-purple-500' : 'border border-gray-200'
     }`}>
-      {/* Badge */}
-      {badgeText && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className={`${getBadgeStyle()} text-xs font-bold px-4 py-1 rounded-full`}>
-            {badgeText}
-          </span>
-        </div>
-      )}
 
       {/* Header */}
-      <div className="text-center mb-6">
-        <div className="flex items-center justify-center gap-2 mb-2">
+      <div className="text-left mb-6 flex-shrink-0">
+        <div className="flex gap-2 mb-2">
           <h3 className={`text-2xl font-bold ${getTierColor()}`}>
             {plan.name}
           </h3>
           {plan.tier === 'uni_one' && (
-            <span className="text-sm text-gray-500">(Silver)</span>
+            <span className="text-gray-500">(Silver)</span>
           )}
           {plan.tier === 'uni_plus' && (
-            <span className="text-sm text-yellow-600">(Gold)</span>
+            <span className="text-purple-600">(Gold)</span>
           )}
           {plan.tier === 'uni_max' && (
-            <span className="text-sm text-purple-600">(Platinum)</span>
+            <span className="text-gray-500">(Platinum)</span>
+          )}
+
+          {/* Badge */}
+          {badgeText && (
+            <div className="bag">
+              <span className={`${getBadgeStyle()} text-xs font-bold px-4 py-1 rounded-full`}>
+                {badgeText}
+              </span>
+            </div>
           )}
         </div>
         {plan.description && (
           <p className="text-sm text-gray-600 mb-4">{plan.description}</p>
         )}
         <div className="mb-6">
-          <span className="text-4xl font-bold text-gray-900">${parseFloat(plan.priceMonthly.toString()).toFixed(2)}</span>
+          <span className={`text-4xl font-bold ${getTierColor()}`}>${parseFloat(plan.priceMonthly.toString()).toFixed(2)}</span>
           <span className="text-gray-500">/month</span>
         </div>
         
@@ -235,7 +238,38 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
           </div>
         )} */}
 
-        {hasThisPlan ? (
+        {/* Paused Membership */}
+        {isPaused ? (
+          <Link href="/dashboard/membership">
+            <button 
+              disabled={loading}
+              className="w-full py-3 px-6 rounded-full font-bold transition-all btn-primary"
+            >
+              {loading ? 'Loading...' : 'Resume Membership'}
+            </button>
+          </Link>
+        ) : 
+        /* Cancelled Membership */
+        isCancelled ? (
+          <Link href={`/checkout?planId=${plan.id}&reactivate=true`}>
+            <button 
+              disabled={loading}
+              className={`w-full py-3 px-6 rounded-full font-bold transition-all ${
+                hasThisPlan
+                  ? 'btn-primary'
+                  : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
+              }`}
+            >
+              {loading ? 'Loading...' : 
+                hasThisPlan 
+                  ? 'Reactivate' 
+                  : `Reactive on ${plan.name}${plan.tier === 'uni_plus' ? ' (Gold)' : plan.tier === 'uni_max' ? ' (Platinum)' : plan.tier === 'uni_one' ? ' (Silver)' : ''}`
+              }
+            </button>
+          </Link>
+        ) : 
+        /* Active Membership */
+        hasThisPlan ? (
           <Link href="#">
             <button 
               disabled={true}
@@ -254,7 +288,7 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
                   : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
               }`}
             >
-              {loading ? 'Loading...' : `Upgrade - Get ${plan.name}`}
+              {loading ? 'Loading...' : 'Upgrade'}
             </button>
           </Link>
         ) : isDowngrade ? (
@@ -267,7 +301,7 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
                   : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
               }`}
             >
-              {loading ? 'Loading...' : `Downgrade - Get ${plan.name}`}
+              {loading ? 'Loading...' : 'Downgrade'}
             </button>
           </Link>
         ) : (
@@ -280,14 +314,14 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
                   : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
               }`}
             >
-              {loading ? 'Loading...' : `Get ${plan.name}`}
+              {loading ? 'Loading...' : 'Join Now'}
             </button>
           </Link>
         )}
       </div>
 
       {/* Features */}
-      <div className="space-y-3 mb-6">
+      <div className="space-y-3 mb-6 flex-1">
         {features.length > 0 ? (
           features.map((feature, index) => renderFeature(feature, index))
         ) : (

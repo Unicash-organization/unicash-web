@@ -32,72 +32,71 @@ const YouTubeIcon = () => (
 
 export default function Footer() {
   return (
-    <footer className="bg-gradient-to-b from-purple-900 to-indigo-900 text-white py-12 w-full">
+    <footer className="bg-gradient-to-b from-purple-900 to-indigo-900 text-white py-12 w-full overflow-x-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Logo Section */}
-          <div className="flex items-center">
-            <Link href="/">
-              <Image
-                src="/images/white-logo.svg"
-                alt="UniCash Logo"
-                width={150}
-                height={26}
-                className="h-8 w-auto"
-              />
-            </Link>
+        {/* Logo - Centered at top */}
+        <div className="flex justify-center mb-8">
+          <Link href="/">
+            <Image
+              src="/images/white-logo.svg"
+              alt="UniCash Logo"
+              width={150}
+              height={26}
+              className="h-8 w-auto"
+            />
+          </Link>
+        </div>
+
+        {/* Navigation Links - Two Columns */}
+        <div className="grid grid-cols-2 gap-6 sm:gap-8 max-w-2xl mx-auto mb-8">
+          {/* Left Column */}
+          <div>
+            <ul className="space-y-2 sm:space-y-3">
+              <li>
+                <Link href="/giveaways" className="text-white/80 hover:text-white transition text-sm sm:text-base">
+                  Giveaways
+                </Link>
+              </li>
+              <li>
+                <Link href="/winners" className="text-white/80 hover:text-white transition text-sm sm:text-base">
+                  Winners
+                </Link>
+              </li>
+              <li>
+                <Link href="/faq" className="text-white/80 hover:text-white transition text-sm sm:text-base">
+                  FAQs
+                </Link>
+              </li>
+              <li>
+                <Link href="/contact" className="text-white/80 hover:text-white transition text-sm sm:text-base">
+                  Contact Support
+                </Link>
+              </li>
+              <li>
+                <Link href="/about" className="text-white/80 hover:text-white transition text-sm sm:text-base">
+                  About us
+                </Link>
+              </li>
+            </ul>
           </div>
 
-          {/* Navigation Links - Two Columns */}
-          <div className="grid grid-cols-2 gap-8">
-            <div>
-              <ul className="space-y-2">
-                <li>
-                  <Link href="/giveaways" className="text-white/80 hover:text-white transition">
-                    Giveaways
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/winners" className="text-white/80 hover:text-white transition">
-                    Winners
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/faq" className="text-white/80 hover:text-white transition">
-                    FAQs
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/about" className="text-white/80 hover:text-white transition">
-                    About us
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <ul className="space-y-2">
-                <li>
-                  <Link href="/terms" className="text-white/80 hover:text-white transition">
-                    Terms & Conditions
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/privacy" className="text-white/80 hover:text-white transition">
-                    Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/contact" className="text-white/80 hover:text-white transition">
-                    Contact Support
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Social Media & Copyright */}
-          <div className="flex flex-col items-end md:items-start">
-            <div className="flex space-x-3 mb-4">
+          {/* Right Column */}
+          <div>
+            <ul className="space-y-2 sm:space-y-3">
+              <li>
+                <Link href="/terms" className="text-white/80 hover:text-white transition text-sm sm:text-base">
+                  Terms & Conditions
+                </Link>
+              </li>
+              <li>
+                <Link href="/privacy" className="text-white/80 hover:text-white transition text-sm sm:text-base">
+                  Privacy Policy
+                </Link>
+              </li>
+            </ul>
+            
+            {/* Social Media Icons - Below Privacy Policy */}
+            <div className="flex space-x-3 mt-4 sm:mt-6">
               <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" 
                 className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition text-white">
                 <FacebookIcon />
@@ -111,8 +110,12 @@ export default function Footer() {
                 <YouTubeIcon />
               </a>
             </div>
-            <p className="text-white/60 text-sm">© 2025 UNICASH. All rights reserved.</p>
           </div>
+        </div>
+
+        {/* Copyright - Centered at bottom */}
+        <div className="text-center">
+          <p className="text-white/60 text-xs sm:text-sm">© 2025 UNICASH. All rights reserved.</p>
         </div>
       </div>
     </footer>

@@ -37,7 +37,7 @@ export default function DashboardPage() {
         api.payments.getPaymentsByUserId(user?.id || '').catch(() => ({ data: [] })),
         api.entries.getUserEntries().catch(() => ({ data: [] })),
         api.users.getCreditLedger().catch(() => ({ data: [] })),
-        api.draws.getAll().catch(() => ({ data: [] })),
+        api.draws.getAll(user?.id).catch(() => ({ data: [] })), // Pass userId for early access filtering
       ]);
 
       setMembership(membershipRes.data);

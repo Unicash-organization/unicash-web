@@ -15,11 +15,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-gray-50">
+    <html lang="en" className="overflow-x-hidden">
+      <body className="min-h-screen bg-gray-50 overflow-x-hidden">
         <AuthProvider>
           <Header />
-          <main>{children}</main>
+          <main className="overflow-x-hidden">{children}</main>
           <Footer />
         </AuthProvider>
       </body>

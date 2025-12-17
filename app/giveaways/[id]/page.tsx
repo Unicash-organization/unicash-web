@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function DrawDetailPage() {
   const params = useParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const { id } = params;
   const [draw, setDraw] = useState<any>(null);
@@ -26,6 +26,7 @@ export default function DrawDetailPage() {
   const [isOnWaitlist, setIsOnWaitlist] = useState(false);
   const [checkingWaitlist, setCheckingWaitlist] = useState(false);
   const [addingToWaitlist, setAddingToWaitlist] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const loadDraw = async () => {
     if (!id) return;
@@ -39,12 +40,19 @@ export default function DrawDetailPage() {
 
   useEffect(() => {
     if (!id) return;
+    
+    // Wait for auth to complete before fetching
+    if (authLoading) {
+      return;
+    }
 
     const fetchData = async () => {
+      setLoading(true);
+      setFetchError(null);
       try {
         const [drawRes, allDrawsRes, faqsRes, settingsRes] = await Promise.all([
-          api.draws.get(id as string),
-          api.draws.getAll(),
+          api.draws.get(id as string, user?.id), // Pass userId for early access validation
+          api.draws.getAll(user?.id), // Pass userId for early access filtering
           api.faqs.getAll('draws').catch(() => ({ data: [] })), // Get draws category FAQs
           api.settings.getByKey('rules_and_terms').catch(() => ({ data: null })), // Get rules & terms
         ]);
@@ -52,15 +60,17 @@ export default function DrawDetailPage() {
         setRelatedDraws(allDrawsRes.data.filter((d: any) => d.id !== id).slice(0, 3));
         setFaqs(faqsRes.data || []);
         setRulesTerms(settingsRes.data?.value || '');
-      } catch (error) {
+        setFetchError(null);
+      } catch (error: any) {
         console.error('Error fetching draw:', error);
+        setFetchError(error?.response?.data?.message || error?.message || 'Failed to load draw');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [id]);
+  }, [id, user?.id, authLoading]); // Re-fetch when user or auth state changes
 
   useEffect(() => {
     if (user && id) {
@@ -128,19 +138,47 @@ export default function DrawDetailPage() {
     }
   };
 
-  if (loading) {
+  // Show loading while auth is loading OR data is fetching
+  if (authLoading || loading) {
     return (
-      <div className="text-center py-20">
-        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-accent-500"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-accent-500 mb-4"></div>
+          <p className="text-gray-600">
+            {authLoading ? 'Checking access...' : 'Loading draw...'}
+          </p>
+        </div>
       </div>
     );
   }
 
+  // Show error message if fetch failed
+  if (fetchError) {
+    return (
+      <div className="text-center py-20">
+        <div className="max-w-md mx-auto bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+          <h2 className="text-2xl font-bold text-red-900 mb-3">Unable to Load Draw</h2>
+          <p className="text-red-700 mb-4">{fetchError}</p>
+          {fetchError.includes('not yet available') && (
+            <p className="text-sm text-red-600 mb-4">
+              💎 This draw may be available for early access to UniMax members.
+            </p>
+          )}
+        </div>
+        <Link href="/giveaways" className="btn-primary">
+          View All Giveaways
+        </Link>
+      </div>
+    );
+  }
+
+  // Show not found if no error but no draw
   if (!draw) {
     return (
       <div className="text-center py-20">
-        <h1 className="text-3xl font-bold text-gray-800">Draw Not Found</h1>
-        <Link href="/giveaways" className="btn-primary mt-6">
+        <h1 className="text-3xl font-bold text-gray-800 mb-4">Draw Not Found</h1>
+        <p className="text-gray-600 mb-6">This draw may have been removed or doesn't exist.</p>
+        <Link href="/giveaways" className="btn-primary">
           View All Giveaways
         </Link>
       </div>

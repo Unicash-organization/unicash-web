@@ -83,8 +83,14 @@ export const api = {
 
   // Draws
   draws: {
-    getAll: () => apiClient.get('/draws'),
-    get: (id: string) => apiClient.get(`/draws/${id}`),
+    getAll: (userId?: string) => {
+      const params = userId ? { userId } : {};
+      return apiClient.get('/draws', { params });
+    },
+    get: (id: string, userId?: string) => {
+      const params = userId ? { userId } : {};
+      return apiClient.get(`/draws/${id}`, { params });
+    },
     enter: (drawId: string, idempotencyKey?: string) => {
       const headers: any = {};
       if (idempotencyKey) {

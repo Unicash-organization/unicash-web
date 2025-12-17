@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { formatTimeRemaining } from '@/lib/utils';
 
 interface Button {
   text: string;
@@ -32,21 +33,21 @@ interface BannerSliderProps {
 function BannerSkeleton({ height = 600 }: { height?: number }) {
   return (
     <section
-      className="relative w-full text-white overflow-hidden"
+      className="relative w-full text-white overflow-hidden py-8 md:py-0 banner-skeleton"
       style={{
-        height: `${height}px`,
-        minHeight: `${height}px`,
+        minHeight: 'auto',
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      }}
+        ['--skeleton-height' as string]: `${height}px`,
+      } as React.CSSProperties}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 h-full flex items-center">
-        <div className="grid md:grid-cols-2 gap-12 items-center w-full">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 py-8 md:py-0 md:h-full flex items-center w-full">
+        <div className="grid md:grid-cols-2 gap-6 sm:gap-8 md:gap-12 items-center w-full">
           {/* Left Content Skeleton */}
-          <div className="space-y-6">
-            <div className="h-16 bg-white/20 rounded-lg animate-pulse"></div>
-            <div className="h-4 bg-white/20 rounded-lg animate-pulse w-3/4"></div>
-            <div className="h-4 bg-white/20 rounded-lg animate-pulse w-2/3"></div>
-            <div className="h-12 bg-white/20 rounded-lg animate-pulse w-1/2"></div>
+          <div className="space-y-4 sm:space-y-6">
+            <div className="h-8 sm:h-12 md:h-16 bg-white/20 rounded-lg animate-pulse"></div>
+            <div className="h-3 sm:h-4 bg-white/20 rounded-lg animate-pulse w-3/4"></div>
+            <div className="h-3 sm:h-4 bg-white/20 rounded-lg animate-pulse w-2/3"></div>
+            <div className="h-8 sm:h-10 md:h-12 bg-white/20 rounded-lg animate-pulse w-1/2"></div>
           </div>
           {/* Right Graphics Skeleton */}
           <div className="hidden md:flex items-center justify-center">
@@ -60,7 +61,6 @@ function BannerSkeleton({ height = 600 }: { height?: number }) {
 
 export default function BannerSlider({ banners, autoPlayInterval = 5000, loading = false, height = 600 }: BannerSliderProps) {
   // Debug: Log height prop
-  console.log('BannerSlider height:', height);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [touchStart, setTouchStart] = useState(0);
@@ -241,9 +241,38 @@ export default function BannerSlider({ banners, autoPlayInterval = 5000, loading
 // Individual Banner Slide Component
 function BannerSlide({ banner, height = 600 }: { banner: Banner; height?: number }) {
   // Debug: Log height prop
-  console.log('BannerSlide height:', height);
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Fake draw data (temporary until real logic is implemented)
+  const fakeDraw = {
+    entrants: 62,
+    cap: 100,
+    closedAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 5 * 60 * 60 * 1000 + 34 * 60 * 1000).toISOString(), // 2d 5h 34m from now
+  };
+  
+  // Format date time helper function
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  // Check if mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Preload background image
   useEffect(() => {
@@ -304,68 +333,82 @@ function BannerSlide({ banner, height = 600 }: { banner: Banner; height?: number
 
   return (
     <section
-      className="relative w-full text-white overflow-hidden transition-opacity duration-300"
+      className="relative w-full text-white overflow-hidden transition-opacity duration-300 py-8 md:py-0"
       style={{
         ...backgroundStyle,
-        height: `${height}px`,
-        minHeight: `${height}px`,
-        maxHeight: `${height}px`,
+        ...(isMobile ? {} : {
+          height: `${height}px`,
+          minHeight: `${height}px`,
+          maxHeight: `${height}px`,
+        }),
         opacity: imageLoaded || !banner.backgroundImageUrl ? 1 : 0.7,
       }}
     >
       {/* Overlay for better text readability if background image */}
       {banner.backgroundImageUrl && imageLoaded && (
-        <div className="absolute inset-0 bg-black/30"></div>
+        <div className="absolute inset-0"></div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 h-full flex items-center">
-        <div className="grid md:grid-cols-1 gap-12 items-center w-full">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 py-8 md:py-0 md:h-full flex items-center w-full">
+        <div className="grid md:grid-cols-1 gap-6 sm:gap-8 md:gap-12 items-center w-full">
           {/* Content - Centered vertically, text aligned left */}
           <div className="text-left">
             {/* Rich Text Title */}
             {banner.richTextTitle && (
               <div
-                className="text-5xl md:text-6xl font-bold mb-6 gap-y-8 flex flex-col"
+                className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 gap-y-4 sm:gap-y-6 md:gap-y-8 flex flex-col"
                 dangerouslySetInnerHTML={{ __html: banner.richTextTitle }}
               />
             )}
 
             {/* Description */}
             {banner.description && (
-              <p className="text-lg mb-6 text-white/90 whitespace-pre-line">{banner.description}</p>
+              <p className="text-sm sm:text-base md:text-lg mb-4 sm:mb-6 text-white/90 whitespace-pre-line">{banner.description}</p>
             )}
 
             {/* Countdown - Inline format */}
             {banner.showCountdown && banner.countdownTargetDate && (
-              <div className="flex items-center space-x-3 mb-6">
-                <svg
-                  className="w-6 h-6 text-yellow-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <span className="text-lg font-semibold">
-                  Grand Prize ends in{' '}
-                  <span className="text-yellow-400 font-bold">
-                    {countdown.days}d {countdown.hours}h {countdown.minutes}m {countdown.seconds}s
+              <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
+                {/* Countdown Timer */}
+                <div className="flex items-center space-x-2 sm:space-x-3">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 4.6499C7.22 4.6499 3.33 8.5399 3.33 13.3199C3.33 18.0999 7.22 21.9999 12 21.9999C16.78 21.9999 20.67 18.1099 20.67 13.3299C20.67 8.5499 16.78 4.6499 12 4.6499ZM12.75 12.9999C12.75 13.4099 12.41 13.7499 12 13.7499C11.59 13.7499 11.25 13.4099 11.25 12.9999V7.9999C11.25 7.5899 11.59 7.2499 12 7.2499C12.41 7.2499 12.75 7.5899 12.75 7.9999V12.9999Z" fill="#FFC363"/>
+                    <path d="M14.89 3.45H9.11C8.71 3.45 8.39 3.13 8.39 2.73C8.39 2.33 8.71 2 9.11 2H14.89C15.29 2 15.61 2.32 15.61 2.72C15.61 3.12 15.29 3.45 14.89 3.45Z" fill="#FFC363"/>
+                  </svg>
+                  <span className="text-xs sm:text-sm md:text-base lg:text-lg font-semibold">
+                    Grand Prize ends in{' '}
+                    <span className="text-yellow-400 font-bold">
+                      {countdown.days}d {countdown.hours}h {countdown.minutes}m {countdown.seconds}s
+                    </span>
                   </span>
-                </span>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full max-w-[400px]">
+                  <div className="w-full bg-white/20 rounded-full h-2 sm:h-3 overflow-hidden backdrop-blur-sm">
+                    <div
+                      className="h-2 sm:h-3 rounded-full transition-all duration-500 ease-out"
+                      style={{
+                        width: `${Math.min((fakeDraw.entrants / fakeDraw.cap) * 100, 100)}%`,
+                        background: ' #FFC363',
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex justify-between text-xs sm:text-sm mt-1 sm:mt-2">
+                    <span className="text-white/90 font-medium">{fakeDraw.entrants}/{fakeDraw.cap} entrants</span>
+                    <span className="text-white/90 font-medium">Time left: {formatTimeRemaining(fakeDraw.closedAt)}</span>
+                  </div>
+                </div>
               </div>
             )}
 
             {/* Buttons */}
             {banner.buttons && banner.buttons.length > 0 && (
-              <div className="flex flex-wrap gap-4 mb-6">
+              <div className="flex flex-wrap gap-3 sm:gap-4 mb-4 sm:mb-6">
                 {banner.buttons.map((button, index) => (
                   <Link key={index} href={button.link}>
-                    <button className={`font-bold py-3 px-8 rounded-lg transition ${button.className || 'bg-purple-600 hover:bg-purple-700 text-white'}`}>
+                    <button className={`transition text-sm sm:text-base px-4 sm:px-6 py-2 sm:py-3 ${button.className || 'bg-purple-600 hover:bg-purple-700 text-white'}`}>
                       {button.text}
                     </button>
                   </Link>
@@ -375,7 +418,7 @@ function BannerSlide({ banner, height = 600 }: { banner: Banner; height?: number
 
             {/* Notes/Footer Text */}
             {banner.notes && (
-              <p className="text-sm text-white/80">{banner.notes}</p>
+              <p className="text-xs sm:text-sm text-white/80">{banner.notes}</p>
             )}
           </div>
 

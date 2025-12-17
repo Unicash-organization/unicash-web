@@ -3,8 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import DrawCard from '@/components/DrawCard';
 import api from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function GiveawaysClient() {
+  const { user } = useAuth();
   const [draws, setDraws] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'bonus' | 'open'>('all');
@@ -12,14 +14,14 @@ export default function GiveawaysClient() {
   useEffect(() => {
     const fetchDraws = async () => {
       try {
-        const response = await api.draws.getAll();
+        const response = await api.draws.getAll(user?.id); // Pass userId for early access filtering
         setDraws(response.data);
       } finally {
         setLoading(false);
       }
     };
     fetchDraws();
-  }, []);
+  }, [user?.id]); // Re-fetch when user changes
 
   const filteredDraws = draws.filter((draw: any) => {
     if (filter === 'bonus') return draw.requiresMembership;

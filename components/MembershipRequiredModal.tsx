@@ -8,27 +8,65 @@ interface MembershipRequiredModalProps {
   onClose: () => void;
   boostPackId?: string;
   message?: string;
+  isPaused?: boolean;
+  isCancelled?: boolean;
 }
 
 export default function MembershipRequiredModal({
   isOpen,
   onClose,
   boostPackId,
-  message = "You need to be a UNICASH member to purchase Boost Packs. Please select a membership plan to continue.",
+  message,
+  isPaused = false,
+  isCancelled = false,
 }: MembershipRequiredModalProps) {
   const router = useRouter();
 
   if (!isOpen) return null;
 
-  const handleGetMembership = () => {
-    onClose();
-    // Redirect to checkout with boostPackId if provided
-    if (boostPackId) {
-      router.push(`/checkout?boostPackId=${boostPackId}`);
+  // Determine message and button text based on membership status
+  const getModalContent = () => {
+    if (isPaused) {
+      return {
+        title: 'Your membership is paused',
+        message: 'Boost Packs are only available for active members. Please resume your membership to continue.',
+        primaryButton: 'Resume Membership',
+        secondaryButton: 'Maybe later',
+        primaryAction: () => {
+          onClose();
+          router.push('/dashboard/membership');
+        },
+      };
+    } else if (isCancelled) {
+      return {
+        title: 'Membership Required',
+        message: 'Your membership has been cancelled. Please reactivate your membership to purchase Boost Packs.',
+        primaryButton: 'Reactivate Membership',
+        secondaryButton: 'Cancel',
+        primaryAction: () => {
+          onClose();
+          router.push('/checkout');
+        },
+      };
     } else {
-      router.push('/checkout');
+      return {
+        title: 'Membership Required',
+        message: message || 'You need to be a UNICASH member to purchase Boost Packs. Please select a membership plan to continue.',
+        primaryButton: 'Get Membership',
+        secondaryButton: 'Cancel',
+        primaryAction: () => {
+          onClose();
+          if (boostPackId) {
+            router.push(`/checkout?boostPackId=${boostPackId}`);
+          } else {
+            router.push('/checkout');
+          }
+        },
+      };
     }
   };
+
+  const modalContent = getModalContent();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
@@ -52,22 +90,22 @@ export default function MembershipRequiredModal({
           </div>
 
           <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            Membership Required
+            {modalContent.title}
           </h2>
-          <p className="text-gray-600 mb-6">{message}</p>
+          <p className="text-gray-600 mb-6">{modalContent.message}</p>
 
           <div className="flex gap-3">
             <button
               onClick={onClose}
               className="flex-1 px-4 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition"
             >
-              Cancel
+              {modalContent.secondaryButton}
             </button>
             <button
-              onClick={handleGetMembership}
+              onClick={modalContent.primaryAction}
               className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition"
             >
-              Get Membership
+              {modalContent.primaryButton}
             </button>
           </div>
         </div>

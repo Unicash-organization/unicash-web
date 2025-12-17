@@ -353,7 +353,56 @@ export default function MembershipPage() {
       {/* Current Plan */}
       <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Current Plan</h2>
-        {membership ? (
+        
+        {/* Cancelled - Still in billing period */}
+        {membership && membership.status === 'canceled' && membership.currentPeriodEnd && new Date(membership.currentPeriodEnd) > new Date() ? (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <div className="flex items-start">
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                  Plan: {getPlanDisplayName(membership.plan)} Monthly
+                </h3>
+                <p className="text-red-700 font-medium mb-3">
+                  Status: Cancelled – access until {formatDate(membership.currentPeriodEnd)}
+                </p>
+                <p className="text-gray-700 mb-2">
+                  Your UNICASH membership has been cancelled. You won't be charged again, 
+                  and you'll keep dashboard access until {formatDate(membership.currentPeriodEnd)}.
+                </p>
+                <p className="text-sm text-gray-600 italic mb-4">
+                  All of your entries have been removed. To enter future draws, 
+                  you'll need to start a new membership.
+                </p>
+                <button
+                  onClick={() => router.push('/#membership-plans')}
+                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold"
+                >
+                  Start a new membership
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : 
+        /* Cancelled and billing period ended - No active membership */
+        (!membership || (membership.status === 'canceled' && (!membership.currentPeriodEnd || new Date(membership.currentPeriodEnd) <= new Date()))) ? (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Status: No active membership
+            </h3>
+            <p className="text-gray-700 mb-4">
+              You don't have an active UNICASH membership. Join today to start 
+              collecting credits and entering draws.
+            </p>
+            <button
+              onClick={() => router.push('/#membership-plans')}
+              className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold"
+            >
+              View membership plans
+            </button>
+          </div>
+        ) :
+        /* Active or Paused Membership */
+        membership ? (
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center space-x-3 mb-2">
@@ -363,6 +412,11 @@ export default function MembershipPage() {
                 {membership.status === 'past_due' && (
                   <span className="px-3 py-1 bg-red-600 text-white rounded-full text-xs font-semibold">
                     PAST DUE
+                  </span>
+                )}
+                {membership.isPaused && (
+                  <span className="px-3 py-1 bg-orange-500 text-white rounded-full text-xs font-semibold">
+                    PAUSED
                   </span>
                 )}
               </div>
@@ -425,14 +479,7 @@ export default function MembershipPage() {
               )}
             </div>
           </div>
-        ) : (
-          <div>
-            <p className="text-gray-600 mb-4">No active membership</p>
-            <Link href="/checkout">
-              <button className="btn-primary">Subscribe Now</button>
-            </Link>
-          </div>
-        )}
+        ) : null}
       </div>
 
       {/* Available Plans */}
@@ -649,10 +696,10 @@ export default function MembershipPage() {
         isOpen={showCancelConfirm}
         onClose={() => setShowCancelConfirm(false)}
         onConfirm={handleCancel}
-        title="Cancel Membership"
-        message="Are you sure you want to cancel your membership? Your membership will remain active until the end of your current billing period."
-        confirmText="Cancel Membership"
-        cancelText="Keep Membership"
+        title="Cancel your membership?"
+        message="Are you sure you want to cancel your UNICASH membership? All of your entries will be deleted immediately, and you will lose access to all active draws."
+        confirmText="Cancel membership"
+        cancelText="Keep my membership"
         type="danger"
       />
 
@@ -660,10 +707,10 @@ export default function MembershipPage() {
         isOpen={showPauseConfirm}
         onClose={() => setShowPauseConfirm(false)}
         onConfirm={handlePause}
-        title="Pause Membership"
-        message="Are you sure you want to pause your membership? You can resume it anytime."
-        confirmText="Pause"
-        cancelText="Cancel"
+        title="Pause your membership?"
+        message="You are pausing your subscription. No charges will occur during this period. You can return at any time – everything will be saved!"
+        confirmText="Pause membership"
+        cancelText="Keep my membership active"
         type="warning"
       />
 
@@ -671,11 +718,11 @@ export default function MembershipPage() {
         isOpen={showResumeConfirm}
         onClose={() => setShowResumeConfirm(false)}
         onConfirm={handleResume}
-        title="Resume Membership"
-        message="Are you sure you want to resume your membership?"
-        confirmText="Resume Now"
-        cancelText="Cancel"
-        type="success"
+        title="Resume your membership?"
+        message="Billing will restart from your next renewal, and you'll start receiving monthly credits and member perks again."
+        confirmText="Resume membership"
+        cancelText="Keep it paused"
+        type="info"
       />
 
       <ConfirmModal

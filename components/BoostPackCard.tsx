@@ -81,8 +81,21 @@ export default function BoostPackCard({ pack }: BoostPackCardProps) {
       membership?.currentPeriodEnd && 
       new Date(membership.currentPeriodEnd) > new Date();
     
+    const isPaused = membership?.isPaused;
+    const isCancelled = membership?.status === 'canceled' || membership?.cancelAtPeriodEnd;
+    
     if (!user || !hasActiveMembership) {
-      setShowMembershipModal(true);
+      // Determine appropriate message based on membership status
+      if (isPaused) {
+        // Paused membership - special message
+        setShowMembershipModal(true);
+      } else if (isCancelled) {
+        // Cancelled membership - redirect to reactivate
+        setShowMembershipModal(true);
+      } else {
+        // No membership at all
+        setShowMembershipModal(true);
+      }
     } else {
       window.location.href = `/checkout?boostPackId=${pack.id}`;
     }
@@ -200,6 +213,8 @@ export default function BoostPackCard({ pack }: BoostPackCardProps) {
         isOpen={showMembershipModal}
         onClose={() => setShowMembershipModal(false)}
         boostPackId={pack.id}
+        isPaused={membership?.isPaused}
+        isCancelled={membership?.status === 'canceled' || membership?.cancelAtPeriodEnd}
       />
 
       {/* Features */}

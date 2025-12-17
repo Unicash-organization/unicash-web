@@ -73,9 +73,9 @@ export default function NewsletterSection() {
   };
 
   return (
-    <section className="py-16 bg-white">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h2 className="text-4xl md:text-5xl font-bold text-purple-600 mb-4">
+    <section className="py-16 bg-white w-full overflow-x-hidden">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center w-full">
+        <h2 className="text-4xl font-bold text-purple-600 mb-4">
           Stay in the loop – never miss a draw
         </h2>
         <p className="text-lg text-gray-600 mb-8">

@@ -343,6 +343,8 @@ export default function ConfirmEntryModal({
       <MembershipRequiredModal
         isOpen={showMembershipModal}
         onClose={() => setShowMembershipModal(false)}
+        isPaused={membership?.isPaused}
+        isCancelled={membership?.status === 'canceled' || membership?.cancelAtPeriodEnd}
       />
 
       {/* Success Toast */}
