@@ -41,6 +41,60 @@ export default function SecurityBillingPage() {
         }, 300);
       }
       loadPaymentMethod();
+      
+      // Check if user just returned from Stripe billing portal
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paymentUpdated = urlParams.get('paymentUpdated');
+        
+        if (paymentUpdated === 'true') {
+          // Remove parameter from URL
+          window.history.replaceState({}, '', window.location.pathname);
+          
+          // Reload payment method and try to retry failed invoice
+          setTimeout(async () => {
+            await loadPaymentMethod();
+            await refreshUser();
+            
+            // Check if user has membership with payment_failed status
+            try {
+              const membershipRes = await api.membership.getUserMembership().catch(() => ({ data: null }));
+              const membership = membershipRes.data;
+              
+              if (membership?.status === 'payment_failed' || membership?.status === 'past_due') {
+                // Try to retry failed invoice immediately
+                try {
+                  const retryResult = await api.payments.retryFailedInvoice();
+                  if (retryResult.data?.success) {
+                    // Reload data again to check if status changed
+                    await loadPaymentMethod();
+                    await refreshUser();
+                    
+                    const finalMembership = await api.membership.getUserMembership().catch(() => ({ data: null }));
+                    if (finalMembership.data?.status !== 'payment_failed' && 
+                        finalMembership.data?.status !== 'past_due') {
+                      alert('Payment method updated and invoice paid successfully! Your membership is now active.');
+                    } else {
+                      alert('Payment method updated. We attempted to retry your payment. Please check back in a moment.');
+                    }
+                  } else {
+                    alert('Payment method updated. We attempted to retry your payment, but it may still be processing. Please check back in a few minutes.');
+                  }
+                } catch (retryError: any) {
+                  console.error('Error retrying invoice:', retryError);
+                  // If retry fails, Stripe will auto-retry later
+                  alert('Payment method updated. Stripe will automatically retry your payment. Please check back in a few minutes.');
+                }
+              } else {
+                alert('Payment method updated successfully!');
+              }
+            } catch (error: any) {
+              console.error('Error checking membership:', error);
+              alert('Payment method updated successfully!');
+            }
+          }, 1000);
+        }
+      }
     } else {
       setLoading(false);
     }
@@ -116,7 +170,7 @@ export default function SecurityBillingPage() {
   const handleUpdateCard = async () => {
     try {
       setUpdating(true);
-      const returnUrl = `${window.location.origin}/dashboard/security-billing`;
+      const returnUrl = `${window.location.origin}/dashboard/security-billing?paymentUpdated=true`;
       const res = await api.payments.createBillingPortalSession(returnUrl);
       
       if (res.data?.url) {

@@ -71,6 +71,7 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
   const hasActiveMembership = membership?.status === 'active' && 
     membership?.currentPeriodEnd && 
     new Date(membership.currentPeriodEnd) > new Date();
+  const isPaymentFailed = membership?.status === 'payment_failed' || membership?.status === 'past_due';
   const isCancelled = membership?.status === 'canceled' || membership?.cancelAtPeriodEnd;
   const isPaused = membership?.isPaused;
 
@@ -238,8 +239,19 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
           </div>
         )} */}
 
-        {/* Paused Membership */}
-        {isPaused ? (
+        {/* Payment Failed - Show Fix Payment button, block upgrade/downgrade */}
+        {isPaymentFailed ? (
+          <Link href="/dashboard/membership">
+            <button 
+              disabled={loading}
+              className="w-full py-3 px-6 rounded-full font-bold transition-all bg-red-600 text-white hover:bg-red-700"
+            >
+              {loading ? 'Loading...' : 'Fix payment'}
+            </button>
+          </Link>
+        ) :
+        /* Paused Membership */
+        isPaused ? (
           <Link href="/dashboard/membership">
             <button 
               disabled={loading}
@@ -278,7 +290,7 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
               {loading ? 'Loading...' : 'Current Plan'}
             </button>
           </Link>
-        ) : isUpgrade ? (
+        ) : isUpgrade && !isPaymentFailed ? (
           <Link href={`/checkout?planId=${plan.id}&upgrade=true`}>
             <button 
               disabled={loading}
@@ -291,7 +303,7 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
               {loading ? 'Loading...' : 'Upgrade'}
             </button>
           </Link>
-        ) : isDowngrade ? (
+        ) : isDowngrade && !isPaymentFailed ? (
           <Link href={`/dashboard/membership?downgrade=${plan.id}`}>
             <button 
               disabled={loading}

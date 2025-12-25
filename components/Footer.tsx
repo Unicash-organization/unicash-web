@@ -34,88 +34,182 @@ export default function Footer() {
   return (
     <footer className="bg-gradient-to-b from-purple-900 to-indigo-900 text-white py-12 w-full overflow-x-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Logo - Centered at top */}
-        <div className="flex justify-center mb-8">
-          <Link href="/">
-            <Image
-              src="/images/white-logo.svg"
-              alt="UniCash Logo"
-              width={150}
-              height={26}
-              className="h-8 w-auto"
-            />
-          </Link>
-        </div>
-
-        {/* Navigation Links - Two Columns */}
-        <div className="grid grid-cols-2 gap-6 sm:gap-8 max-w-2xl mx-auto mb-8">
-          {/* Left Column */}
-          <div>
-            <ul className="space-y-2 sm:space-y-3">
-              <li>
-                <Link href="/giveaways" className="text-white/80 hover:text-white transition text-sm sm:text-base">
-                  Giveaways
-                </Link>
-              </li>
-              <li>
-                <Link href="/winners" className="text-white/80 hover:text-white transition text-sm sm:text-base">
-                  Winners
-                </Link>
-              </li>
-              <li>
-                <Link href="/faq" className="text-white/80 hover:text-white transition text-sm sm:text-base">
-                  FAQs
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="text-white/80 hover:text-white transition text-sm sm:text-base">
-                  Contact Support
-                </Link>
-              </li>
-              <li>
-                <Link href="/about" className="text-white/80 hover:text-white transition text-sm sm:text-base">
-                  About us
-                </Link>
-              </li>
-            </ul>
+        {/* Mobile Layout */}
+        <div className="md:hidden">
+          {/* Logo - Centered at top */}
+          <div className="flex justify-center mb-8">
+            <Link href="/">
+              <Image
+                src="/images/white-logo.svg"
+                alt="UniCash Logo"
+                width={150}
+                height={26}
+                className="h-8 w-auto"
+              />
+            </Link>
           </div>
 
-          {/* Right Column */}
-          <div>
-            <ul className="space-y-2 sm:space-y-3">
-              <li>
-                <Link href="/terms" className="text-white/80 hover:text-white transition text-sm sm:text-base">
-                  Terms & Conditions
-                </Link>
-              </li>
-              <li>
-                <Link href="/privacy" className="text-white/80 hover:text-white transition text-sm sm:text-base">
-                  Privacy Policy
-                </Link>
-              </li>
-            </ul>
-            
-            {/* Social Media Icons - Below Privacy Policy */}
-            <div className="flex space-x-3 mt-4 sm:mt-6">
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" 
-                className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition text-white">
-                <FacebookIcon />
-              </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"
-                className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition text-white">
-                <InstagramIcon />
-              </a>
-              <a href="https://youtube.com" target="_blank" rel="noopener noreferrer"
-                className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition text-white">
-                <YouTubeIcon />
-              </a>
+          {/* Navigation Links - Two Columns */}
+          <div className="grid grid-cols-2 gap-6 max-w-2xl mx-auto mb-8">
+            {/* Left Column */}
+            <div>
+              <ul className="space-y-2">
+                <li>
+                  <Link href="/giveaways" className="text-white/80 hover:text-white transition text-sm">
+                    Giveaways
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/winners" className="text-white/80 hover:text-white transition text-sm">
+                    Winners
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/faq" className="text-white/80 hover:text-white transition text-sm">
+                    FAQs
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/contact" className="text-white/80 hover:text-white transition text-sm">
+                    Contact Support
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/about" className="text-white/80 hover:text-white transition text-sm">
+                    About us
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Right Column */}
+            <div>
+              <ul className="space-y-2">
+                <li>
+                  <Link href="/terms" className="text-white/80 hover:text-white transition text-sm">
+                    Terms & Conditions
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/privacy" className="text-white/80 hover:text-white transition text-sm">
+                    Privacy Policy
+                  </Link>
+                </li>
+              </ul>
+              
+              {/* Social Media Icons - Below Privacy Policy */}
+              <div className="flex space-x-3 mt-4">
+                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" 
+                  className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition text-white">
+                  <FacebookIcon />
+                </a>
+                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"
+                  className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition text-white">
+                  <InstagramIcon />
+                </a>
+                <a href="https://youtube.com" target="_blank" rel="noopener noreferrer"
+                  className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition text-white">
+                  <YouTubeIcon />
+                </a>
+              </div>
             </div>
           </div>
+
+          {/* Copyright - Centered at bottom */}
+          <div className="text-center">
+            <p className="text-white/60 text-xs">© 2025 UNICASH. All rights reserved.</p>
+          </div>
         </div>
 
-        {/* Copyright - Centered at bottom */}
-        <div className="text-center">
-          <p className="text-white/60 text-xs sm:text-sm">© 2025 UNICASH. All rights reserved.</p>
+        {/* Desktop Layout */}
+        <div className="hidden md:block">
+          <div className="flex items-start justify-between max-w-5xl mx-auto">
+            {/* Logo - Left Side */}
+            <div className="flex-shrink-0">
+              <Link href="/">
+                <Image
+                  src="/images/white-logo.svg"
+                  alt="UniCash Logo"
+                  width={150}
+                  height={26}
+                  className="h-8 w-auto"
+                />
+              </Link>
+            </div>
+
+            {/* Navigation Links - Center */}
+            <div className="flex-1 flex justify-center">
+              <div className="grid grid-cols-2 gap-x-12 gap-y-3">
+                {/* Left Column */}
+                <div>
+                  <ul className="space-y-3">
+                    <li>
+                      <Link href="/giveaways" className="text-white/80 hover:text-white transition text-base">
+                        Giveaways
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href="/winners" className="text-white/80 hover:text-white transition text-base">
+                        Winners
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href="/faq" className="text-white/80 hover:text-white transition text-base">
+                        FAQs
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href="/contact" className="text-white/80 hover:text-white transition text-base">
+                        Contact Support
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href="/about" className="text-white/80 hover:text-white transition text-base">
+                        About us
+                      </Link>
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Right Column */}
+                <div>
+                  <ul className="space-y-3">
+                    <li>
+                      <Link href="/terms" className="text-white/80 hover:text-white transition text-base">
+                        Terms & Conditions
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href="/privacy" className="text-white/80 hover:text-white transition text-base">
+                        Privacy Policy
+                      </Link>
+                    </li>
+                  </ul>
+                  
+                  {/* Social Media Icons - Below Privacy Policy */}
+                  <div className="flex space-x-3 mt-6">
+                    <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" 
+                      className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition text-white">
+                      <FacebookIcon />
+                    </a>
+                    <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"
+                      className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition text-white">
+                      <InstagramIcon />
+                    </a>
+                    <a href="https://youtube.com" target="_blank" rel="noopener noreferrer"
+                      className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition text-white">
+                      <YouTubeIcon />
+                    </a>
+                  </div>
+                  
+                  {/* Copyright - Below Social Icons */}
+                  <div className="mt-4">
+                    <p className="text-white/60 text-sm">© 2025 UNICASH. All rights reserved.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </footer>

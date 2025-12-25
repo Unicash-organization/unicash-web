@@ -264,6 +264,7 @@ export const api = {
     getPaymentsByUserId: (userId: string) => apiClient.get(`/payments/user/${userId}`),
     getPaymentMethod: () => apiClient.get('/payments/payment-method/me'),
     createBillingPortalSession: (returnUrl: string) => apiClient.post('/payments/billing-portal', { returnUrl }),
+    retryFailedInvoice: () => apiClient.post('/payments/retry-failed-invoice'),
   },
 };
 

@@ -80,8 +80,12 @@ export default function ConfirmEntryModal({
     membership?.currentPeriodEnd && 
     new Date(membership.currentPeriodEnd) > new Date();
   
+  // Check if membership has payment failed (block entry even if credit exists)
+  const isPaymentFailed = membership?.status === 'payment_failed' || membership?.status === 'past_due';
+  
   // Check if membership is required but user doesn't have it
-  const needsMembership = draw.requiresMembership && (!user || !hasActiveMembership);
+  // Also block if payment failed (credit exists but membership inactive)
+  const needsMembership = draw.requiresMembership && (!user || !hasActiveMembership || isPaymentFailed);
 
   const handleEnter = async () => {
     // If membership is required but user doesn't have it, redirect to checkout
@@ -184,10 +188,16 @@ export default function ConfirmEntryModal({
 
             {/* Membership Required Message */}
             {needsMembership && !checkingMembership && (
-              <div className="mb-4 p-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg">
+              <div className={`mb-4 p-4 border-2 rounded-lg ${
+                isPaymentFailed 
+                  ? 'bg-red-50 border-red-400' 
+                  : 'bg-yellow-50 border-yellow-400'
+              }`}>
                 <div className="flex items-start">
                   <svg
-                    className="w-5 h-5 text-yellow-600 mr-2 mt-0.5 flex-shrink-0"
+                    className={`w-5 h-5 mr-2 mt-0.5 flex-shrink-0 ${
+                      isPaymentFailed ? 'text-red-600' : 'text-yellow-600'
+                    }`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -200,9 +210,18 @@ export default function ConfirmEntryModal({
                     />
                   </svg>
                   <div>
-                    <h3 className="text-sm font-bold text-yellow-800 mb-1">Membership Required</h3>
-                    <p className="text-sm text-yellow-700">
-                      This draw is exclusive to UNICASH members. Join a membership plan to unlock access to this and other exclusive draws.
+                    <h3 className={`text-sm font-bold mb-1 ${
+                      isPaymentFailed ? 'text-red-800' : 'text-yellow-800'
+                    }`}>
+                      {isPaymentFailed ? 'Payment Failed' : 'Membership Required'}
+                    </h3>
+                    <p className={`text-sm ${
+                      isPaymentFailed ? 'text-red-700' : 'text-yellow-700'
+                    }`}>
+                      {isPaymentFailed 
+                        ? 'Your membership payment failed. Please update your payment method to continue entering draws.'
+                        : 'This draw is exclusive to UNICASH members. Join a membership plan to unlock access to this and other exclusive draws.'
+                      }
                     </p>
                   </div>
                 </div>

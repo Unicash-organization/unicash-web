@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const [activeDraws, setActiveDraws] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [fixingPayment, setFixingPayment] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -27,6 +28,56 @@ export default function DashboardPage() {
 
     if (user) {
       loadData();
+      
+      // Check if user just returned from Stripe billing portal
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paymentUpdated = urlParams.get('paymentUpdated');
+        
+        if (paymentUpdated === 'true') {
+          // Remove parameter from URL
+          window.history.replaceState({}, '', window.location.pathname);
+          // Reload data and try to retry failed invoice
+          setTimeout(async () => {
+            await loadData();
+            await refreshUser();
+            
+            // Check current membership status
+            const updatedMembership = await api.membership.getUserMembership().catch(() => ({ data: null }));
+            
+            if (updatedMembership.data?.status !== 'payment_failed' && 
+                updatedMembership.data?.status !== 'past_due') {
+              // Payment already succeeded (Stripe auto-retried)
+              alert('Payment method updated successfully! Your membership is now active.');
+            } else {
+              // Payment method updated but invoice still needs to be retried
+              // Try to retry failed invoice immediately
+              try {
+                const retryResult = await api.payments.retryFailedInvoice();
+                if (retryResult.data?.success) {
+                  // Reload data again to check if status changed
+                  await loadData();
+                  await refreshUser();
+                  
+                  const finalMembership = await api.membership.getUserMembership().catch(() => ({ data: null }));
+                  if (finalMembership.data?.status !== 'payment_failed' && 
+                      finalMembership.data?.status !== 'past_due') {
+                    alert('Payment method updated and invoice paid successfully! Your membership is now active.');
+                  } else {
+                    alert('Payment method updated. We attempted to retry your payment. Please check back in a moment.');
+                  }
+                } else {
+                  alert('Payment method updated. We attempted to retry your payment, but it may still be processing. Please check back in a few minutes.');
+                }
+              } catch (retryError: any) {
+                console.error('Error retrying invoice:', retryError);
+                // If retry fails, Stripe will auto-retry later
+                alert('Payment method updated. Stripe will automatically retry your payment. Please check back in a few minutes.');
+              }
+            }
+          }, 1000);
+        }
+      }
     }
   }, [user, authLoading, router]);
 
@@ -101,6 +152,24 @@ export default function DashboardPage() {
     return plan?.name || 'Unknown';
   };
 
+  const handleFixPayment = async () => {
+    try {
+      setFixingPayment(true);
+      // Return to dashboard after updating payment method
+      const returnUrl = `${window.location.origin}/dashboard?paymentUpdated=true`;
+      const res = await api.payments.createBillingPortalSession(returnUrl);
+      
+      if (res.data?.url) {
+        // Direct redirect to Stripe billing portal
+        window.location.href = res.data.url;
+      }
+    } catch (error: any) {
+      console.error('Error creating billing portal session:', error);
+      alert(error.response?.data?.message || 'Failed to open payment update page. Please try again.');
+      setFixingPayment(false);
+    }
+  };
+
   const formatDate = (date: string | Date) => {
     return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   };
@@ -140,11 +209,13 @@ export default function DashboardPage() {
                 You're on {getPlanDisplayName(membership.plan)} ({getPlanTierName(membership.plan?.tier)})
               </p>
               <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                membership.status === 'past_due' 
+                (membership.status === 'past_due' || membership.status === 'payment_failed')
                   ? 'bg-red-600 text-white' 
                   : 'bg-purple-600 text-white'
               }`}>
-                {membership.status === 'past_due' ? 'PAST DUE' : getPlanTierName(membership.plan?.tier).toUpperCase()}
+                {(membership.status === 'past_due' || membership.status === 'payment_failed') 
+                  ? 'PAYMENT FAILED' 
+                  : getPlanTierName(membership.plan?.tier).toUpperCase()}
               </span>
             </div>
           )}
@@ -176,7 +247,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {membership?.status === 'past_due' && membership?.pastDueAt && (
+          {(membership?.status === 'payment_failed' || membership?.status === 'past_due') && (
             <div className="mb-4 p-4 bg-red-50 border-2 border-red-400 rounded-lg">
               <div className="flex items-start">
                 <div className="flex-shrink-0">
@@ -184,24 +255,27 @@ export default function DashboardPage() {
                     <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
                 </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-bold text-red-800">Payment Failed - Action Required</h3>
-                  <p className="mt-1 text-sm text-red-700">
-                    Your membership payment failed. Please update your payment method to continue enjoying your membership benefits.
-                    {(() => {
-                      const pastDueDate = new Date(membership.pastDueAt);
-                      const daysPastDue = Math.floor((new Date().getTime() - pastDueDate.getTime()) / (1000 * 60 * 60 * 24));
-                      const daysRemaining = 7 - daysPastDue;
-                      return daysRemaining > 0 
-                        ? ` You have ${daysRemaining} day(s) remaining in your grace period.`
-                        : ' Your grace period has expired. Please update your payment method immediately.';
-                    })()}
+                <div className="ml-3 flex-1">
+                  <h3 className="text-sm font-bold text-red-800 mb-2">Payment failed</h3>
+                  <p className="mt-1 text-sm text-red-700 mb-4">
+                    We couldn't process your membership payment. Please update your payment method to keep your membership active.
                   </p>
-                  <Link href="/dashboard/security-billing">
-                    <button className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-semibold">
-                      Update Payment Method
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleFixPayment}
+                      disabled={fixingPayment}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition text-sm disabled:opacity-50"
+                    >
+                      {fixingPayment ? 'Opening...' : 'Update payment'}
                     </button>
-                  </Link>
+                    <button
+                      onClick={handleFixPayment}
+                      disabled={fixingPayment}
+                      className="px-4 py-2 bg-white text-red-600 border border-red-600 rounded-lg font-semibold hover:bg-red-50 transition text-sm disabled:opacity-50"
+                    >
+                      Try again
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
