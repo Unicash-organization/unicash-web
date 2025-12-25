@@ -13,11 +13,8 @@ export function formatTimeRemaining(closedAt: string): string {
 }
 
 export function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  const { formatSydneyDateOnly } = require('./timezone');
+  return formatSydneyDateOnly(date);
 }
 
 export function getDrawStatus(state: string, closedAt: string): 'open' | 'soldOut' | 'closed' | 'canceled' | 'entered' {

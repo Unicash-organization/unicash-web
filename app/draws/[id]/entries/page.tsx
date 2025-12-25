@@ -78,13 +78,8 @@ export default function DrawEntriesPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const { formatSydneyDate } = require('@/lib/timezone');
+    return formatSydneyDate(dateString);
   };
 
   const getSourceLabel = (source: string) => {

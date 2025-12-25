@@ -351,17 +351,13 @@ export default function MembershipPage() {
   };
 
   const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const { formatSydneyDateOnly } = require('@/lib/timezone');
+    return formatSydneyDateOnly(date);
   };
 
   const formatDateWithTime = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const { formatSydneyDate } = require('@/lib/timezone');
+    return formatSydneyDate(dateString);
   };
 
   const formatCurrency = (amount: number, currency: string = 'AUD') => {

@@ -171,21 +171,13 @@ export default function DashboardPage() {
   };
 
   const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const { formatSydneyDateOnly } = require('@/lib/timezone');
+    return formatSydneyDateOnly(date);
   };
 
   const formatDateTime = (date: string | Date) => {
-    const d = new Date(date);
-    const hours = d.getHours();
-    const minutes = d.getMinutes();
-    const ampm = hours >= 12 ? 'pm' : 'am';
-    const displayHours = hours % 12 || 12;
-    const displayMinutes = minutes.toString().padStart(2, '0');
-    const time = `${displayHours}:${displayMinutes}${ampm}`;
-    const day = d.getDate().toString().padStart(2, '0');
-    const month = (d.getMonth() + 1).toString().padStart(2, '0');
-    const year = d.getFullYear().toString().slice(-2);
-    return `${time}, ${day}/${month}/${year}`;
+    const { formatDateTime: formatDT } = require('@/lib/timezone');
+    return formatDT(date);
   };
 
   const formatCurrency = (amount: number, currency: string = 'AUD') => {
@@ -235,7 +227,10 @@ export default function DashboardPage() {
                     {user.lockReason === 'chargeback_dispute' && ' Any credits or entries associated with the disputed payment have been revoked.'}
                   </p>
                   <p className="mt-2 text-xs text-red-600">
-                    {user.lockedAt && `Locked on: ${new Date(user.lockedAt).toLocaleDateString()}`}
+                    {user.lockedAt && (() => {
+                      const { formatSydneyDateOnly } = require('@/lib/timezone');
+                      return `Locked on: ${formatSydneyDateOnly(user.lockedAt)}`;
+                    })()}
                   </p>
                   <Link href="/contact" className="mt-3 inline-block">
                     <button className="text-sm font-semibold text-red-800 hover:text-red-900 underline">
