@@ -114,7 +114,7 @@ export default function BoostPackCard({ pack }: BoostPackCardProps) {
     membership?.currentPeriodEnd && 
     new Date(membership.currentPeriodEnd) > new Date();
 
-  const canBuyBoostPack = user && hasActiveMembership;
+  const canBuyBoostPack = !!(user && hasActiveMembership); // Ensure boolean, not null
   const isPaused = membership?.isPaused;
 
   // Get badge style
@@ -222,7 +222,7 @@ export default function BoostPackCard({ pack }: BoostPackCardProps) {
 
       <button
         onClick={handleGetBoostPack}
-        disabled={checkingMembership || (user && !canBuyBoostPack)}
+        disabled={!!(checkingMembership || (user && !canBuyBoostPack))}
         className={`w-full py-3 px-4 rounded-full font-bold mb-6 transition ${
           checkingMembership || (user && !canBuyBoostPack)
             ? 'bg-gray-300 text-gray-600 cursor-not-allowed opacity-50'
