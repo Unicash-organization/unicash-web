@@ -184,7 +184,8 @@ export default function SecurityBillingPage() {
   };
 
   const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const { formatSydneyDateOnly } = require('@/lib/timezone');
+    return formatSydneyDateOnly(date);
   };
 
   const getCardBrandColor = (brand?: string) => {
@@ -445,4 +446,3 @@ export default function SecurityBillingPage() {
     </div>
   );
 }
-

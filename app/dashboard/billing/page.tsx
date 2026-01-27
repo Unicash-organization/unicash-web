@@ -50,7 +50,8 @@ export default function BillingPage() {
   };
 
   const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const { formatSydneyDateOnly } = require('@/lib/timezone');
+    return formatSydneyDateOnly(date);
   };
 
   const getCardBrandColor = (brand?: string) => {

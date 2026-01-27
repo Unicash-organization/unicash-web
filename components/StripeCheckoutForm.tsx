@@ -23,7 +23,7 @@ interface StripeCheckoutFormProps {
   buttonText?: string;
 }
 
-function CheckoutForm({ clientSecret, paymentId, amount, currency = 'USD', buttonText = 'Pay and Start Membership' }: StripeCheckoutFormProps) {
+function CheckoutForm({ clientSecret, paymentId, amount, currency = 'AUD', buttonText = 'Pay and Start Membership' }: StripeCheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const { setAuth, user, refreshUser } = useAuth();
@@ -422,7 +422,7 @@ export default function StripeCheckoutFormWrapper({
   clientSecret,
   paymentId,
   amount,
-  currency = 'USD',
+  currency = 'AUD',
   buttonText,
 }: StripeCheckoutFormWrapperProps) {
   const options: StripeElementsOptions = {

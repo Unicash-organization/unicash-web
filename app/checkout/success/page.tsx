@@ -12,6 +12,12 @@ function CheckoutSuccessContent() {
   const [payment, setPayment] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // Format AUD currency - Always use A$ prefix
+  const formatAUD = (amount: number | string) => {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) || 0 : amount;
+    return `A$${numAmount.toFixed(2)}`;
+  };
+
   useEffect(() => {
     if (sessionId) {
       fetchPaymentStatus();
@@ -65,7 +71,7 @@ function CheckoutSuccessContent() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Amount:</span>
-                  <span className="font-medium">${payment.amount}</span>
+                  <span className="font-medium">{formatAUD(parseFloat(payment.amount?.toString() || '0'))}</span>
                 </div>
                 {payment.creditsGranted && (
                   <div className="flex justify-between">

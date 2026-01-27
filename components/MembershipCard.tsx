@@ -64,6 +64,8 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
 
   const badgeText = plan.badgeText || plan.featuresConfig?.badge?.text;
   const badgeType = plan.badgeType || plan.featuresConfig?.badge?.type;
+  
+  // Use featuresConfig.features (backend auto-syncs legacy fields)
   const features = plan.featuresConfig?.features || [];
   
   // Check if user has this plan
@@ -221,7 +223,9 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
           <p className="text-sm text-gray-600 mb-4">{plan.description}</p>
         )}
         <div className="mb-6">
-          <span className={`text-4xl font-bold ${getTierColor()}`}>${parseFloat(plan.priceMonthly.toString()).toFixed(2)}</span>
+          <span className={`text-4xl font-bold ${getTierColor()}`}>
+            A${parseFloat(plan.priceMonthly.toString()).toFixed(2)}
+          </span>
           <span className="text-gray-500">/month</span>
         </div>
         
@@ -233,14 +237,17 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
             </p>
             {membership.currentPeriodEnd && (
               <p className="text-xs text-green-600 text-center mt-1">
-                Next billing: {new Date(membership.currentPeriodEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                Next billing: {(() => {
+                  const { formatSydneyDateOnly } = require('@/lib/timezone');
+                  return formatSydneyDateOnly(membership.currentPeriodEnd);
+                })()}
               </p>
             )}
           </div>
         )} */}
 
-        {/* Payment Failed - Show Fix Payment button, block upgrade/downgrade */}
-        {isPaymentFailed ? (
+        {/* Payment Failed - Show Fix Payment button on current plan only */}
+        {isPaymentFailed && hasThisPlan ? (
           <Link href="/dashboard/membership">
             <button 
               disabled={loading}
@@ -250,8 +257,19 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
             </button>
           </Link>
         ) :
-        /* Paused Membership */
-        isPaused ? (
+        /* Payment Failed on other plans - block actions */
+        isPaymentFailed && !hasThisPlan ? (
+          <div>
+            <button 
+              disabled
+              className="w-full py-3 px-6 rounded-full font-bold transition-all bg-gray-300 text-gray-600 cursor-not-allowed"
+            >
+              Fix payment required
+            </button>
+          </div>
+        ) :
+        /* Paused Membership - Show Resume button on current plan only */
+        isPaused && hasThisPlan ? (
           <Link href="/dashboard/membership">
             <button 
               disabled={loading}
@@ -261,25 +279,39 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
             </button>
           </Link>
         ) : 
-        /* Cancelled Membership */
-        isCancelled ? (
+        /* Paused Membership on other plans - block upgrade/downgrade */
+        isPaused && !hasThisPlan ? (
+          <div>
+            <button 
+              disabled
+              className="w-full py-3 px-6 rounded-full font-bold transition-all bg-gray-300 text-gray-600 cursor-not-allowed"
+            >
+              Resume membership required
+            </button>
+          </div>
+        ) : 
+        /* Cancelled Membership - Only show Reactivate for current plan */
+        isCancelled && hasThisPlan ? (
           <Link href={`/checkout?planId=${plan.id}&reactivate=true`}>
             <button 
               disabled={loading}
-              className={`w-full py-3 px-6 rounded-full font-bold transition-all ${
-                hasThisPlan
-                  ? 'btn-primary'
-                  : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
-              }`}
+              className="w-full py-3 px-6 rounded-full font-bold transition-all btn-primary"
             >
-              {loading ? 'Loading...' : 
-                hasThisPlan 
-                  ? 'Reactivate' 
-                  : `Reactive on ${plan.name}${plan.tier === 'uni_plus' ? ' (Gold)' : plan.tier === 'uni_max' ? ' (Platinum)' : plan.tier === 'uni_one' ? ' (Silver)' : ''}`
-              }
+              {loading ? 'Loading...' : 'Reactivate'}
             </button>
           </Link>
-        ) : 
+        ) :
+        /* Cancelled Membership - Other plans show as new purchase */
+        isCancelled && !hasThisPlan ? (
+          <Link href={`/checkout?planId=${plan.id}`}>
+            <button 
+              disabled={loading}
+              className="w-full py-3 px-6 rounded-full font-bold transition-all bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50"
+            >
+              {loading ? 'Loading...' : 'Get Membership'}
+            </button>
+          </Link>
+        ) :
         /* Active Membership */
         hasThisPlan ? (
           <Link href="#">

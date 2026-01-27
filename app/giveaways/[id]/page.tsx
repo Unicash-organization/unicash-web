@@ -27,6 +27,8 @@ export default function DrawDetailPage() {
   const [checkingWaitlist, setCheckingWaitlist] = useState(false);
   const [addingToWaitlist, setAddingToWaitlist] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [membership, setMembership] = useState<any>(null);
+  const [checkingMembership, setCheckingMembership] = useState(false);
 
   const loadDraw = async () => {
     if (!id) return;
@@ -76,6 +78,8 @@ export default function DrawDetailPage() {
     if (user && id) {
       checkUserEntry();
       checkWaitlistStatus();
+      // Always check membership for logged-in users (needed for bonus draws)
+      checkMembership();
     }
   }, [user, id]);
 
@@ -104,6 +108,19 @@ export default function DrawDetailPage() {
       console.error('Error checking waitlist status:', error);
     } finally {
       setCheckingWaitlist(false);
+    }
+  };
+
+  const checkMembership = async () => {
+    if (!user) return;
+    setCheckingMembership(true);
+    try {
+      const response = await api.membership.getUserMembership().catch(() => ({ data: null }));
+      setMembership(response.data);
+    } catch (error) {
+      console.error('Error checking membership:', error);
+    } finally {
+      setCheckingMembership(false);
     }
   };
 
@@ -397,15 +414,20 @@ export default function DrawDetailPage() {
                 <div className="mb-6">
                   <div className="flex justify-between text-sm text-gray-600 mb-2">
                     <span>
-                      {draw.entrants || 0}/{draw.cap} entrants
+                      {draw.entrants || 0}/{draw.cap === -1 ? '∞ Unlimited' : draw.cap} entrants
                     </span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div
-                      className="bg-gradient-to-r from-purple-500 to-indigo-600 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(((draw.entrants || 0) / draw.cap) * 100, 100)}%` }}
-                    />
-                  </div>
+                  {draw.cap !== -1 && (
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div
+                        className="bg-gradient-to-r from-purple-500 to-indigo-600 h-3 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(((draw.entrants || 0) / draw.cap) * 100, 100)}%` }}
+                      />
+                    </div>
+                  )}
+                  {draw.cap === -1 && (
+                    <p className="text-xs text-gray-500 italic">This draw has no entry limit</p>
+                  )}
                 </div>
 
                 <Countdown
@@ -416,9 +438,36 @@ export default function DrawDetailPage() {
 
                 {(() => {
                   const isClosedByDate = draw.closedAt ? new Date(draw.closedAt) < new Date() : false;
-                  const isSoldOut = draw.state === 'soldOut' || (draw.entrants || 0) >= (draw.cap || 0);
+                  // Skip sold out check if unlimited capacity (cap = -1)
+                  const isSoldOut = draw.cap !== -1 && (draw.state === 'soldOut' || (draw.entrants || 0) >= (draw.cap || 0));
                   const isClosed = draw.state === 'closed' || isClosedByDate;
-                  const isDisabled = isClosed || isSoldOut || hasEntered;
+                  
+                  // Check if user has active membership for bonus draws
+                  // Block if canceled, paused, or inactive
+                  const isCanceled = membership?.status === 'canceled';
+                  const hasActiveMembership = !isCanceled && // ✅ Block canceled membership first
+                    membership?.status === 'active' && 
+                    !membership?.isPaused && 
+                    membership?.currentPeriodEnd && 
+                    new Date(membership.currentPeriodEnd) > new Date();
+                  
+                  const canEnterBonusDraw = !draw.requiresMembership || hasActiveMembership;
+                  // ✅ Disable if canceled membership
+                  const isDisabled = isClosed || isSoldOut || hasEntered || isCanceled || (draw.requiresMembership && !canEnterBonusDraw);
+
+                  // Debug logging
+                  if (draw.requiresMembership && user) {
+                    console.log('Draw Detail Debug:', {
+                      drawId: draw.id,
+                      requiresMembership: draw.requiresMembership,
+                      membership: membership,
+                      isPaused: membership?.isPaused,
+                      status: membership?.status,
+                      hasActiveMembership,
+                      canEnterBonusDraw,
+                      isDisabled
+                    });
+                  }
                   
                   if (hasEntered) {
                     return (
@@ -429,17 +478,31 @@ export default function DrawDetailPage() {
                   }
                   
                   return (
-                    <button
-                      onClick={() => {
-                        if (!isClosed && !isSoldOut && !hasEntered) {
+                    <>
+                      {draw.requiresMembership && !canEnterBonusDraw && user && (
+                        <div className="mt-4 w-full mb-2 py-3 px-4 rounded-lg bg-orange-50 border border-orange-200 text-center">
+                          <p className="text-sm text-orange-800 font-medium">
+                            {isCanceled ? '🚫 Your membership is cancelled' : membership?.isPaused ? '⏸️ Your membership is paused' : '💎 Active membership required'}
+                          </p>
+                          <p className="text-xs text-orange-600 mt-1">
+                            {isCanceled ? 'Your membership has been cancelled. You cannot enter bonus draws.' : membership?.isPaused ? 'Please resume your membership to enter this bonus draw' : 'Subscribe to a membership plan to unlock bonus draws'}
+                          </p>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => {
+                          // ✅ Block click if canceled, closed, sold out, already entered, or cannot enter
+                          if (isCanceled || isClosed || isSoldOut || hasEntered || !canEnterBonusDraw) {
+                            return;
+                          }
                           setShowConfirmModal(true);
-                        }
-                      }}
-                      disabled={isDisabled || checkingEntry}
-                      className="mt-4 w-full bg-purple-600 text-white font-bold py-4 rounded-lg hover:bg-purple-700 transition mb-4 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                    >
-                      {checkingEntry ? 'Checking...' : isSoldOut ? 'Sold Out' : isClosed ? 'Closed' : 'Enter Now'}
-                    </button>
+                        }}
+                        disabled={isDisabled || checkingEntry || checkingMembership}
+                        className="mt-4 w-full bg-purple-600 text-white font-bold py-4 rounded-lg hover:bg-purple-700 transition mb-4 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                      >
+                        {checkingEntry || checkingMembership ? 'Checking...' : isCanceled ? 'Membership Cancelled' : isSoldOut ? 'Sold Out' : isClosed ? 'Closed' : 'Enter Now'}
+                      </button>
+                    </>
                   );
                 })()}
 
@@ -570,7 +633,7 @@ export default function DrawDetailPage() {
             costPerEntry: draw.costPerEntry,
             state: draw.state,
             entrants: draw.entrants || 0,
-            cap: draw.cap || 0,
+            cap: draw.cap ?? 0, // Keep -1 for unlimited, default to 0 if null
             requiresMembership: draw.requiresMembership,
           }}
           onSuccess={() => {

@@ -52,7 +52,10 @@ export default function PrivacyPage() {
             )}
 
             <p className="text-sm text-gray-500 mt-8">
-              Last updated: {new Date().toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' })}
+              Last updated: {(() => {
+                const { formatSydneyDateOnly } = require('@/lib/timezone');
+                return formatSydneyDateOnly(new Date());
+              })()}
             </p>
           </div>
         </div>

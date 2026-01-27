@@ -57,7 +57,7 @@ export default function GiveawaysClient() {
                   image={draw.prizeImage}
                   creditsPerEntry={draw.costPerEntry}
                   entrants={draw.entrants || 0}
-                  cap={draw.cap || 100}
+                  cap={draw.cap ?? 100} // Keep -1 for unlimited, default to 100 if null
                   closedAt={draw.closedAt}
                   state={draw.state}
                   requiresMembership={draw.requiresMembership}

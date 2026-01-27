@@ -27,6 +27,7 @@ function CheckoutContent() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -163,6 +164,12 @@ function CheckoutContent() {
     ? parseFloat(selectedPlan.priceMonthly.toString()) + (selectedPack ? parseFloat(selectedPack.price.toString()) : 0)
     : (selectedPack ? parseFloat(selectedPack.price.toString()) : 0);
 
+  // Format AUD currency - Always use A$ prefix
+  const formatAUD = (amount: number | string) => {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) || 0 : amount;
+    return `A$${numAmount.toFixed(2)}`;
+  };
+
   // Re-validate promo code when plan/pack changes
   useEffect(() => {
     if (promoCodeValid?.valid && promoCode && originalTotalAmount > 0) {
@@ -214,6 +221,16 @@ function CheckoutContent() {
       newErrors.email = 'Invalid email format';
     }
 
+    // ✅ Validate phone number format (if provided)
+    if (formData.phone.trim()) {
+      // Australian phone format: +61 4xx xxx xxx or 04xx xxx xxx
+      // International format: +[country code][number]
+      const phoneRegex = /^(\+?61|0)[2-478](?:[ -]?[0-9]){8}$|^\+?[1-9]\d{1,14}$/;
+      if (!phoneRegex.test(formData.phone.trim().replace(/\s/g, ''))) {
+        newErrors.phone = 'Please enter a valid phone number (e.g., +61 4xx xxx xxx or 04xx xxx xxx)';
+      }
+    }
+
     // Case 1 & 3: Require membership if trying to buy boost without membership
     if (requiresMembership && !selectedPlan) {
       newErrors.membership = 'Membership is required to purchase Boost Packs';
@@ -225,6 +242,9 @@ function CheckoutContent() {
 
   const handleContinueToPayment = async () => {
     if (!validateInfo()) return;
+    
+    // Prevent double-click
+    if (isProcessingPayment) return;
 
     // Case 1 & 3: Must select membership if buying boost
     if (requiresMembership && !selectedPlan) {
@@ -246,6 +266,7 @@ function CheckoutContent() {
 
     setPaymentError(null);
     setLoading(true);
+    setIsProcessingPayment(true); // Prevent double-click
 
     try {
       let response;
@@ -279,9 +300,16 @@ function CheckoutContent() {
       }
     } catch (error: any) {
       console.error('Error creating payment intent:', error);
-      setPaymentError(error?.response?.data?.message || 'Failed to initialize payment. Please try again.');
+      const errorMessage = error?.response?.data?.message || 'Failed to initialize payment. Please try again.';
+      setPaymentError(errorMessage);
+      
+      // If rate limit error, show user-friendly message
+      if (errorMessage.includes('Too Many Requests') || errorMessage.includes('ThrottlerException')) {
+        setPaymentError('Too many requests. Please wait a moment and try again.');
+      }
     } finally {
       setLoading(false);
+      setIsProcessingPayment(false); // Re-enable button
     }
   };
 
@@ -485,9 +513,15 @@ function CheckoutContent() {
                         name="phone"
                         value={formData.phone}
                         onChange={handleInputChange}
-                        placeholder="+61 4xx xxx xxx"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        placeholder="+61 4xx xxx xxx or 04xx xxx xxx"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                          errors.phone ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-purple-500'
+                        }`}
                       />
+                      {errors.phone && (
+                        <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">Format: +61 4xx xxx xxx or 04xx xxx xxx</p>
                     </div>
 
                     {/* Promo Code */}
@@ -540,7 +574,7 @@ function CheckoutContent() {
                               promoCodeValid.valid ? 'text-green-800' : 'text-red-800'
                             }`}>
                               {promoCodeValid.valid 
-                                ? `✓ Valid! Discount: $${promoCodeValid.discount?.toFixed(2) || '0.00'}`
+                                ? `✓ Valid! Discount: ${formatAUD(promoCodeValid.discount || 0)}`
                                 : promoCodeValid.error || 'Invalid promo code'
                               }
                             </p>
@@ -576,10 +610,10 @@ function CheckoutContent() {
 
                   <button
                     onClick={handleContinueToPayment}
-                    disabled={loading || (requiresMembership && !selectedPlan)}
+                    disabled={loading || isProcessingPayment || (requiresMembership && !selectedPlan)}
                     className="w-full bg-purple-600 text-white font-bold py-4 rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? 'Processing...' : 'Continue to Payment →'}
+                    {loading || isProcessingPayment ? 'Processing...' : 'Continue to Payment →'}
                   </button>
                   {requiresMembership && !selectedPlan && (
                     <p className="text-sm text-red-600 mt-2 text-center">
@@ -596,7 +630,7 @@ function CheckoutContent() {
                     clientSecret={clientSecret}
                     paymentId={paymentId}
                     amount={totalAmount}
-                    currency="USD"
+                    currency="AUD"
                     buttonText={selectedPlan ? 'Pay and Start Membership' : 'Complete Payment'}
                   />
 
@@ -632,7 +666,10 @@ function CheckoutContent() {
                         Includes: {userMembership.plan.grandPrizeEntriesPerPeriod || 0}x Grand Draw entries
                         {userMembership.plan.freeCreditsPerPeriod > 0 && ` + ${userMembership.plan.freeCreditsPerPeriod} monthly credits`}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">Active until {new Date(userMembership.currentPeriodEnd).toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-500 mt-1">Active until {(() => {
+                        const { formatSydneyDateOnly } = require('@/lib/timezone');
+                        return formatSydneyDateOnly(userMembership.currentPeriodEnd);
+                      })()}</p>
                     </div>
                   )}
 
@@ -667,7 +704,7 @@ function CheckoutContent() {
                                   <p className="text-sm text-gray-600">{pack.credits} Credits</p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="text-lg font-bold text-purple-600">${parseFloat(pack.price?.toString() || '0').toFixed(2)}</p>
+                                  <p className="text-lg font-bold text-purple-600">{formatAUD(parseFloat(pack.price?.toString() || '0'))}</p>
                                 </div>
                               </div>
                             </div>
@@ -686,7 +723,7 @@ function CheckoutContent() {
                             You'll receive <strong>{selectedPack.credits} Credits</strong> with this Boost Pack.
                           </p>
                         </div>
-                        <p className="text-xl font-bold text-purple-600">${parseFloat(selectedPack.price?.toString() || '0').toFixed(2)}</p>
+                        <p className="text-xl font-bold text-purple-600">{formatAUD(parseFloat(selectedPack.price?.toString() || '0'))}</p>
                       </div>
                     </div>
                   )}
@@ -717,7 +754,7 @@ function CheckoutContent() {
                                 </p>
                               </div>
                               <div className="text-right">
-                                <p className="text-lg font-bold text-purple-600">${plan.priceMonthly} /month</p>
+                                <p className="text-lg font-bold text-purple-600">{formatAUD(plan.priceMonthly)} /month</p>
                               </div>
                             </div>
                           </div>
@@ -741,13 +778,13 @@ function CheckoutContent() {
                           {selectedPlan.freeCreditsPerPeriod > 0 && ` + ${selectedPlan.freeCreditsPerPeriod} monthly credits`}
                         </p>
                       </div>
-                      <p className="text-xl font-bold text-purple-600">${selectedPlan.priceMonthly}/mo</p>
+                      <p className="text-xl font-bold text-purple-600">{formatAUD(selectedPlan.priceMonthly)}/mo</p>
                     </div>
                   </div>
 
                   {/* Boost Packs Selection (Optional) */}
                   <div className="mb-6">
-                    <h3 className="font-bold mb-3">Boost your chance (Optional)</h3>
+                    <h3 className="font-bold mb-3">Select Boost Pack</h3>
                     <p className="text-sm text-gray-500 mb-4">One-off only · Credits never expire</p>
 
                     <div className="space-y-3">
@@ -776,7 +813,7 @@ function CheckoutContent() {
                               <p className="text-sm text-gray-600">{pack.credits} Credits</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-lg font-bold text-purple-600">${parseFloat(pack.price?.toString() || '0').toFixed(2)}</p>
+                              <p className="text-lg font-bold text-purple-600">{formatAUD(parseFloat(pack.price?.toString() || '0'))}</p>
                             </div>
                           </div>
                         </div>
@@ -798,7 +835,10 @@ function CheckoutContent() {
                         Includes: {userMembership.plan.grandPrizeEntriesPerPeriod || 0}x Grand Draw entries
                         {userMembership.plan.freeCreditsPerPeriod > 0 && ` + ${userMembership.plan.freeCreditsPerPeriod} monthly credits`}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">Active until {new Date(userMembership.currentPeriodEnd).toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-500 mt-1">Active until {(() => {
+                        const { formatSydneyDateOnly } = require('@/lib/timezone');
+                        return formatSydneyDateOnly(userMembership.currentPeriodEnd);
+                      })()}</p>
                     </div>
                   )}
 
@@ -826,7 +866,7 @@ function CheckoutContent() {
                                 </p>
                               </div>
                               <div className="text-right">
-                                <p className="text-lg font-bold text-purple-600">${plan.priceMonthly} /month</p>
+                                <p className="text-lg font-bold text-purple-600">{formatAUD(plan.priceMonthly)} /month</p>
                               </div>
                             </div>
                           </div>
@@ -838,9 +878,7 @@ function CheckoutContent() {
                   {/* Boost Packs Selection - Always show if user has active membership, or if no plan selected */}
                   {(hasActiveMembership || !selectedPlan) && (
                     <div className="mb-6">
-                      <h3 className="font-bold mb-3">
-                        {hasActiveMembership ? 'Select Boost Pack' : 'Boost your chance (Optional)'}
-                      </h3>
+                      <h3 className="font-bold mb-3">Select Boost Pack</h3>
                       <p className="text-sm text-gray-500 mb-4">One-off only · Credits never expire</p>
 
                       <div className="space-y-3">
@@ -869,7 +907,7 @@ function CheckoutContent() {
                                 <p className="text-sm text-gray-600">{pack.credits} Credits</p>
                               </div>
                               <div className="text-right">
-                                <p className="text-lg font-bold text-purple-600">${parseFloat(pack.price?.toString() || '0').toFixed(2)}</p>
+                                <p className="text-lg font-bold text-purple-600">{formatAUD(parseFloat(pack.price?.toString() || '0'))}</p>
                               </div>
                             </div>
                           </div>
@@ -886,7 +924,7 @@ function CheckoutContent() {
                   <div className="flex justify-between">
                     <p className="font-semibold">Membership</p>
                     <p className={`font-bold ${discountAmount > 0 ? 'line-through text-gray-400' : ''}`}>
-                      ${selectedPlan.priceMonthly}
+                      {formatAUD(selectedPlan.priceMonthly)}
                     </p>
                   </div>
                 )}
@@ -894,7 +932,7 @@ function CheckoutContent() {
                   <div className="flex justify-between">
                     <p className="font-semibold">Boost Pack <span className="text-gray-500 text-sm">(one-off)</span></p>
                     <p className={`font-bold ${discountAmount > 0 ? 'line-through text-gray-400' : ''}`}>
-                      ${parseFloat(selectedPack.price?.toString() || '0').toFixed(2)}
+                      {formatAUD(parseFloat(selectedPack.price?.toString() || '0'))}
                     </p>
                   </div>
                 )}
@@ -906,7 +944,7 @@ function CheckoutContent() {
                 {promoCodeValid?.valid && discountAmount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <p className="font-semibold">Promo Code ({promoCode})</p>
-                    <p className="font-bold">-${discountAmount.toFixed(2)}</p>
+                    <p className="font-bold">-{formatAUD(discountAmount)}</p>
                   </div>
                 )}
               </div>
@@ -917,19 +955,19 @@ function CheckoutContent() {
                   <div className="flex justify-between items-center mb-2">
                     <p className="text-sm text-gray-600">Subtotal</p>
                     <p className="text-sm text-gray-400 line-through">
-                      ${originalTotalAmount.toFixed(2)}
+                      {formatAUD(originalTotalAmount)}
                     </p>
                   </div>
                 )}
                 <div className="flex justify-between items-center mb-4">
                   <p className="text-lg font-bold">Total due today</p>
                   <p className="text-2xl font-bold text-purple-600">
-                    ${totalAmount.toFixed(2)}
+                    {formatAUD(totalAmount)}
                   </p>
                 </div>
                 {selectedPlan && (
                   <div className="space-y-2 text-xs text-gray-600">
-                    <p>Next charge: ${selectedPlan.priceMonthly} in 1 month for your membership renewal only.</p>
+                    <p>Next charge: {formatAUD(selectedPlan.priceMonthly)} in 1 month for your membership renewal only.</p>
                     {selectedPack && (
                       <p>Boost Pack is a one-off top-up - it won't renew or charge again.</p>
                     )}

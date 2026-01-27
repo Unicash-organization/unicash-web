@@ -39,6 +39,8 @@ export default function DrawCard({
   const [isOnWaitlist, setIsOnWaitlist] = useState(false);
   const [checkingWaitlist, setCheckingWaitlist] = useState(false);
   const [addingToWaitlist, setAddingToWaitlist] = useState(false);
+  const [membership, setMembership] = useState<any>(null);
+  const [checkingMembership, setCheckingMembership] = useState(false);
 
   useEffect(() => {
     setTimeRemaining(formatTimeRemaining(closedAt));
@@ -53,8 +55,11 @@ export default function DrawCard({
     if (user && id) {
       checkUserEntry();
       checkWaitlistStatus();
+      if (requiresMembership) {
+        checkMembership();
+      }
     }
-  }, [user, id]);
+  }, [user, id, requiresMembership]);
 
   const checkUserEntry = async () => {
     if (!user) return;
@@ -81,6 +86,19 @@ export default function DrawCard({
       console.error('Error checking waitlist status:', error);
     } finally {
       setCheckingWaitlist(false);
+    }
+  };
+
+  const checkMembership = async () => {
+    if (!user) return;
+    setCheckingMembership(true);
+    try {
+      const response = await api.membership.getUserMembership().catch(() => ({ data: null }));
+      setMembership(response.data);
+    } catch (error) {
+      console.error('Error checking membership:', error);
+    } finally {
+      setCheckingMembership(false);
     }
   };
 
@@ -118,9 +136,10 @@ export default function DrawCard({
 
   // Check if draw is closed based on closedAt date, not just state
   const isClosedByDate = new Date(closedAt) < new Date();
+  // Skip sold out check if unlimited capacity (cap = -1)
   const status: 'open' | 'soldOut' | 'closed' | 'canceled' = 
     state === 'canceled' ? 'canceled'
-    : state === 'soldOut' || entrants >= cap ? 'soldOut' 
+    : cap !== -1 && (state === 'soldOut' || entrants >= cap) ? 'soldOut' 
     : state === 'closed' || isClosedByDate ? 'closed' 
     : 'open';
 
@@ -147,6 +166,30 @@ export default function DrawCard({
         return 'btn-primary';
     }
   };
+
+  // Check if user has active membership for bonus draws
+  // Block if canceled, paused, or inactive
+  const isCanceled = membership?.status === 'canceled';
+  const hasActiveMembership = !isCanceled && // ✅ Block canceled membership first
+    membership?.status === 'active' && 
+    !membership?.isPaused && 
+    membership?.currentPeriodEnd && 
+    new Date(membership.currentPeriodEnd) > new Date();
+
+  const canEnterBonusDraw = !requiresMembership || hasActiveMembership;
+
+  // Debug logging
+  if (requiresMembership && user) {
+    console.log('DrawCard Debug:', {
+      drawId: id,
+      requiresMembership,
+      membership: membership,
+      isPaused: membership?.isPaused,
+      status: membership?.status,
+      hasActiveMembership,
+      canEnterBonusDraw
+    });
+  }
 
   return (
     <div
@@ -190,15 +233,20 @@ export default function DrawCard({
 
         <div className="mb-3">
           <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>{entrants}/{cap} entrants</span>
+            <span>{entrants}/{cap === -1 ? '∞' : cap} entrants</span>
             <span>time left: {timeRemaining}</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-accent-500 h-2 rounded-full transition-all"
-              style={{ width: `${(entrants / cap) * 100}%` }}
-            />
-          </div>
+          {cap !== -1 && (
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-accent-500 h-2 rounded-full transition-all"
+                style={{ width: `${(entrants / cap) * 100}%` }}
+              />
+            </div>
+          )}
+          {cap === -1 && (
+            <p className="text-xs text-gray-400 italic">Unlimited entries</p>
+          )}
         </div>
 
         {hasEntered ? (
@@ -206,16 +254,31 @@ export default function DrawCard({
             <p className="text-sm text-green-800 font-semibold">✓ You've entered this draw</p>
           </div>
         ) : status === 'open' ? (
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              setShowConfirmModal(true);
-            }}
-            className={`w-full py-2 px-4 rounded-lg font-semibold transition ${getButtonClass()}`}
-            disabled={checkingEntry}
-          >
-            {checkingEntry ? 'Checking...' : getButtonText()}
-          </button>
+          <>
+            {requiresMembership && !canEnterBonusDraw && user && (
+              <div className="w-full mb-2 py-2 px-3 rounded-lg bg-orange-50 border border-orange-200 text-center">
+                <p className="text-xs text-orange-800">
+                  {isCanceled ? '🚫 Membership cancelled' : membership?.isPaused ? '⏸️ Membership paused' : '💎 Active membership required'}
+                </p>
+              </div>
+            )}
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                // ✅ Block click if canceled membership or cannot enter
+                if (requiresMembership && !canEnterBonusDraw) {
+                  return;
+                }
+                setShowConfirmModal(true);
+              }}
+              className={`w-full py-2 px-4 rounded-lg font-semibold transition ${
+                requiresMembership && !canEnterBonusDraw ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : getButtonClass()
+              }`}
+              disabled={checkingEntry || checkingMembership || (requiresMembership && !canEnterBonusDraw)}
+            >
+              {checkingEntry || checkingMembership ? 'Checking...' : getButtonText()}
+            </button>
+          </>
         ) : (status === 'soldOut' || status === 'closed') && user ? (
           <div className="space-y-2">
             <div className="w-full py-2 px-4 rounded-lg bg-gray-100 text-gray-600 text-center text-sm">

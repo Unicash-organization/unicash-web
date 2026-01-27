@@ -75,17 +75,25 @@ export default function ConfirmEntryModal({
   const isClosedByDate = draw.closedAt ? new Date(draw.closedAt) < new Date() : false;
   const isClosed = draw.state === 'closed' || isClosedByDate;
   
-  // Check if user has active membership
-  const hasActiveMembership = membership?.status === 'active' && 
+  // Check if membership is canceled first (block immediately)
+  const isCanceled = membership?.status === 'canceled';
+  
+  // Check if user has active membership (not paused, not cancelled, period valid)
+  const hasActiveMembership = !isCanceled && // ✅ Block canceled membership first
+    membership?.status === 'active' && 
+    !membership?.isPaused && // Block if paused
     membership?.currentPeriodEnd && 
     new Date(membership.currentPeriodEnd) > new Date();
   
   // Check if membership has payment failed (block entry even if credit exists)
   const isPaymentFailed = membership?.status === 'payment_failed' || membership?.status === 'past_due';
   
+  // Check if membership is paused
+  const isPaused = membership?.isPaused;
+  
   // Check if membership is required but user doesn't have it
-  // Also block if payment failed (credit exists but membership inactive)
-  const needsMembership = draw.requiresMembership && (!user || !hasActiveMembership || isPaymentFailed);
+  // Also block if payment failed (credit exists but membership inactive), paused, or canceled
+  const needsMembership = draw.requiresMembership && (!user || !hasActiveMembership || isPaymentFailed || isPaused || isCanceled);
 
   const handleEnter = async () => {
     // If membership is required but user doesn't have it, redirect to checkout
@@ -150,6 +158,7 @@ export default function ConfirmEntryModal({
   const handleBuyBoostPack = () => {
     // Check if user has active membership
     const hasActiveMembership = membership?.status === 'active' && 
+      !membership?.isPaused && // Block if paused
       membership?.currentPeriodEnd && 
       new Date(membership.currentPeriodEnd) > new Date();
     
@@ -190,13 +199,17 @@ export default function ConfirmEntryModal({
             {needsMembership && !checkingMembership && (
               <div className={`mb-4 p-4 border-2 rounded-lg ${
                 isPaymentFailed 
-                  ? 'bg-red-50 border-red-400' 
+                  ? 'bg-red-50 border-red-400'
+                  : isPaused
+                  ? 'bg-orange-50 border-orange-400'
+                  : isCanceled
+                  ? 'bg-red-50 border-red-400'
                   : 'bg-yellow-50 border-yellow-400'
               }`}>
                 <div className="flex items-start">
                   <svg
                     className={`w-5 h-5 mr-2 mt-0.5 flex-shrink-0 ${
-                      isPaymentFailed ? 'text-red-600' : 'text-yellow-600'
+                      isPaymentFailed ? 'text-red-600' : isPaused ? 'text-orange-600' : isCanceled ? 'text-red-600' : 'text-yellow-600'
                     }`}
                     fill="none"
                     stroke="currentColor"
@@ -211,15 +224,19 @@ export default function ConfirmEntryModal({
                   </svg>
                   <div>
                     <h3 className={`text-sm font-bold mb-1 ${
-                      isPaymentFailed ? 'text-red-800' : 'text-yellow-800'
+                      isPaymentFailed ? 'text-red-800' : isPaused ? 'text-orange-800' : isCanceled ? 'text-red-800' : 'text-yellow-800'
                     }`}>
-                      {isPaymentFailed ? 'Payment Failed' : 'Membership Required'}
+                      {isPaymentFailed ? 'Payment Failed' : isPaused ? 'Membership Paused' : isCanceled ? 'Membership Cancelled' : 'Membership Required'}
                     </h3>
                     <p className={`text-sm ${
-                      isPaymentFailed ? 'text-red-700' : 'text-yellow-700'
+                      isPaymentFailed ? 'text-red-700' : isPaused ? 'text-orange-700' : isCanceled ? 'text-red-700' : 'text-yellow-700'
                     }`}>
                       {isPaymentFailed 
                         ? 'Your membership payment failed. Please update your payment method to continue entering draws.'
+                        : isPaused
+                        ? 'Your membership is currently paused. Please resume your membership to enter bonus draws.'
+                        : isCanceled
+                        ? 'Your membership has been cancelled. You cannot enter bonus draws. Please start a new membership to continue.'
                         : 'This draw is exclusive to UNICASH members. Join a membership plan to unlock access to this and other exclusive draws.'
                       }
                     </p>

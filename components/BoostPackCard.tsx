@@ -76,15 +76,19 @@ export default function BoostPackCard({ pack }: BoostPackCardProps) {
   const handleGetBoostPack = (e: React.MouseEvent) => {
     e.preventDefault();
     
-    // Check if user has active membership
+    // Don't proceed if checking membership
+    if (checkingMembership) return;
+    
+    // Check if user has active membership (not paused, period valid)
     const hasActiveMembership = membership?.status === 'active' && 
+      !membership?.isPaused && // Block if paused
       membership?.currentPeriodEnd && 
       new Date(membership.currentPeriodEnd) > new Date();
     
     const isPaused = membership?.isPaused;
     const isCancelled = membership?.status === 'canceled' || membership?.cancelAtPeriodEnd;
     
-    if (!user || !hasActiveMembership) {
+    if (!user || !hasActiveMembership || isPaused) {
       // Determine appropriate message based on membership status
       if (isPaused) {
         // Paused membership - special message
@@ -100,6 +104,18 @@ export default function BoostPackCard({ pack }: BoostPackCardProps) {
       window.location.href = `/checkout?boostPackId=${pack.id}`;
     }
   };
+
+  // Check if user can buy boost pack
+  // Block if canceled, paused, or inactive
+  const isCanceled = membership?.status === 'canceled';
+  const hasActiveMembership = !isCanceled && // ✅ Block canceled membership first
+    membership?.status === 'active' && 
+    !membership?.isPaused && 
+    membership?.currentPeriodEnd && 
+    new Date(membership.currentPeriodEnd) > new Date();
+
+  const canBuyBoostPack = user && hasActiveMembership;
+  const isPaused = membership?.isPaused;
 
   // Get badge style
   const getBadgeStyle = () => {
@@ -165,7 +181,7 @@ export default function BoostPackCard({ pack }: BoostPackCardProps) {
         
         <div className="mb-4">
           <span className={`text-4xl font-bold ${isHighlighted ? 'text-white' : 'text-purple-600'}`}>
-            ${parseFloat(pack.price.toString()).toFixed(2)}
+            A${parseFloat(pack.price.toString()).toFixed(2)}
           </span>
         </div>
         
@@ -191,19 +207,27 @@ export default function BoostPackCard({ pack }: BoostPackCardProps) {
         </p>
       </div>
 
-      {/* Show if user already has boost credits */}
-      {/* {userCredits && userCredits.boostCredits > 0 && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-sm text-green-800 font-semibold text-center">
-            ✓ You have {userCredits.boostCredits} Boost Credits available
+      {/* Show warning if membership paused, canceled, or inactive */}
+      {user && !canBuyBoostPack && (
+        <div className={`mb-4 p-3 rounded-lg text-center ${
+          isHighlighted ? 'bg-white/20 border border-white/30' : 'bg-orange-50 border border-orange-200'
+        }`}>
+          <p className={`text-sm font-medium ${
+            isHighlighted ? 'text-white' : 'text-orange-800'
+          }`}>
+            {isCanceled ? '🚫 Membership cancelled' : isPaused ? '⏸️ Membership paused' : '💎 Active membership required'}
           </p>
         </div>
-      )} */}
+      )}
 
       <button
         onClick={handleGetBoostPack}
-        disabled={checkingMembership}
-        className={`w-full py-3 px-4 rounded-full font-bold mb-6 transition ${getButtonStyle()} ${checkingMembership ? 'opacity-50 cursor-not-allowed' : ''}`}
+        disabled={checkingMembership || (user && !canBuyBoostPack)}
+        className={`w-full py-3 px-4 rounded-full font-bold mb-6 transition ${
+          checkingMembership || (user && !canBuyBoostPack)
+            ? 'bg-gray-300 text-gray-600 cursor-not-allowed opacity-50'
+            : getButtonStyle()
+        }`}
       >
         {checkingMembership ? 'Checking...' : `Get ${pack.name}`}
       </button>

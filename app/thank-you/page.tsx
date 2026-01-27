@@ -16,6 +16,12 @@ function ThankYouContent() {
   const [loading, setLoading] = useState(true);
   const [redirectDrawId, setRedirectDrawId] = useState<string | null>(null);
 
+  // Format AUD currency - Always use A$ prefix
+  const formatAUD = (amount: number | string) => {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) || 0 : amount;
+    return `A$${numAmount.toFixed(2)}`;
+  };
+
   useEffect(() => {
     // Check for drawId in sessionStorage (from checkout redirect)
     if (typeof window !== 'undefined') {
@@ -158,7 +164,7 @@ function ThankYouContent() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Amount:</span>
-                  <span className="font-medium">${payment.amount}</span>
+                  <span className="font-medium">{formatAUD(parseFloat(payment.amount?.toString() || '0'))}</span>
                 </div>
                 {creditsGranted > 0 && (
                   <div className="flex justify-between">

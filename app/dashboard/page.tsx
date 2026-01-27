@@ -180,13 +180,16 @@ export default function DashboardPage() {
     return formatDT(date);
   };
 
-  const formatCurrency = (amount: number, currency: string = 'AUD') => {
-    // Use appropriate locale based on currency
-    const locale = currency === 'USD' ? 'en-US' : 'en-AU';
-    return new Intl.NumberFormat(locale, { 
+  const formatCurrency = (amount: number | string, currency: string = 'AUD') => {
+    // Always use A$ prefix for AUD to ensure consistent display
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) || 0 : amount;
+    if (currency === 'AUD' || !currency) {
+      return `A$${numAmount.toFixed(2)}`;
+    }
+    return new Intl.NumberFormat('en-AU', { 
       style: 'currency', 
       currency: currency || 'AUD' 
-    }).format(amount);
+    }).format(numAmount);
   };
 
   return (

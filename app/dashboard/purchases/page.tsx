@@ -27,11 +27,17 @@ export default function PurchasesPage() {
   };
 
   const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const { formatSydneyDateOnly } = require('@/lib/timezone');
+    return formatSydneyDateOnly(date);
   };
 
-  const formatCurrency = (amount: number, currency: string = 'AUD') => {
-    return new Intl.NumberFormat('en-AU', { style: 'currency', currency }).format(amount);
+  const formatCurrency = (amount: number | string, currency: string = 'AUD') => {
+    // Always use A$ prefix for AUD to ensure consistent display
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) || 0 : amount;
+    if (currency === 'AUD' || !currency) {
+      return `A$${numAmount.toFixed(2)}`;
+    }
+    return new Intl.NumberFormat('en-AU', { style: 'currency', currency }).format(numAmount);
   };
 
   return (
