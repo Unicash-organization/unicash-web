@@ -89,7 +89,13 @@ function CheckoutContent() {
         setUserMembership(membershipRes.data);
 
         // Case 8: Auto-load current plan for active members
-        if (shouldAutoLoadPlan && membershipRes.data?.plan) {
+        // ✅ BUT: Don't auto-load if user is only buying boost pack (skipPlanSelection)
+        // This prevents adding membership price to total when user only wants boost pack
+        // Also clear selectedPlan if it was set but user is only buying boost pack
+        if (skipPlanSelection) {
+          // Clear any selected plan when user only wants boost pack
+          setSelectedPlan(null);
+        } else if (shouldAutoLoadPlan && membershipRes.data?.plan) {
           const currentPlan = plansRes.data?.find((p: any) => p.id === membershipRes.data.plan.id);
           if (currentPlan) {
             setSelectedPlan(currentPlan);
@@ -136,7 +142,7 @@ function CheckoutContent() {
       }
     };
     fetchData();
-  }, [user, planId, packId, boostPackId, drawId, shouldAutoLoadPlan, shouldPreSelectOldPlan]);
+  }, [user, planId, packId, boostPackId, drawId, shouldAutoLoadPlan, shouldPreSelectOldPlan, skipPlanSelection]);
 
   // Auto-fill form if user is logged in
   useEffect(() => {
@@ -160,9 +166,14 @@ function CheckoutContent() {
   }, [user, authLoading]);
 
   // Calculate original total amount (for promo code validation)
-  const originalTotalAmount = selectedPlan 
-    ? parseFloat(selectedPlan.priceMonthly.toString()) + (selectedPack ? parseFloat(selectedPack.price.toString()) : 0)
-    : (selectedPack ? parseFloat(selectedPack.price.toString()) : 0);
+  // ✅ IMPORTANT: If user has active membership and only buying boost pack (skipPlanSelection),
+  // do NOT include membership price in total - only charge for boost pack
+  // Also ensure selectedPlan is not counted if skipPlanSelection is true
+  const originalTotalAmount = (skipPlanSelection || (hasActiveMembership && wantsOnlyBoost && !planId))
+    ? (selectedPack ? parseFloat(selectedPack.price?.toString() || '0') : 0) // Only boost pack price
+    : selectedPlan 
+      ? parseFloat(selectedPlan.priceMonthly?.toString() || '0') + (selectedPack ? parseFloat(selectedPack.price?.toString() || '0') : 0)
+      : (selectedPack ? parseFloat(selectedPack.price?.toString() || '0') : 0);
 
   // Format AUD currency - Always use A$ prefix
   const formatAUD = (amount: number | string) => {
@@ -657,21 +668,8 @@ function CheckoutContent() {
               {/* Scenario 1: Buying Boost Pack (wantsOnlyBoost) - Show Boost Pack first, then Membership */}
               {wantsOnlyBoost && (
                 <>
-                  {/* Always show current membership if exists (for user awareness) */}
-                  {userMembership?.plan && hasActiveMembership && (
-                    <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <h3 className="font-bold mb-2">Current Membership</h3>
-                      <p className="text-sm text-gray-700 font-semibold">{userMembership.plan.name}</p>
-                      <p className="text-xs text-gray-600 mt-1">
-                        Includes: {userMembership.plan.grandPrizeEntriesPerPeriod || 0}x Grand Draw entries
-                        {userMembership.plan.freeCreditsPerPeriod > 0 && ` + ${userMembership.plan.freeCreditsPerPeriod} monthly credits`}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">Active until {(() => {
-                        const { formatSydneyDateOnly } = require('@/lib/timezone');
-                        return formatSydneyDateOnly(userMembership.currentPeriodEnd);
-                      })()}</p>
-                    </div>
-                  )}
+                  {/* ❌ REMOVED: Don't show Current Membership when user has active membership and only buying boost pack */}
+                  {/* This section was removed because it's not necessary and causes confusion */}
 
                   {/* Boost Pack Selection - Show if user has active membership OR if no pack selected yet */}
                   {(hasActiveMembership || !selectedPack) && (
@@ -713,20 +711,8 @@ function CheckoutContent() {
                     </div>
                   )}
 
-                  {/* Selected Boost Pack Display */}
-                  {selectedPack && (
-                    <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="font-bold text-lg">{selectedPack.name}</p>
-                          <p className="text-sm text-gray-600 mt-1">
-                            You'll receive <strong>{selectedPack.credits} Credits</strong> with this Boost Pack.
-                          </p>
-                        </div>
-                        <p className="text-xl font-bold text-purple-600">{formatAUD(parseFloat(selectedPack.price?.toString() || '0'))}</p>
-                      </div>
-                    </div>
-                  )}
+                  {/* ❌ REMOVED: Selected Boost Pack Display section */}
+                  {/* This section was removed because it's redundant - the selected pack is already shown in the selection list */}
 
                   {/* Membership Selection (Required if no active membership) */}
                   {requiresMembership && plans.length > 0 && (
@@ -826,21 +812,8 @@ function CheckoutContent() {
               {/* Fallback: Show both if neither scenario matches, or user with active membership wants boost pack */}
               {((!wantsOnlyBoost && !selectedPlan) || (wantsBoostPack && hasActiveMembership)) && (
                 <>
-                  {/* Show Current Membership if exists */}
-                  {userMembership?.plan && hasActiveMembership && (
-                    <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <h3 className="font-bold mb-2">Current Membership</h3>
-                      <p className="text-sm text-gray-700 font-semibold">{userMembership.plan.name}</p>
-                      <p className="text-xs text-gray-600 mt-1">
-                        Includes: {userMembership.plan.grandPrizeEntriesPerPeriod || 0}x Grand Draw entries
-                        {userMembership.plan.freeCreditsPerPeriod > 0 && ` + ${userMembership.plan.freeCreditsPerPeriod} monthly credits`}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">Active until {(() => {
-                        const { formatSydneyDateOnly } = require('@/lib/timezone');
-                        return formatSydneyDateOnly(userMembership.currentPeriodEnd);
-                      })()}</p>
-                    </div>
-                  )}
+                  {/* ❌ REMOVED: Don't show Current Membership when user has active membership and only buying boost pack */}
+                  {/* This section was removed because it's not necessary and causes confusion */}
 
                   {/* Membership Plan Selection - Only show if user doesn't have active membership */}
                   {!hasActiveMembership && !skipPlanSelection && plans.length > 0 && (
@@ -920,7 +893,8 @@ function CheckoutContent() {
 
               {/* Summary */}
               <div className="border-t border-gray-200 pt-6 mb-6 space-y-3">
-                {selectedPlan && (
+                {/* ✅ Only show Membership in summary if user is actually purchasing/upgrading membership (not just boost pack) */}
+                {selectedPlan && !skipPlanSelection && (
                   <div className="flex justify-between">
                     <p className="font-semibold">Membership</p>
                     <p className={`font-bold ${discountAmount > 0 ? 'line-through text-gray-400' : ''}`}>
@@ -928,14 +902,8 @@ function CheckoutContent() {
                     </p>
                   </div>
                 )}
-                {selectedPack && (
-                  <div className="flex justify-between">
-                    <p className="font-semibold">Boost Pack <span className="text-gray-500 text-sm">(one-off)</span></p>
-                    <p className={`font-bold ${discountAmount > 0 ? 'line-through text-gray-400' : ''}`}>
-                      {formatAUD(parseFloat(selectedPack.price?.toString() || '0'))}
-                    </p>
-                  </div>
-                )}
+                {/* ❌ REMOVED: Don't show "Boost Pack (one-off)" in summary when user only buying boost pack */}
+                {/* The selected pack is already visible in the selection list above */}
                 {!selectedPlan && !selectedPack && (
                   <p className="text-sm text-gray-500 text-center py-4">Select a membership or boost pack</p>
                 )}
@@ -965,7 +933,8 @@ function CheckoutContent() {
                     {formatAUD(totalAmount)}
                   </p>
                 </div>
-                {selectedPlan && (
+                {/* ✅ Only show "Next charge" note when user is actually purchasing/upgrading membership (not just boost pack) */}
+                {selectedPlan && !skipPlanSelection && (
                   <div className="space-y-2 text-xs text-gray-600">
                     <p>Next charge: {formatAUD(selectedPlan.priceMonthly)} in 1 month for your membership renewal only.</p>
                     {selectedPack && (

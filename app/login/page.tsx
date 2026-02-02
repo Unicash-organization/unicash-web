@@ -629,7 +629,7 @@ function LoginPageContent() {
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               Don't have an account?{' '}
-              <Link href="/checkout" className="text-purple-600 hover:text-purple-700 font-semibold">
+              <Link href="/#membership-plans" className="text-purple-600 hover:text-purple-700 font-semibold">
                 Join Now
               </Link>
             </p>
