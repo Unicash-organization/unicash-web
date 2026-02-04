@@ -755,7 +755,10 @@ export default function MembershipPage() {
               </div>
             </div>
             <div className="text-right">
-              {membership.currentPeriodEnd && (
+              {/* ❌ Hide "Next billing" when membership is paused or canceled */}
+              {membership.currentPeriodEnd && 
+               !membership.isPaused && 
+               membership.status !== 'canceled' && (
                 <p className="text-sm text-gray-600">Next billing: {formatDate(membership.currentPeriodEnd)}</p>
               )}
             </div>
