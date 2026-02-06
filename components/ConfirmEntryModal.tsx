@@ -70,7 +70,9 @@ export default function ConfirmEntryModal({
 
   const totalCredits = (user?.membershipCredits || 0) + (user?.boostCredits || 0);
   const hasEnoughCredits = totalCredits >= draw.costPerEntry;
-  const isSoldOut = draw.state === 'soldOut' || draw.entrants >= draw.cap;
+  // Treat cap = -1 as unlimited capacity (never sold out)
+  const isUnlimitedCapacity = draw.cap === -1;
+  const isSoldOut = !isUnlimitedCapacity && (draw.state === 'soldOut' || draw.entrants >= draw.cap);
   // Check if draw is closed based on closedAt date, not just state
   const isClosedByDate = draw.closedAt ? new Date(draw.closedAt) < new Date() : false;
   const isClosed = draw.state === 'closed' || isClosedByDate;
@@ -79,11 +81,20 @@ export default function ConfirmEntryModal({
   const isCanceled = membership?.status === 'canceled';
   
   // Check if user has active membership (not paused, not cancelled, period valid)
-  const hasActiveMembership = !isCanceled && // ✅ Block canceled membership first
-    membership?.status === 'active' && 
-    !membership?.isPaused && // Block if paused
-    membership?.currentPeriodEnd && 
-    new Date(membership.currentPeriodEnd) > new Date();
+  // Mirror backend logic in DrawsService.enterDraw:
+  // - Block if status !== 'active'
+  // - Block if isPaused === true
+  // - Block if currentPeriodEnd exists AND is in the past
+  const periodEnded =
+    membership?.currentPeriodEnd &&
+    new Date(membership.currentPeriodEnd) < new Date();
+
+  const hasActiveMembership =
+    !!membership &&
+    !isCanceled &&
+    membership.status === 'active' &&
+    !membership.isPaused &&
+    !periodEnded;
   
   // Check if membership has payment failed (block entry even if credit exists)
   const isPaymentFailed = membership?.status === 'payment_failed' || membership?.status === 'past_due';

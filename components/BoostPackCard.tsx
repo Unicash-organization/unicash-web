@@ -106,13 +106,21 @@ export default function BoostPackCard({ pack }: BoostPackCardProps) {
   };
 
   // Check if user can buy boost pack
-  // Block if canceled, paused, or inactive
+  // Mirror backend logic used for draws:
+  // - Block if status !== 'active'
+  // - Block if isPaused === true
+  // - Block if currentPeriodEnd exists AND is in the past
   const isCanceled = membership?.status === 'canceled';
-  const hasActiveMembership = !isCanceled && // ✅ Block canceled membership first
-    membership?.status === 'active' && 
-    !membership?.isPaused && 
-    membership?.currentPeriodEnd && 
-    new Date(membership.currentPeriodEnd) > new Date();
+  const periodEnded =
+    membership?.currentPeriodEnd &&
+    new Date(membership.currentPeriodEnd) < new Date();
+
+  const hasActiveMembership =
+    !!membership &&
+    !isCanceled &&
+    membership.status === 'active' &&
+    !membership.isPaused &&
+    !periodEnded;
 
   const canBuyBoostPack = !!(user && hasActiveMembership); // Ensure boolean, not null
   const isPaused = membership?.isPaused;

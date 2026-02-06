@@ -168,13 +168,21 @@ export default function DrawCard({
   };
 
   // Check if user has active membership for bonus draws
-  // Block if canceled, paused, or inactive
+  // Mirror backend DrawsService.enterDraw logic:
+  // - Block if status !== 'active'
+  // - Block if isPaused === true
+  // - Block if currentPeriodEnd exists AND is in the past
   const isCanceled = membership?.status === 'canceled';
-  const hasActiveMembership = !isCanceled && // ✅ Block canceled membership first
-    membership?.status === 'active' && 
-    !membership?.isPaused && 
-    membership?.currentPeriodEnd && 
-    new Date(membership.currentPeriodEnd) > new Date();
+  const periodEnded =
+    membership?.currentPeriodEnd &&
+    new Date(membership.currentPeriodEnd) < new Date();
+
+  const hasActiveMembership =
+    !!membership &&
+    !isCanceled &&
+    membership.status === 'active' &&
+    !membership.isPaused &&
+    !periodEnded;
 
   const canEnterBonusDraw = !requiresMembership || hasActiveMembership;
 
