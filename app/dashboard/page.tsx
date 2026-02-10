@@ -175,6 +175,11 @@ export default function DashboardPage() {
     return formatSydneyDateOnly(date);
   };
 
+  const formatMembershipDate = (date: string | Date) => {
+    const { formatUTCDateOnly } = require('@/lib/timezone');
+    return formatUTCDateOnly(date);
+  };
+
   const formatDateTime = (date: string | Date) => {
     const { formatDateTime: formatDT } = require('@/lib/timezone');
     return formatDT(date);
@@ -280,7 +285,7 @@ export default function DashboardPage() {
           )}
           {membership?.currentPeriodEnd && (
             <p className="text-sm text-gray-600">
-              Next billing: {formatDate(membership.currentPeriodEnd)} · Active since: {formatDate(membership.createdAt)}
+              Next billing: {formatMembershipDate(membership.currentPeriodEnd)} · Active since: {formatDate(membership.createdAt)}
             </p>
           )}
         </div>
@@ -309,7 +314,7 @@ export default function DashboardPage() {
                 )}
               </p>
               {membership.currentPeriodEnd && (
-                <p className="text-sm text-gray-600 mb-4">Next billing: {formatDate(membership.currentPeriodEnd)}</p>
+                <p className="text-sm text-gray-600 mb-4">Next billing: {formatMembershipDate(membership.currentPeriodEnd)}</p>
               )}
               <div className="flex justify-end">
                 <Link href="/dashboard/membership">

@@ -238,8 +238,8 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
             {membership.currentPeriodEnd && (
               <p className="text-xs text-green-600 text-center mt-1">
                 Next billing: {(() => {
-                  const { formatSydneyDateOnly } = require('@/lib/timezone');
-                  return formatSydneyDateOnly(membership.currentPeriodEnd);
+                  const { formatUTCDateOnly } = require('@/lib/timezone');
+                  return formatUTCDateOnly(membership.currentPeriodEnd);
                 })()}
               </p>
             )}

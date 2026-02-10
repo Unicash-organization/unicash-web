@@ -28,11 +28,35 @@ export function formatSydneyDate(date: Date | string, options?: Intl.DateTimeFor
  * Format date only (no time) in Sydney timezone
  */
 export function formatSydneyDateOnly(date: Date | string): string {
-  return formatSydneyDate(date, {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  
+  // Use separate formatter without hour and minute to avoid showing time
+  return new Intl.DateTimeFormat('en-AU', {
+    timeZone: TIMEZONE,
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-  });
+  }).format(d);
+}
+
+/**
+ * Format date only (no time) in UTC timezone
+ * Used for membership period dates to match Stripe's display
+ * Stripe displays dates in UTC, so we format in UTC to match
+ * IMPORTANT: Extract UTC date components directly to avoid timezone conversion issues
+ */
+export function formatUTCDateOnly(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  
+  // Extract UTC date components directly (not through formatter)
+  // This ensures we get the UTC date regardless of how the Date object was created
+  const year = d.getUTCFullYear();
+  const month = d.getUTCMonth(); // 0-11
+  const day = d.getUTCDate();
+  
+  // Format using UTC components
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${day} ${monthNames[month]} ${year}`;
 }
 
 /**
@@ -62,20 +86,30 @@ export function formatDateGB(date: Date | string): string {
  */
 export function formatDateTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  const sydneyDate = new Date(d.toLocaleString('en-US', { timeZone: TIMEZONE }));
   
-  const hours = sydneyDate.getHours();
-  const minutes = sydneyDate.getMinutes();
-  const ampm = hours >= 12 ? 'pm' : 'am';
-  const displayHours = hours % 12 || 12;
-  const displayMinutes = minutes.toString().padStart(2, '0');
-  const time = `${displayHours}:${displayMinutes}${ampm}`;
+  // Use Intl.DateTimeFormat to get date components in Sydney timezone
+  const formatter = new Intl.DateTimeFormat('en-AU', {
+    timeZone: TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
   
-  const day = sydneyDate.getDate().toString().padStart(2, '0');
-  const month = (sydneyDate.getMonth() + 1).toString().padStart(2, '0');
-  const year = sydneyDate.getFullYear().toString().slice(-2);
+  const parts = formatter.formatToParts(d);
+  const hour = parts.find(p => p.type === 'hour')?.value || '';
+  const minute = parts.find(p => p.type === 'minute')?.value || '';
+  const dayPeriod = parts.find(p => p.type === 'dayPeriod')?.value || '';
+  const day = parts.find(p => p.type === 'day')?.value || '';
+  const month = parts.find(p => p.type === 'month')?.value || '';
+  const year = parts.find(p => p.type === 'year')?.value || '';
   
-  return `${time}, ${day}/${month}/${year}`;
+  const time = `${hour}:${minute}${dayPeriod}`;
+  const dateStr = `${day}/${month}/${year.slice(-2)}`;
+  
+  return `${time}, ${dateStr}`;
 }
 
 /**
@@ -121,15 +155,25 @@ export function parseDateTimeLocalAsSydney(dateStr: string): string {
 export function toDateTimeLocalSydney(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   
-  // Convert to Sydney timezone
-  const sydneyDate = new Date(d.toLocaleString('en-US', { timeZone: TIMEZONE }));
+  // Use Intl.DateTimeFormat to get date components in Sydney timezone
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
   
-  const year = sydneyDate.getFullYear();
-  const month = String(sydneyDate.getMonth() + 1).padStart(2, '0');
-  const day = String(sydneyDate.getDate()).padStart(2, '0');
-  const hours = String(sydneyDate.getHours()).padStart(2, '0');
-  const minutes = String(sydneyDate.getMinutes()).padStart(2, '0');
+  // Format the date
+  const parts = formatter.formatToParts(d);
+  const year = parts.find(p => p.type === 'year')?.value || '';
+  const month = parts.find(p => p.type === 'month')?.value || '';
+  const day = parts.find(p => p.type === 'day')?.value || '';
+  const hour = parts.find(p => p.type === 'hour')?.value || '';
+  const minute = parts.find(p => p.type === 'minute')?.value || '';
   
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+  return `${year}-${month}-${day}T${hour}:${minute}`;
 }
 

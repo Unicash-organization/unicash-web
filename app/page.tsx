@@ -106,8 +106,8 @@ export default function Home() {
 </g>
 <defs>
 <radialGradient id="paint0_radial_201_567" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(8.05697 4.4814) scale(22.308 13.3333)">
-<stop stop-color="#6356E5"/>
-<stop offset="1" stop-color="#B27AFF"/>
+<stop stopColor="#6356E5"/>
+<stop offset="1" stopColor="#B27AFF"/>
 </radialGradient>
 </defs>
 </svg>
@@ -125,8 +125,8 @@ export default function Home() {
 </g>
 <defs>
 <radialGradient id="paint0_radial_201_567" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(8.05697 4.4814) scale(22.308 13.3333)">
-<stop stop-color="#6356E5"/>
-<stop offset="1" stop-color="#B27AFF"/>
+<stop stopColor="#6356E5"/>
+<stop offset="1" stopColor="#B27AFF"/>
 </radialGradient>
 </defs>
 </svg>
@@ -154,8 +154,8 @@ export default function Home() {
 </g>
 <defs>
 <radialGradient id="paint0_radial_201_567" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(8.05697 4.4814) scale(22.308 13.3333)">
-<stop stop-color="#6356E5"/>
-<stop offset="1" stop-color="#B27AFF"/>
+<stop stopColor="#6356E5"/>
+<stop offset="1" stopColor="#B27AFF"/>
 </radialGradient>
 </defs>
 </svg>
@@ -173,8 +173,8 @@ export default function Home() {
 </g>
 <defs>
 <radialGradient id="paint0_radial_201_567" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(8.05697 4.4814) scale(22.308 13.3333)">
-<stop stop-color="#6356E5"/>
-<stop offset="1" stop-color="#B27AFF"/>
+<stop stopColor="#6356E5"/>
+<stop offset="1" stopColor="#B27AFF"/>
 </radialGradient>
 </defs>
 </svg>
@@ -202,8 +202,8 @@ export default function Home() {
 </g>
 <defs>
 <radialGradient id="paint0_radial_201_567" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(8.05697 4.4814) scale(22.308 13.3333)">
-<stop stop-color="#6356E5"/>
-<stop offset="1" stop-color="#B27AFF"/>
+<stop stopColor="#6356E5"/>
+<stop offset="1" stopColor="#B27AFF"/>
 </radialGradient>
 </defs>
 </svg>
@@ -221,8 +221,8 @@ export default function Home() {
 </g>
 <defs>
 <radialGradient id="paint0_radial_201_567" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(8.05697 4.4814) scale(22.308 13.3333)">
-<stop stop-color="#6356E5"/>
-<stop offset="1" stop-color="#B27AFF"/>
+<stop stopColor="#6356E5"/>
+<stop offset="1" stopColor="#B27AFF"/>
 </radialGradient>
 </defs>
 </svg>

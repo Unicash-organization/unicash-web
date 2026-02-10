@@ -29,7 +29,11 @@ export default function SecurityBillingPage() {
   const [paymentMethod, setPaymentMethod] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  
+  // Ref to prevent loading payment method multiple times
+  const hasLoadedPaymentMethod = useRef(false);
 
+  // Handle first-time password change and initial payment method load
   useEffect(() => {
     if (user) {
       // Check if this is the first time changing password
@@ -40,65 +44,83 @@ export default function SecurityBillingPage() {
           passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 300);
       }
-      loadPaymentMethod();
       
-      // Check if user just returned from Stripe billing portal
-      if (typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search);
-        const paymentUpdated = urlParams.get('paymentUpdated');
-        
-        if (paymentUpdated === 'true') {
-          // Remove parameter from URL
-          window.history.replaceState({}, '', window.location.pathname);
-          
-          // Reload payment method and try to retry failed invoice
-          setTimeout(async () => {
-            await loadPaymentMethod();
-            await refreshUser();
-            
-            // Check if user has membership with payment_failed status
-            try {
-              const membershipRes = await api.membership.getUserMembership().catch(() => ({ data: null }));
-              const membership = membershipRes.data;
-              
-              if (membership?.status === 'payment_failed' || membership?.status === 'past_due') {
-                // Try to retry failed invoice immediately
-                try {
-                  const retryResult = await api.payments.retryFailedInvoice();
-                  if (retryResult.data?.success) {
-                    // Reload data again to check if status changed
-                    await loadPaymentMethod();
-                    await refreshUser();
-                    
-                    const finalMembership = await api.membership.getUserMembership().catch(() => ({ data: null }));
-                    if (finalMembership.data?.status !== 'payment_failed' && 
-                        finalMembership.data?.status !== 'past_due') {
-                      alert('Payment method updated and invoice paid successfully! Your membership is now active.');
-                    } else {
-                      alert('Payment method updated. We attempted to retry your payment. Please check back in a moment.');
-                    }
-                  } else {
-                    alert('Payment method updated. We attempted to retry your payment, but it may still be processing. Please check back in a few minutes.');
-                  }
-                } catch (retryError: any) {
-                  console.error('Error retrying invoice:', retryError);
-                  // If retry fails, Stripe will auto-retry later
-                  alert('Payment method updated. Stripe will automatically retry your payment. Please check back in a few minutes.');
-                }
-              } else {
-                alert('Payment method updated successfully!');
-              }
-            } catch (error: any) {
-              console.error('Error checking membership:', error);
-              alert('Payment method updated successfully!');
-            }
-          }, 1000);
-        }
+      // Load payment method only once per user session
+      if (!hasLoadedPaymentMethod.current) {
+        hasLoadedPaymentMethod.current = true;
+        loadPaymentMethod();
       }
     } else {
       setLoading(false);
+      // Reset flag when user logs out
+      hasLoadedPaymentMethod.current = false;
     }
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]); // Only depend on user.id to avoid re-running when user object reference changes
+
+  // Handle payment update callback from Stripe (only when paymentUpdated param is present)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !user) {
+      return;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentUpdated = urlParams.get('paymentUpdated');
+    
+    // Only process if paymentUpdated=true is in URL
+    if (paymentUpdated === 'true') {
+      // Remove parameter from URL immediately to prevent re-processing
+      window.history.replaceState({}, '', window.location.pathname);
+      
+      // Reload payment method and try to retry failed invoice
+      setTimeout(async () => {
+        try {
+          await loadPaymentMethod();
+          await refreshUser();
+          
+          // Check if user has membership with payment_failed status
+          try {
+            const membershipRes = await api.membership.getUserMembership().catch(() => ({ data: null }));
+            const membership = membershipRes.data;
+            
+            if (membership?.status === 'payment_failed' || membership?.status === 'past_due') {
+              // Try to retry failed invoice immediately
+              try {
+                const retryResult = await api.payments.retryFailedInvoice();
+                if (retryResult.data?.success) {
+                  // Reload data again to check if status changed
+                  await loadPaymentMethod();
+                  await refreshUser();
+                  
+                  const finalMembership = await api.membership.getUserMembership().catch(() => ({ data: null }));
+                  if (finalMembership.data?.status !== 'payment_failed' && 
+                      finalMembership.data?.status !== 'past_due') {
+                    alert('Payment method updated and invoice paid successfully! Your membership is now active.');
+                  } else {
+                    alert('Payment method updated. We attempted to retry your payment. Please check back in a moment.');
+                  }
+                } else {
+                  alert('Payment method updated. We attempted to retry your payment, but it may still be processing. Please check back in a few minutes.');
+                }
+              } catch (retryError: any) {
+                console.error('Error retrying invoice:', retryError);
+                // If retry fails, Stripe will auto-retry later
+                alert('Payment method updated. Stripe will automatically retry your payment. Please check back in a few minutes.');
+              }
+            } else {
+              alert('Payment method updated successfully!');
+            }
+          } catch (error: any) {
+            console.error('Error checking membership:', error);
+            alert('Payment method updated successfully!');
+          }
+        } catch (error: any) {
+          console.error('Error processing payment update:', error);
+        }
+      }, 1000);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]); // Re-check when user changes
 
   const loadPaymentMethod = async () => {
     try {

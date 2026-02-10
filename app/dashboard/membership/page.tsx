@@ -525,6 +525,11 @@ export default function MembershipPage() {
     return formatSydneyDateOnly(date);
   };
 
+  const formatMembershipDate = (date: string | Date) => {
+    const { formatUTCDateOnly } = require('@/lib/timezone');
+    return formatUTCDateOnly(date);
+  };
+
   const formatDateWithTime = (dateString: string) => {
     const { formatSydneyDate } = require('@/lib/timezone');
     return formatSydneyDate(dateString);
@@ -603,11 +608,11 @@ export default function MembershipPage() {
                   Plan: {getPlanDisplayName(membership.plan)} {membership.plan?.priceMonthly && `- ${formatCurrency(membership.plan.priceMonthly)}/month`}
                 </h3>
                 <p className="text-red-700 font-medium mb-3">
-                  Status: Cancelled – access until {formatDate(membership.currentPeriodEnd)}
+                  Status: Cancelled – access until {formatMembershipDate(membership.currentPeriodEnd)}
                 </p>
                 <p className="text-gray-700 mb-2">
                   Your UNICASH membership has been cancelled. You won't be charged again, 
-                  and you'll keep dashboard access until {formatDate(membership.currentPeriodEnd)}.
+                  and you'll keep dashboard access until {formatMembershipDate(membership.currentPeriodEnd)}.
                 </p>
                 <p className="text-sm text-gray-600 italic mb-4">
                   All of your entries have been removed. To enter future draws, 
@@ -759,7 +764,7 @@ export default function MembershipPage() {
               {membership.currentPeriodEnd && 
                !membership.isPaused && 
                membership.status !== 'canceled' && (
-                <p className="text-sm text-gray-600">Next billing: {formatDate(membership.currentPeriodEnd)}</p>
+                <p className="text-sm text-gray-600">Next billing: {formatMembershipDate(membership.currentPeriodEnd)}</p>
               )}
             </div>
           </div>
@@ -836,7 +841,7 @@ export default function MembershipPage() {
                   {hasPendingUpgrade && (
                     <div className="mb-4 p-3 rounded-lg bg-blue-50 border border-blue-200">
                       <p className="text-sm text-blue-800">
-                        <strong>⏳ Pending Upgrade:</strong> This plan will be activated on your next billing date ({membership?.currentPeriodEnd ? formatDate(membership.currentPeriodEnd) : 'next renewal'}). Credits will reset to {plan.freeCreditsPerPeriod} credits/month.
+                        <strong>⏳ Pending Upgrade:</strong> This plan will be activated on your next billing date ({membership?.currentPeriodEnd ? formatMembershipDate(membership.currentPeriodEnd) : 'next renewal'}). Credits will reset to {plan.freeCreditsPerPeriod} credits/month.
                       </p>
                     </div>
                   )}
@@ -845,7 +850,7 @@ export default function MembershipPage() {
                   {hasPendingDowngrade && (
                     <div className="mb-4 p-3 rounded-lg bg-yellow-50 border border-yellow-200">
                       <p className="text-sm text-yellow-800">
-                        <strong>⏳ Pending Downgrade:</strong> This plan will be activated on your next billing date ({membership?.currentPeriodEnd ? formatDate(membership.currentPeriodEnd) : 'next renewal'}). Credits will reset to {plan.freeCreditsPerPeriod} credits/month.
+                        <strong>⏳ Pending Downgrade:</strong> This plan will be activated on your next billing date ({membership?.currentPeriodEnd ? formatMembershipDate(membership.currentPeriodEnd) : 'next renewal'}). Credits will reset to {plan.freeCreditsPerPeriod} credits/month.
                       </p>
                     </div>
                   )}
@@ -876,7 +881,7 @@ export default function MembershipPage() {
                         </p>
                       ) : (
                         <p className="text-sm text-yellow-800">
-                          <strong>Downgrade:</strong> Plan will change on your next billing date ({membership?.currentPeriodEnd ? formatDate(membership.currentPeriodEnd) : 'next renewal'}). Credits will reset to {plan.freeCreditsPerPeriod} credits/month.
+                          <strong>Downgrade:</strong> Plan will change on your next billing date ({membership?.currentPeriodEnd ? formatMembershipDate(membership.currentPeriodEnd) : 'next renewal'}). Credits will reset to {plan.freeCreditsPerPeriod} credits/month.
                         </p>
                       )}
                     </div>
@@ -1138,7 +1143,7 @@ You can resume anytime. Your membership will automatically reactivate after 30 d
           title={`You're upgrading to ${plans.find(p => p.id === selectedUpgradePlanId)?.name || 'this plan'}${plans.find(p => p.id === selectedUpgradePlanId)?.tier === 'uni_plus' ? ' (Gold)' : plans.find(p => p.id === selectedUpgradePlanId)?.tier === 'uni_max' ? ' (Platinum)' : plans.find(p => p.id === selectedUpgradePlanId)?.tier === 'uni_one' ? ' (Silver)' : ''}.`}
           message={
             membership?.currentPeriodEnd
-              ? `This change will take effect on your next billing date (${formatDateGB(membership.currentPeriodEnd)}). No payment will be charged today.`
+              ? `This change will take effect on your next billing date (${formatMembershipDate(membership.currentPeriodEnd)}). No payment will be charged today.`
               : 'This change will take effect on your next billing date. No payment will be charged today.'
           }
           confirmText="Confirm Upgrade"
@@ -1156,11 +1161,11 @@ You can resume anytime. Your membership will automatically reactivate after 30 d
         }}
         onConfirm={handleConfirmDowngrade}
         title={`You're downgrading to ${plans.find(p => p.id === selectedDowngradePlanId)?.name || 'this plan'}${plans.find(p => p.id === selectedDowngradePlanId)?.tier === 'uni_plus' ? ' (Gold)' : plans.find(p => p.id === selectedDowngradePlanId)?.tier === 'uni_max' ? ' (Platinum)' : plans.find(p => p.id === selectedDowngradePlanId)?.tier === 'uni_one' ? ' (Silver)' : ''}.`}
-        message={
-          membership?.currentPeriodEnd
-            ? `This change will take effect on your next billing date (${formatDateGB(membership.currentPeriodEnd)}). No payment will be charged today.`
-            : 'This change will take effect on your next billing date. No payment will be charged today.'
-        }
+          message={
+            membership?.currentPeriodEnd
+              ? `This change will take effect on your next billing date (${formatMembershipDate(membership.currentPeriodEnd)}). No payment will be charged today.`
+              : 'This change will take effect on your next billing date. No payment will be charged today.'
+          }
         confirmText="Confirm Downgrade"
         cancelText="Cancel"
         type="warning"
