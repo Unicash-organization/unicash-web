@@ -115,6 +115,7 @@ export default function MembershipPage() {
         }, 1000);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadData = async () => {
@@ -680,6 +681,22 @@ export default function MembershipPage() {
                     : 'N/A'
                 }
               </p>
+              
+              {/* Show pause date if membership is paused */}
+              {membership.isPaused && membership.pausedAt && (
+                <div className="mb-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-sm text-orange-800">
+                    <span className="font-semibold">Paused on:</span> {formatMembershipDate(membership.pausedAt)}
+                    {membership.pauseExpiresAt && (
+                      <>
+                        <br />
+                        <span className="font-semibold">Expires on:</span> {formatMembershipDate(membership.pauseExpiresAt)}
+                      </>
+                    )}
+                  </p>
+                </div>
+              )}
+              
               <p className="text-sm text-gray-500 mb-4">
                 Plan changes will apply on your next billing date. You can pause or cancel anytime.
               </p>
@@ -772,8 +789,11 @@ export default function MembershipPage() {
       </div>
 
       {/* Available Plans */}
-      {/* Hide Available Plans section if membership is cancelled but still in billing period */}
-      {plans.length > 0 && !(membership && membership.status === 'canceled' && membership.currentPeriodEnd && new Date(membership.currentPeriodEnd) > new Date()) && (
+      {/* Hide Available Plans section if membership is cancelled but still in billing period, or if paused */}
+      {plans.length > 0 && !(membership && (
+        (membership.status === 'canceled' && membership.currentPeriodEnd && new Date(membership.currentPeriodEnd) > new Date()) ||
+        membership.isPaused
+      )) && (
         <div>
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Available Plans</h2>
           {availablePlans.length === 0 && membership && (

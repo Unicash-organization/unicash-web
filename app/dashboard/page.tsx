@@ -79,6 +79,7 @@ export default function DashboardPage() {
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, router]);
 
   const loadData = async () => {
@@ -370,16 +371,16 @@ export default function DashboardPage() {
             </Link>
             <button
               onClick={() => {
-                // Check if user has active membership
-                const hasActiveMembership = membership?.status === 'active' && 
-                  membership?.currentPeriodEnd && 
-                  new Date(membership.currentPeriodEnd) > new Date();
+                // // Check if user has active membership
+                // const hasActiveMembership = membership?.status === 'active' && 
+                //   membership?.currentPeriodEnd && 
+                //   new Date(membership.currentPeriodEnd) > new Date();
                 
-                if (!hasActiveMembership) {
-                  setShowMembershipModal(true);
-                } else {
-                  router.push('/checkout');
-                }
+                // if (!hasActiveMembership) {
+                //   setShowMembershipModal(true);
+                // } else {
+                  router.push('/boost-packs');
+                // }
               }}
               className="ml-4 border-2 font-semibold py-2 px-4 rounded-lg hover:opacity-80 transition" 
               style={{ borderColor: '#9186FF', background: 'linear-gradient(180deg, #9186FF 0%, #6356E5 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}
@@ -486,10 +487,8 @@ export default function DashboardPage() {
                     {ledger.balanceAfter}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`text-sm font-medium ${
-                      ledger.transactionType === 'grant' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {ledger.transactionType === 'grant' ? 'Success' : (ledger.amount < 0 ? 'Failed' : 'Success')}
+                    <span className="text-sm font-medium text-green-600">
+                      Success
                     </span>
                   </td>
                 </tr>

@@ -48,6 +48,7 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
     } else {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const checkMembership = async () => {

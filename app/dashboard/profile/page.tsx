@@ -38,6 +38,7 @@ export default function ProfilePage() {
       });
       checkNewsletterStatus();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const checkNewsletterStatus = async () => {

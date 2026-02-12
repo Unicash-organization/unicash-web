@@ -58,6 +58,7 @@ export default function BoostPackCard({ pack }: BoostPackCardProps) {
         membershipCredits: user.membershipCredits || 0,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const checkMembership = async () => {

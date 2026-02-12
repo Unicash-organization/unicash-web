@@ -18,6 +18,7 @@ export default function NewsletterSection() {
       setEmail(user.email);
       checkSubscriptionStatus();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const checkSubscriptionStatus = async () => {

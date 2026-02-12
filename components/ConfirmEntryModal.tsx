@@ -47,6 +47,7 @@ export default function ConfirmEntryModal({
       // Check user's membership status
       checkMembershipStatus();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, draw.requiresMembership, user]);
 
   const checkMembershipStatus = async () => {

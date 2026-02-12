@@ -81,6 +81,7 @@ export default function DrawDetailPage() {
       // Always check membership for logged-in users (needed for bonus draws)
       checkMembership();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, id]);
 
   const checkUserEntry = async () => {

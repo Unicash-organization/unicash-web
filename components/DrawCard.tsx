@@ -59,6 +59,7 @@ export default function DrawCard({
         checkMembership();
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, id, requiresMembership]);
 
   const checkUserEntry = async () => {

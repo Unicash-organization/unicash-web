@@ -35,6 +35,7 @@ export default function FeaturedBonusDraw() {
     if (user && featuredDraw?.requiresMembership) {
       checkMembership();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, featuredDraw?.requiresMembership]);
 
   const checkMembership = async () => {

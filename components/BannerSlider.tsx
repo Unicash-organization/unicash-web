@@ -83,6 +83,7 @@ export default function BannerSlider({ banners, autoPlayInterval = 5000, loading
     }, autoPlayInterval);
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [banners.length, autoPlayInterval, isAutoPlaying, isDragging]);
 
   // Show skeleton while loading

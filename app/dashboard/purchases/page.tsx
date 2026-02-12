@@ -13,6 +13,7 @@ export default function PurchasesPage() {
     if (user) {
       loadPayments();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const loadPayments = async () => {

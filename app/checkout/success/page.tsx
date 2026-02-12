@@ -22,6 +22,7 @@ function CheckoutSuccessContent() {
     if (sessionId) {
       fetchPaymentStatus();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   const fetchPaymentStatus = async () => {

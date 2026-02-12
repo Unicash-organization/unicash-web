@@ -234,6 +234,7 @@ function CheckoutContent() {
         });
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
 
   // Calculate original total amount (for promo code validation)

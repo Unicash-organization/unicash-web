@@ -64,6 +64,7 @@ function LoginPageContent() {
       const magicToken = tokenHash || token;
       handleMagicLinkCallback(magicToken!, type as 'email' | 'recovery');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {

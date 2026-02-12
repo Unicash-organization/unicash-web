@@ -25,6 +25,7 @@ export default function DrawEntriesPage() {
       loadDraw();
       loadEntries();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawId, currentPage, searchOrderNo]);
 
   const loadDraw = async () => {
