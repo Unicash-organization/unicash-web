@@ -204,67 +204,35 @@ function CheckoutContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPlan?.id, selectedPack?.id]);
 
-  // Format Australian phone number as user types
+  // Format Australian mobile phone number (04XX XXX XXX only)
   const formatAustralianPhone = (value: string): string => {
-    // Remove all non-digit characters except +
-    let cleaned = value.replace(/[^\d+]/g, '');
+    // Remove all non-digit characters
+    let cleaned = value.replace(/\D/g, '');
     
-    // If starts with +61, format as +61 X XXXX XXXX or +61 4XX XXX XXX
-    if (cleaned.startsWith('+61')) {
-      const digits = cleaned.substring(3); // Remove +61
-      if (digits.length === 0) return '+61';
-      if (digits[0] === '4') {
-        // Mobile: +61 4XX XXX XXX
-        if (digits.length <= 1) return `+61 ${digits}`;
-        if (digits.length <= 3) return `+61 ${digits.substring(0, 1)}${digits.substring(1)}`;
-        if (digits.length <= 6) return `+61 ${digits.substring(0, 1)}${digits.substring(1, 3)} ${digits.substring(3)}`;
-        if (digits.length <= 10) return `+61 ${digits.substring(0, 1)}${digits.substring(1, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 10)}`;
-        return `+61 ${digits.substring(0, 1)}${digits.substring(1, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 10)}`;
+    // Only allow numbers starting with 04
+    if (cleaned.length > 0 && !cleaned.startsWith('04')) {
+      // If user types something that doesn't start with 04, only keep if they're typing 0
+      if (cleaned === '0' || cleaned.startsWith('04')) {
+        // Allow 0 or 04
       } else {
-        // Landline: +61 X XXXX XXXX
-        if (digits.length <= 1) return `+61 ${digits}`;
-        if (digits.length <= 5) return `+61 ${digits.substring(0, 1)} ${digits.substring(1)}`;
-        if (digits.length <= 9) return `+61 ${digits.substring(0, 1)} ${digits.substring(1, 5)} ${digits.substring(5, 9)}`;
-        return `+61 ${digits.substring(0, 1)} ${digits.substring(1, 5)} ${digits.substring(5, 9)}`;
+        // Remove digits that don't match 04 pattern
+        return '';
       }
     }
     
-    // If starts with 0, format as Australian local format
-    if (cleaned.startsWith('0')) {
-      if (cleaned[1] === '4') {
-        // Mobile: 04XX XXX XXX
-        if (cleaned.length <= 4) return cleaned.substring(0, cleaned.length);
-        if (cleaned.length <= 7) return `${cleaned.substring(0, 4)} ${cleaned.substring(4)}`;
-        if (cleaned.length <= 10) return `${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7, 10)}`;
-        return `${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7, 10)}`;
-      } else {
-        // Landline: (0X) XXXX XXXX
-        if (cleaned.length <= 2) return cleaned;
-        if (cleaned.length <= 6) return `(${cleaned.substring(0, 2)}) ${cleaned.substring(2)}`;
-        if (cleaned.length <= 10) return `(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 6)} ${cleaned.substring(6, 10)}`;
-        return `(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 6)} ${cleaned.substring(6, 10)}`;
-      }
+    // Limit to 10 digits (04XX XXX XXX)
+    if (cleaned.length > 10) {
+      cleaned = cleaned.substring(0, 10);
     }
     
-    // If starts with 1 (toll-free), format as 13XX XXX or 1800 XXX XXX
-    if (cleaned.startsWith('1')) {
-      if (cleaned.startsWith('13')) {
-        // 13XX XXX
-        if (cleaned.length <= 4) return cleaned;
-        if (cleaned.length <= 7) return `${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)}`;
-        return `${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)}`;
-      }
-      if (cleaned.startsWith('1800')) {
-        // 1800 XXX XXX
-        if (cleaned.length <= 4) return cleaned;
-        if (cleaned.length <= 7) return `${cleaned.substring(0, 4)} ${cleaned.substring(4)}`;
-        if (cleaned.length <= 11) return `${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7, 11)}`;
-        return `${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7, 11)}`;
-      }
+    // Format as 04XX XXX XXX
+    if (cleaned.length <= 4) {
+      return cleaned;
+    } else if (cleaned.length <= 7) {
+      return `${cleaned.substring(0, 4)} ${cleaned.substring(4)}`;
+    } else {
+      return `${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7, 10)}`;
     }
-    
-    // Return as is if doesn't match patterns (for international numbers)
-    return value;
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -302,29 +270,16 @@ function CheckoutContent() {
       newErrors.email = 'Invalid email format';
     }
 
-    // ✅ Validate phone number format (if provided)
-    if (formData.phone.trim()) {
+    // ✅ Validate phone number (required, must be 04XX format, 10 digits)
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Phone number is required';
+    } else {
       // Remove all formatting for validation
-      const cleaned = formData.phone.replace(/[^\d+]/g, '');
+      const cleaned = formData.phone.replace(/\D/g, '');
       
-      // Australian phone number validation
-      // Mobile: +61 4XX XXX XXX or 04XX XXX XXX (10 digits)
-      // Landline: +61 X XXXX XXXX or (0X) XXXX XXXX (10 digits)
-      // Toll-free: 13XX XXX or 1800 XXX XXX
-      const isValid = 
-        // Mobile: +61 4XX XXX XXX or 04XX XXX XXX
-        /^(\+61|0)4\d{8}$/.test(cleaned) ||
-        // Landline: +61 [2-8] XXXX XXXX or (0[2-8]) XXXX XXXX
-        /^(\+61|0)[2-8]\d{8}$/.test(cleaned) ||
-        // Toll-free: 13XX XXX
-        /^13\d{4}$/.test(cleaned) ||
-        // Toll-free: 1800 XXX XXX
-        /^1800\d{6}$/.test(cleaned) ||
-        // International format (for other countries)
-        /^\+\d{10,15}$/.test(cleaned);
-      
-      if (!isValid) {
-        newErrors.phone = 'Please enter a valid Australian phone number';
+      // Must be exactly 10 digits starting with 04
+      if (cleaned.length !== 10 || !cleaned.startsWith('04')) {
+        newErrors.phone = 'Please enter a valid mobile number (04XX XXX XXX)';
       }
     }
 
@@ -338,34 +293,19 @@ function CheckoutContent() {
   };
 
   // Normalize phone number to international format before sending to backend
-  const normalizePhoneNumber = (phone: string): string | undefined => {
-    if (!phone || !phone.trim()) return undefined;
+  const normalizePhoneNumber = (phone: string): string => {
+    if (!phone || !phone.trim()) return '';
     
     // Remove all formatting
-    const cleaned = phone.replace(/[^\d+]/g, '');
+    const cleaned = phone.replace(/\D/g, '');
     
-    // If already in international format (+61...), return as is
-    if (cleaned.startsWith('+61')) {
-      return cleaned;
-    }
-    
-    // If starts with 0, convert to +61 format
-    if (cleaned.startsWith('0')) {
+    // Convert 04XX to +614XX format (must be 10 digits starting with 04)
+    if (cleaned.startsWith('04') && cleaned.length === 10) {
       return `+61${cleaned.substring(1)}`;
     }
     
-    // If starts with 1 (toll-free), keep as is or convert
-    if (cleaned.startsWith('13') || cleaned.startsWith('1800')) {
-      return cleaned; // Keep toll-free as is, or could convert to +61 13... or +61 1800...
-    }
-    
-    // If already starts with + (other countries), return as is
-    if (cleaned.startsWith('+')) {
-      return cleaned;
-    }
-    
-    // Otherwise, assume it's Australian and add +61
-    return `+61${cleaned}`;
+    // If validation passed, it should be 04XX format
+    return `+61${cleaned.substring(1)}`;
   };
 
   const handleContinueToPayment = async () => {
@@ -396,7 +336,7 @@ function CheckoutContent() {
     setLoading(true);
     setIsProcessingPayment(true); // Prevent double-click
 
-    // Normalize phone number before sending
+    // Normalize phone number before sending (required field)
     const normalizedPhone = normalizePhoneNumber(formData.phone);
 
     try {
@@ -637,7 +577,7 @@ function CheckoutContent() {
                     {/* Phone Number */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Phone Number <span className="text-gray-500 font-normal">(Optional)</span>
+                        Phone Number <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="tel"
@@ -645,7 +585,8 @@ function CheckoutContent() {
                         value={formData.phone}
                         onChange={handleInputChange}
                         placeholder="04XX XXX XXX"
-                        maxLength={20}
+                        maxLength={14}
+                        required
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
                           errors.phone ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-purple-500'
                         }`}
@@ -653,17 +594,9 @@ function CheckoutContent() {
                       {errors.phone && (
                         <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
                       )}
-                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-xs font-semibold text-blue-900 mb-1">Australian Phone Number Formats:</p>
-                        <ul className="text-xs text-blue-800 space-y-0.5 list-disc list-inside">
-                          <li><strong>Mobile:</strong> 04XX XXX XXX or +61 4XX XXX XXX</li>
-                          <li><strong>Sydney:</strong> (02) XXXX XXXX or +61 2 XXXX XXXX</li>
-                          <li><strong>Melbourne:</strong> (03) XXXX XXXX or +61 3 XXXX XXXX</li>
-                          <li><strong>Other areas:</strong> (0X) XXXX XXXX or +61 X XXXX XXXX</li>
-                          <li><strong>Toll-free:</strong> 13XX XXX or 1800 XXX XXX</li>
-                        </ul>
-                        <p className="text-xs text-blue-700 mt-2">The number will be formatted automatically as you type.</p>
-                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Enter your Australian mobile number (10 digits starting with 04). The number will be formatted automatically as you type.
+                      </p>
                     </div>
 
                     {/* Promo Code */}
