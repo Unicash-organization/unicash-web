@@ -69,6 +69,73 @@ function CheckoutContent() {
   // Case 8: Returning user with active membership - auto-load plan
   const shouldAutoLoadPlan = hasActiveMembership && !wantsOnlyBoost;
 
+  // ✅ Format Australian mobile phone number (04XX XXX XXX only)
+  const formatAustralianPhone = (value: string): string => {
+    // Remove all non-digit characters
+    let cleaned = value.replace(/\D/g, '');
+    
+    // Only allow numbers starting with 04
+    if (cleaned.length > 0 && !cleaned.startsWith('04')) {
+      // If user types something that doesn't start with 04, only keep if they're typing 0
+      if (cleaned === '0' || cleaned.startsWith('04')) {
+        // Allow 0 or 04
+      } else {
+        // Remove digits that don't match 04 pattern
+        return '';
+      }
+    }
+    
+    // Limit to 10 digits
+    if (cleaned.length > 10) {
+      cleaned = cleaned.substring(0, 10);
+    }
+    
+    // Format as 04XX XXX XXX
+    if (cleaned.length > 6) {
+      return `${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7)}`;
+    } else if (cleaned.length > 4) {
+      return `${cleaned.substring(0, 4)} ${cleaned.substring(4)}`;
+    }
+    return cleaned;
+  };
+
+  // ✅ Denormalize phone number from international format (+614XX...) to display format (04XX XXX XXX)
+  const denormalizePhoneNumber = (phone: string): string => {
+    if (!phone || !phone.trim()) return '';
+    
+    // Remove all non-digit characters
+    const cleaned = phone.replace(/\D/g, '');
+    
+    // Convert +614XXXXXXXX (11 digits starting with 614) to 04XXXXXXXX
+    if (cleaned.startsWith('614') && cleaned.length === 11) {
+      const withZero = `0${cleaned.substring(2)}`; // +614XX... → 04XX...
+      return formatAustralianPhone(withZero); // Format as 04XX XXX XXX
+    }
+    
+    // If already in 04 format, just format it
+    if (cleaned.startsWith('04') && cleaned.length === 10) {
+      return formatAustralianPhone(cleaned);
+    }
+    
+    return '';
+  };
+
+  // ✅ Normalize phone number to international format before sending to backend
+  const normalizePhoneNumber = (phone: string): string => {
+    if (!phone || !phone.trim()) return '';
+    
+    // Remove all formatting
+    const cleaned = phone.replace(/\D/g, '');
+    
+    // Convert 04XX to +614XX format (must be 10 digits starting with 04)
+    if (cleaned.startsWith('04') && cleaned.length === 10) {
+      return `+61${cleaned.substring(1)}`;
+    }
+    
+    // If validation passed, it should be 04XX format
+    return `+61${cleaned.substring(1)}`;
+  };
+
   useEffect(() => {
     // Store drawId in sessionStorage if provided
     if (drawId && typeof window !== 'undefined') {
@@ -148,11 +215,15 @@ function CheckoutContent() {
   useEffect(() => {
     if (!authLoading) {
       if (user) {
+        // ✅ Convert phone from database format (+614XX...) to display format (04XX XXX XXX)
+        const userPhone = (user as any).phone || '';
+        const displayPhone = userPhone ? denormalizePhoneNumber(userPhone) : '';
+        
         setFormData({
           firstName: user.firstName || '',
           lastName: user.lastName || '',
           email: user.email || '',
-          phone: (user as any).phone || '',
+          phone: displayPhone,
         });
       } else {
         setFormData({
@@ -203,37 +274,6 @@ function CheckoutContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPlan?.id, selectedPack?.id]);
-
-  // Format Australian mobile phone number (04XX XXX XXX only)
-  const formatAustralianPhone = (value: string): string => {
-    // Remove all non-digit characters
-    let cleaned = value.replace(/\D/g, '');
-    
-    // Only allow numbers starting with 04
-    if (cleaned.length > 0 && !cleaned.startsWith('04')) {
-      // If user types something that doesn't start with 04, only keep if they're typing 0
-      if (cleaned === '0' || cleaned.startsWith('04')) {
-        // Allow 0 or 04
-      } else {
-        // Remove digits that don't match 04 pattern
-        return '';
-      }
-    }
-    
-    // Limit to 10 digits (04XX XXX XXX)
-    if (cleaned.length > 10) {
-      cleaned = cleaned.substring(0, 10);
-    }
-    
-    // Format as 04XX XXX XXX
-    if (cleaned.length <= 4) {
-      return cleaned;
-    } else if (cleaned.length <= 7) {
-      return `${cleaned.substring(0, 4)} ${cleaned.substring(4)}`;
-    } else {
-      return `${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7, 10)}`;
-    }
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -290,22 +330,6 @@ function CheckoutContent() {
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  // Normalize phone number to international format before sending to backend
-  const normalizePhoneNumber = (phone: string): string => {
-    if (!phone || !phone.trim()) return '';
-    
-    // Remove all formatting
-    const cleaned = phone.replace(/\D/g, '');
-    
-    // Convert 04XX to +614XX format (must be 10 digits starting with 04)
-    if (cleaned.startsWith('04') && cleaned.length === 10) {
-      return `+61${cleaned.substring(1)}`;
-    }
-    
-    // If validation passed, it should be 04XX format
-    return `+61${cleaned.substring(1)}`;
   };
 
   const handleContinueToPayment = async () => {
