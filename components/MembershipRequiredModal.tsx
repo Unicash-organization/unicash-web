@@ -45,7 +45,7 @@ export default function MembershipRequiredModal({
         secondaryButton: 'Cancel',
         primaryAction: () => {
           onClose();
-          router.push('/checkout');
+          router.push('/#membership-plans');
         },
       };
     } else {
@@ -57,9 +57,15 @@ export default function MembershipRequiredModal({
         primaryAction: () => {
           onClose();
           if (boostPackId) {
-            router.push(`/checkout?boostPackId=${boostPackId}`);
+            // Save boostPackId to localStorage for later use in checkout
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('pendingBoostPackId', boostPackId);
+            }
+            // Navigate to homepage membership plans section
+            router.push('/#membership-plans');
           } else {
-            router.push('/checkout');
+            // No boostPackId - navigate to membership plans to select
+            router.push('/#membership-plans');
           }
         },
       };

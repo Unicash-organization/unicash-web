@@ -10,28 +10,37 @@ import BannerSlider from '@/components/BannerSlider';
 import ScrollReveal from '@/components/ScrollReveal';
 import RecentWinnersSection from '@/components/RecentWinnersSection';
 import NewsletterSection from '@/components/NewsletterSection';
+import ConfirmModal from '@/components/ConfirmModal';
 import api from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function Home() {
-  const { user } = useAuth();
-  const [draws, setDraws] = useState([]);
-  const [plans, setPlans] = useState([]);
-  const [banners, setBanners] = useState([]);
+  const { user, refreshUser } = useAuth();
+  const [draws, setDraws] = useState<any[]>([]);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [banners, setBanners] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [highlightMembership, setHighlightMembership] = useState(false);
+  const [membership, setMembership] = useState<any>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
+  const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
+  const [selectedUpgradePlanId, setSelectedUpgradePlanId] = useState<string | null>(null);
+  const [selectedDowngradePlanId, setSelectedDowngradePlanId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [drawsRes, plansRes, bannersRes] = await Promise.all([
+        const [drawsRes, plansRes, bannersRes, membershipRes] = await Promise.all([
           api.draws.getAll(user?.id), // Pass userId for early access filtering
           api.membership.getPlans(),
           api.banners.getByPage('homepage').catch(() => ({ data: [] })),
+          user ? api.membership.getUserMembership().catch(() => ({ data: null })) : Promise.resolve({ data: null }),
         ]);
         setDraws(drawsRes.data.slice(0, 6)); // Get first 6 draws
         setPlans(plansRes.data);
         setBanners(bannersRes.data || []);
+        setMembership(membershipRes.data);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -67,6 +76,112 @@ export default function Home() {
       }
     }
   }, [loading]);
+
+  const formatMembershipDate = (date: string | Date) => {
+    const { formatUTCDateOnly } = require('@/lib/timezone');
+    return formatUTCDateOnly(date);
+  };
+
+  const isPlanUpgrade = (oldPlan: any, newPlan: any): boolean => {
+    const tierOrder: Record<string, number> = {
+      'basic': 1,
+      'premium': 2,
+      'uni_one': 3,
+      'uni_plus': 4,
+      'uni_max': 5,
+      'elite': 6,
+    };
+
+    const oldTierOrder = tierOrder[oldPlan?.tier] || 0;
+    const newTierOrder = tierOrder[newPlan?.tier] || 0;
+
+    if (newTierOrder > oldTierOrder) return true;
+    if (newTierOrder === oldTierOrder && newPlan.priceMonthly > oldPlan.priceMonthly) return true;
+    if (newTierOrder === oldTierOrder && newPlan.priceMonthly === oldPlan.priceMonthly && newPlan.freeCreditsPerPeriod > oldPlan.freeCreditsPerPeriod) return true;
+
+    return false;
+  };
+
+  const handleUpgrade = (planId: string) => {
+    if (actionLoading !== null) return;
+    
+    const newPlan = plans.find((p: any) => p.id === planId);
+    if (!newPlan || !membership?.plan) return;
+    
+    if (membership.planId === planId) return;
+    
+    const isUpgrade = isPlanUpgrade(membership.plan, newPlan);
+    
+    if (isUpgrade && membership.pendingUpgradePlanId) {
+      alert('You already have a pending upgrade scheduled.');
+      return;
+    }
+    
+    if (!isUpgrade && membership.pendingDowngradePlanId) {
+      alert('You already have a pending downgrade scheduled.');
+      return;
+    }
+    
+    if (isUpgrade) {
+      setSelectedUpgradePlanId(planId);
+      setShowUpgradeConfirm(true);
+    } else {
+      setSelectedDowngradePlanId(planId);
+      setShowDowngradeConfirm(true);
+    }
+  };
+
+  const handleConfirmUpgrade = async () => {
+    if (!selectedUpgradePlanId) return;
+    
+    setShowUpgradeConfirm(false);
+    const loadingKey = `upgrade-${selectedUpgradePlanId}`;
+    setActionLoading(loadingKey);
+    
+    try {
+      await api.membership.upgrade(selectedUpgradePlanId);
+      
+      // Reload membership data
+      const membershipRes = await api.membership.getUserMembership().catch(() => ({ data: null }));
+      setMembership(membershipRes.data);
+      await refreshUser();
+      
+      setActionLoading(null);
+      setSelectedUpgradePlanId(null);
+      alert('Upgrade scheduled successfully! Your plan will be upgraded on your next billing date.');
+    } catch (error: any) {
+      console.error('Error upgrading:', error);
+      setActionLoading(null);
+      setSelectedUpgradePlanId(null);
+      alert(error.response?.data?.message || 'Failed to upgrade membership');
+    }
+  };
+
+  const handleConfirmDowngrade = async () => {
+    if (!selectedDowngradePlanId) return;
+    
+    setShowDowngradeConfirm(false);
+    const loadingKey = `downgrade-${selectedDowngradePlanId}`;
+    setActionLoading(loadingKey);
+    
+    try {
+      await api.membership.upgrade(selectedDowngradePlanId);
+      
+      // Reload membership data
+      const membershipRes = await api.membership.getUserMembership().catch(() => ({ data: null }));
+      setMembership(membershipRes.data);
+      await refreshUser();
+      
+      setActionLoading(null);
+      setSelectedDowngradePlanId(null);
+      alert('Downgrade scheduled successfully. It will apply on your next billing date.');
+    } catch (error: any) {
+      console.error('Error downgrading:', error);
+      setActionLoading(null);
+      setSelectedDowngradePlanId(null);
+      alert(error.response?.data?.message || 'Failed to downgrade membership');
+    }
+  };
 
   return (
     <div className="overflow-x-hidden w-full">
@@ -271,7 +386,14 @@ export default function Home() {
                 .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
                 .map((plan: any, index: number) => (
                 <ScrollReveal key={plan.id} delay={index * 150} className="h-full">
-                  <MembershipCard plan={plan} />
+                  <MembershipCard 
+                    plan={plan} 
+                    membership={membership}
+                    actionLoading={actionLoading}
+                    onUpgradeDowngrade={handleUpgrade}
+                    showUpgradeConfirm={showUpgradeConfirm && selectedUpgradePlanId === plan.id}
+                    showDowngradeConfirm={showDowngradeConfirm && selectedDowngradePlanId === plan.id}
+                  />
                 </ScrollReveal>
               ))}
             </div>
@@ -363,6 +485,48 @@ export default function Home() {
 
       {/* Newsletter */}
       <NewsletterSection />
+
+      {/* Upgrade Confirmation Modal */}
+      {selectedUpgradePlanId && (
+        <ConfirmModal
+          isOpen={showUpgradeConfirm}
+          onClose={() => {
+            setShowUpgradeConfirm(false);
+            setSelectedUpgradePlanId(null);
+            if (actionLoading === `upgrade-${selectedUpgradePlanId}`) setActionLoading(null);
+          }}
+          onConfirm={handleConfirmUpgrade}
+          title={`You're upgrading to ${plans.find((p: any) => p.id === selectedUpgradePlanId)?.name || 'this plan'}${plans.find((p: any) => p.id === selectedUpgradePlanId)?.tier === 'uni_plus' ? ' (Gold)' : plans.find((p: any) => p.id === selectedUpgradePlanId)?.tier === 'uni_max' ? ' (Platinum)' : plans.find((p: any) => p.id === selectedUpgradePlanId)?.tier === 'uni_one' ? ' (Silver)' : ''}.`}
+          message={
+            membership?.currentPeriodEnd
+              ? `This change will take effect on your next billing date (${formatMembershipDate(membership.currentPeriodEnd)}). No payment will be charged today.`
+              : 'This change will take effect on your next billing date. No payment will be charged today.'
+          }
+          confirmText="Confirm Upgrade"
+          cancelText="Cancel"
+          type="info"
+        />
+      )}
+
+      {/* Downgrade Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDowngradeConfirm}
+        onClose={() => {
+          setShowDowngradeConfirm(false);
+          setSelectedDowngradePlanId(null);
+          if (selectedDowngradePlanId && actionLoading === `downgrade-${selectedDowngradePlanId}`) setActionLoading(null);
+        }}
+        onConfirm={handleConfirmDowngrade}
+        title={`You're downgrading to ${plans.find((p: any) => p.id === selectedDowngradePlanId)?.name || 'this plan'}${plans.find((p: any) => p.id === selectedDowngradePlanId)?.tier === 'uni_plus' ? ' (Gold)' : plans.find((p: any) => p.id === selectedDowngradePlanId)?.tier === 'uni_max' ? ' (Platinum)' : plans.find((p: any) => p.id === selectedDowngradePlanId)?.tier === 'uni_one' ? ' (Silver)' : ''}.`}
+        message={
+          membership?.currentPeriodEnd
+            ? `This change will take effect on your next billing date (${formatMembershipDate(membership.currentPeriodEnd)}). No payment will be charged today.`
+            : 'This change will take effect on your next billing date. No payment will be charged today.'
+        }
+        confirmText="Confirm Downgrade"
+        cancelText="Cancel"
+        type="warning"
+      />
     </div>
   );
 }

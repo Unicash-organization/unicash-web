@@ -285,10 +285,7 @@ export default function MembershipPage() {
       return;
     }
     
-    // ✅ Set loading state IMMEDIATELY to prevent double-click
-    const loadingKey = isUpgrade ? `upgrade-${planId}` : `downgrade-${planId}`;
-    setActionLoading(loadingKey);
-    
+    // Don't set actionLoading here - only set when user confirms. This way Cancel just closes modal without showing "Processing..."
     if (isUpgrade) {
       // Upgrade: show confirm modal first
       setSelectedUpgradePlanId(planId);
@@ -703,15 +700,7 @@ export default function MembershipPage() {
               
               {/* Actions based on state */}
               <div className="flex items-center space-x-4">
-                {/* Debug logging */}
-                {console.log('[Membership Actions Debug]', {
-                  isPaused: membership.isPaused,
-                  status: membership.status,
-                  cancelAtPeriodEnd: membership.cancelAtPeriodEnd,
-                  isProcessingChange: membership.isProcessingChange,
-                  actionLoading: actionLoading,
-                })}
-                
+               
                 {membership.isPaused ? (
                   <button
                     onClick={() => setShowResumeConfirm(true)}
@@ -731,17 +720,6 @@ export default function MembershipPage() {
                         !membership.isProcessingChange &&
                         membership.status !== 'payment_failed' &&
                         membership.status !== 'past_due';
-                      
-                      console.log('[Pause Button Debug]', {
-                        canShowPause,
-                        status: membership.status,
-                        statusIsActive: membership.status === 'active',
-                        isPaused: membership.isPaused,
-                        notPaused: !membership.isPaused,
-                        isProcessingChange: membership.isProcessingChange,
-                        notProcessingChange: !membership.isProcessingChange,
-                        cancelAtPeriodEnd: membership.cancelAtPeriodEnd, // Log but don't block
-                      });
                       
                       return canShowPause ? (
                         <button
@@ -952,30 +930,32 @@ export default function MembershipPage() {
                     <button
                       onClick={() => handleUpgrade(plan.id)}
                       disabled={
-                        actionLoading !== null || 
-                        actionLoading === `upgrade-${plan.id}` || 
-                        actionLoading === `downgrade-${plan.id}` || 
+                        actionLoading !== null ||
+                        actionLoading === `upgrade-${plan.id}` ||
+                        actionLoading === `downgrade-${plan.id}` ||
+                        (showUpgradeConfirm && selectedUpgradePlanId === plan.id) ||
+                        (showDowngradeConfirm && selectedDowngradePlanId === plan.id) ||
                         !canPerformAction ||
                         isCurrentPlan ||
-                        isProcessingChange // ✅ Disable if DB lock is active
+                        isProcessingChange
                       }
                       className={`w-full font-bold py-3 px-6 rounded-lg transition ${
-                        !canPerformAction || isCurrentPlan || actionLoading === `upgrade-${plan.id}` || actionLoading === `downgrade-${plan.id}`
+                        !canPerformAction || isCurrentPlan || actionLoading === `upgrade-${plan.id}` || actionLoading === `downgrade-${plan.id}` || (showUpgradeConfirm && selectedUpgradePlanId === plan.id) || (showDowngradeConfirm && selectedDowngradePlanId === plan.id)
                           ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
                           : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700'
                       } disabled:opacity-50`}
                     >
-                      {actionLoading === `upgrade-${plan.id}` || actionLoading === `downgrade-${plan.id}` 
-                        ? 'Processing...' 
+                      {actionLoading === `upgrade-${plan.id}` || actionLoading === `downgrade-${plan.id}`
+                        ? 'Processing...'
                         : isProcessingChange
                           ? 'Processing Change...'
-                        : !canPerformAction || isCurrentPlan
-                          ? (isCurrentPlan ? 'Current Plan' : hasPendingUpgrade ? 'Pending Upgrade' : hasPendingUpgradeOther ? 'Pending Upgrade' : hasPendingDowngradeOther ? 'Pending Downgrade' : `Get ${plan.name}`)
-                          : isUpgrade 
-                            ? `Upgrade - Get ${plan.name}` 
-                            : isDowngrade 
-                              ? `Downgrade - Get ${plan.name}` 
-                              : `Get ${plan.name}`
+                          : !canPerformAction || isCurrentPlan
+                            ? (isCurrentPlan ? 'Current Plan' : hasPendingUpgrade ? 'Pending Upgrade' : hasPendingUpgradeOther ? 'Pending Upgrade' : hasPendingDowngradeOther ? 'Pending Downgrade' : `Get ${plan.name}`)
+                            : isUpgrade
+                              ? `Upgrade - Get ${plan.name}`
+                              : isDowngrade
+                                ? `Downgrade - Get ${plan.name}`
+                                : `Get ${plan.name}`
                       }
                     </button>
                   )}
@@ -1158,6 +1138,7 @@ You can resume anytime. Your membership will automatically reactivate after 30 d
           onClose={() => {
             setShowUpgradeConfirm(false);
             setSelectedUpgradePlanId(null);
+            if (actionLoading === `upgrade-${selectedUpgradePlanId}`) setActionLoading(null);
           }}
           onConfirm={handleConfirmUpgrade}
           title={`You're upgrading to ${plans.find(p => p.id === selectedUpgradePlanId)?.name || 'this plan'}${plans.find(p => p.id === selectedUpgradePlanId)?.tier === 'uni_plus' ? ' (Gold)' : plans.find(p => p.id === selectedUpgradePlanId)?.tier === 'uni_max' ? ' (Platinum)' : plans.find(p => p.id === selectedUpgradePlanId)?.tier === 'uni_one' ? ' (Silver)' : ''}.`}
@@ -1178,6 +1159,7 @@ You can resume anytime. Your membership will automatically reactivate after 30 d
         onClose={() => {
           setShowDowngradeConfirm(false);
           setSelectedDowngradePlanId(null);
+          if (selectedDowngradePlanId && actionLoading === `downgrade-${selectedDowngradePlanId}`) setActionLoading(null);
         }}
         onConfirm={handleConfirmDowngrade}
         title={`You're downgrading to ${plans.find(p => p.id === selectedDowngradePlanId)?.name || 'this plan'}${plans.find(p => p.id === selectedDowngradePlanId)?.tier === 'uni_plus' ? ' (Gold)' : plans.find(p => p.id === selectedDowngradePlanId)?.tier === 'uni_max' ? ' (Platinum)' : plans.find(p => p.id === selectedDowngradePlanId)?.tier === 'uni_one' ? ' (Silver)' : ''}.`}

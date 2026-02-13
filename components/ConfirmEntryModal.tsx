@@ -179,7 +179,7 @@ export default function ConfirmEntryModal({
       setShowMembershipModal(true);
     } else {
       onClose();
-      router.push('/checkout');
+      router.push('/boost-packs#choose-boost-pack');
     }
   };
 

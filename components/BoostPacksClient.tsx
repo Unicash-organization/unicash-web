@@ -20,10 +20,25 @@ export default function BoostPacksClient() {
     fetchBoostPacks();
   }, []);
 
+  // Handle scroll to section when URL has hash
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !loading) {
+      const hash = window.location.hash;
+      if (hash === '#choose-boost-pack') {
+        setTimeout(() => {
+          const element = document.getElementById('choose-boost-pack');
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
+      }
+    }
+  }, [loading]);
+
   return (
     <>
       {/* Choose Your Boost Pack */}
-      <section className="py-16 bg-white">
+      <section id="choose-boost-pack" className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Choose your Boost Pack</h2>

@@ -143,7 +143,7 @@ export default function BillingPage() {
               You can add a payment method when you subscribe to a membership plan or purchase a boost pack.
             </p>
             <button
-              onClick={() => router.push('/checkout')}
+              onClick={() => router.push('/#membership-plans')}
               className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold py-2 px-6 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition"
             >
               Subscribe Now

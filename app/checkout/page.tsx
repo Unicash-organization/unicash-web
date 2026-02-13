@@ -142,6 +142,26 @@ function CheckoutContent() {
       sessionStorage.setItem('redirectDrawId', drawId);
     }
 
+    // Redirect to homepage if user has active membership and no params (trying to double-purchase)
+    if (!planId && !packId && !boostPackId && !drawId && user && typeof window !== 'undefined') {
+      // Check if user has active membership - if yes, redirect to homepage
+      api.membership.getUserMembership()
+        .then((res) => {
+          const membership = res.data;
+          const hasActive = membership?.status === 'active' && 
+            membership?.currentPeriodEnd && 
+            new Date(membership.currentPeriodEnd) > new Date();
+          
+          if (hasActive) {
+            // User has active membership and no params - redirect to homepage
+            router.push('/');
+          }
+        })
+        .catch(() => {
+          // If error checking membership, allow checkout to continue
+        });
+    }
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -154,6 +174,27 @@ function CheckoutContent() {
         setBoostPacks(boostPacksRes.data || []);
         setPlans(plansRes.data || []);
         setUserMembership(membershipRes.data);
+
+        // Handle boost pack selection from URL or localStorage (always check this first)
+        let effectivePackId = boostPackId || packId;
+        
+        // Check localStorage for pendingBoostPackId if not in URL
+        if (!effectivePackId && typeof window !== 'undefined') {
+          const pendingPackId = localStorage.getItem('pendingBoostPackId');
+          if (pendingPackId) {
+            effectivePackId = pendingPackId;
+            // Clear from localStorage after reading
+            localStorage.removeItem('pendingBoostPackId');
+          }
+        }
+        
+        if (effectivePackId && boostPacksRes.data) {
+          // Only set selectedPack if packId is a valid UUID (not "boost" placeholder)
+          if (effectivePackId !== 'boost') {
+            const pack = boostPacksRes.data.find((p: any) => p.id === effectivePackId);
+            if (pack) setSelectedPack(pack);
+          }
+        }
 
         // Case 8: Auto-load current plan for active members
         // ✅ BUT: Don't auto-load if user is only buying boost pack (skipPlanSelection)
@@ -190,16 +231,6 @@ function CheckoutContent() {
             // Case 2: New user - default to first plan
             const premiumPlan = plansRes.data.find((p: any) => p.tier === 'premium') || plansRes.data[0];
             if (premiumPlan) setSelectedPlan(premiumPlan);
-          }
-
-          // Handle both packId and boostPackId
-          const effectivePackId = boostPackId || packId;
-          if (effectivePackId && boostPacksRes.data) {
-            // Only set selectedPack if packId is a valid UUID (not "boost" placeholder)
-            if (effectivePackId !== 'boost') {
-              const pack = boostPacksRes.data.find((p: any) => p.id === effectivePackId);
-              if (pack) setSelectedPack(pack);
-            }
           }
         }
       } catch (error) {
@@ -898,8 +929,8 @@ function CheckoutContent() {
                 </>
               )}
 
-              {/* Fallback: Show both if neither scenario matches, or user with active membership wants boost pack */}
-              {((!wantsOnlyBoost && !selectedPlan) || (wantsBoostPack && hasActiveMembership)) && (
+              {/* Fallback: Show both if neither scenario matches */}
+              {!wantsOnlyBoost && !selectedPlan && (
                 <>
                   {/* ❌ REMOVED: Don't show Current Membership when user has active membership and only buying boost pack */}
                   {/* This section was removed because it's not necessary and causes confusion */}
@@ -937,30 +968,29 @@ function CheckoutContent() {
                     </div>
                   )}
 
-                  {/* Boost Packs Selection - Always show if user has active membership, or if no plan selected */}
-                  {(hasActiveMembership || !selectedPlan) && (
-                    <div className="mb-6">
-                      <h3 className="font-bold mb-3">Select Boost Pack</h3>
-                      <p className="text-sm text-gray-500 mb-4">One-off only · Credits never expire</p>
+                  {/* Boost Packs Selection - Show in fallback scenario */}
+                  <div className="mb-6">
+                    <h3 className="font-bold mb-3">Select Boost Pack</h3>
+                    <p className="text-sm text-gray-500 mb-4">One-off only · Credits never expire</p>
 
-                      <div className="space-y-3">
-                        {boostPacks
-                          .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
-                          .map((pack: any) => (
-                          <div
-                            key={pack.id}
-                            onClick={() => setSelectedPack(selectedPack?.id === pack.id ? null : pack)}
-                            className={`p-4 border-2 rounded-lg cursor-pointer transition relative ${
-                              selectedPack?.id === pack.id
-                                ? 'border-purple-500 bg-purple-50'
-                                : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                          >
-                            {(pack.badgeText || pack.featuresConfig?.badge?.text) && (
-                              <div className="absolute -top-2 -right-2">
-                                <span className="bg-yellow-400 text-gray-900 text-xs font-bold px-2 py-1 rounded-full">
-                                  {pack.badgeText || pack.featuresConfig?.badge?.text}
-                                </span>
+                    <div className="space-y-3">
+                      {boostPacks
+                        .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
+                        .map((pack: any) => (
+                        <div
+                          key={pack.id}
+                          onClick={() => setSelectedPack(selectedPack?.id === pack.id ? null : pack)}
+                          className={`p-4 border-2 rounded-lg cursor-pointer transition relative ${
+                            selectedPack?.id === pack.id
+                              ? 'border-purple-500 bg-purple-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          {(pack.badgeText || pack.featuresConfig?.badge?.text) && (
+                            <div className="absolute -top-2 -right-2">
+                              <span className="bg-yellow-400 text-gray-900 text-xs font-bold px-2 py-1 rounded-full">
+                                {pack.badgeText || pack.featuresConfig?.badge?.text}
+                              </span>
                               </div>
                             )}
                             <div className="flex justify-between items-center">
@@ -976,7 +1006,6 @@ function CheckoutContent() {
                         ))}
                       </div>
                     </div>
-                  )}
                 </>
               )}
 

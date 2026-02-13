@@ -35,27 +35,47 @@ interface MembershipCardProps {
     freeCreditsPerPeriod?: number;
     grandPrizeEntriesPerPeriod?: number;
   };
+  membership?: any;
+  actionLoading?: string | null;
+  onUpgradeDowngrade?: (planId: string) => void;
+  showUpgradeConfirm?: boolean;
+  showDowngradeConfirm?: boolean;
 }
 
-export default function MembershipCard({ plan }: MembershipCardProps) {
+export default function MembershipCard({ 
+  plan, 
+  membership: externalMembership,
+  actionLoading,
+  onUpgradeDowngrade,
+  showUpgradeConfirm,
+  showDowngradeConfirm,
+}: MembershipCardProps) {
   const { user } = useAuth();
-  const [membership, setMembership] = useState<any>(null);
+  const [internalMembership, setInternalMembership] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Use external membership if provided, otherwise use internal
+  const membership = externalMembership !== undefined ? externalMembership : internalMembership;
 
   useEffect(() => {
-    if (user) {
-      checkMembership();
+    // Only fetch internally if external membership is not provided
+    if (externalMembership === undefined) {
+      if (user) {
+        checkMembership();
+      } else {
+        setLoading(false);
+      }
     } else {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, externalMembership]);
 
   const checkMembership = async () => {
     if (!user) return;
     try {
       const response = await api.membership.getUserMembership().catch(() => ({ data: null }));
-      setMembership(response.data);
+      setInternalMembership(response.data);
     } catch (error) {
       console.error('Error checking membership:', error);
     } finally {
@@ -324,31 +344,63 @@ export default function MembershipCard({ plan }: MembershipCardProps) {
             </button>
           </Link>
         ) : isUpgrade && !isPaymentFailed ? (
-          <Link href={`/checkout?planId=${plan.id}&upgrade=true`}>
+          onUpgradeDowngrade ? (
             <button 
-              disabled={loading}
+              onClick={() => onUpgradeDowngrade(plan.id)}
+              disabled={loading || actionLoading !== null || actionLoading === `upgrade-${plan.id}` || showUpgradeConfirm}
               className={`w-full py-3 px-6 rounded-full font-bold transition-all ${
-                badgeType === 'popular' 
-                  ? 'btn-primary' 
-                  : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
+                actionLoading === `upgrade-${plan.id}` || showUpgradeConfirm
+                  ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                  : badgeType === 'popular' 
+                    ? 'btn-primary' 
+                    : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
               }`}
             >
-              {loading ? 'Loading...' : 'Upgrade'}
+              {actionLoading === `upgrade-${plan.id}` ? 'Processing...' : loading ? 'Loading...' : 'Upgrade'}
             </button>
-          </Link>
+          ) : (
+            <Link href={`/checkout?planId=${plan.id}&upgrade=true`}>
+              <button 
+                disabled={loading}
+                className={`w-full py-3 px-6 rounded-full font-bold transition-all ${
+                  badgeType === 'popular' 
+                    ? 'btn-primary' 
+                    : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
+                }`}
+              >
+                {loading ? 'Loading...' : 'Upgrade'}
+              </button>
+            </Link>
+          )
         ) : isDowngrade && !isPaymentFailed ? (
-          <Link href={`/dashboard/membership?downgrade=${plan.id}`}>
+          onUpgradeDowngrade ? (
             <button 
-              disabled={loading}
+              onClick={() => onUpgradeDowngrade(plan.id)}
+              disabled={loading || actionLoading !== null || actionLoading === `downgrade-${plan.id}` || showDowngradeConfirm}
               className={`w-full py-3 px-6 rounded-full font-bold transition-all ${
-                badgeType === 'popular' 
-                  ? 'btn-primary' 
-                  : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
+                actionLoading === `downgrade-${plan.id}` || showDowngradeConfirm
+                  ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                  : badgeType === 'popular' 
+                    ? 'btn-primary' 
+                    : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
               }`}
             >
-              {loading ? 'Loading...' : 'Downgrade'}
+              {actionLoading === `downgrade-${plan.id}` ? 'Processing...' : loading ? 'Loading...' : 'Downgrade'}
             </button>
-          </Link>
+          ) : (
+            <Link href={`/dashboard/membership?downgrade=${plan.id}`}>
+              <button 
+                disabled={loading}
+                className={`w-full py-3 px-6 rounded-full font-bold transition-all ${
+                  badgeType === 'popular' 
+                    ? 'btn-primary' 
+                    : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
+                }`}
+              >
+                {loading ? 'Loading...' : 'Downgrade'}
+              </button>
+            </Link>
+          )
         ) : (
           <Link href={`/checkout?planId=${plan.id}`}>
             <button 
