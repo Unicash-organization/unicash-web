@@ -66,8 +66,16 @@ export default function SecurityBillingPage() {
 
     const urlParams = new URLSearchParams(window.location.search);
     const paymentUpdated = urlParams.get('paymentUpdated');
-    
-    // Only process if paymentUpdated=true is in URL
+
+    // If we're in a popup (opened for Update Card), tell opener and close
+    if (paymentUpdated === 'true' && window.opener) {
+      window.opener.postMessage({ type: 'STRIPE_PORTAL_DONE' }, window.location.origin);
+      window.history.replaceState({}, '', window.location.pathname);
+      window.close();
+      return;
+    }
+
+    // Only process if paymentUpdated=true is in URL (full-page return from Stripe)
     if (paymentUpdated === 'true') {
       // Remove parameter from URL immediately to prevent re-processing
       window.history.replaceState({}, '', window.location.pathname);
@@ -194,9 +202,41 @@ export default function SecurityBillingPage() {
       setUpdating(true);
       const returnUrl = `${window.location.origin}/dashboard/security-billing?paymentUpdated=true`;
       const res = await api.payments.createBillingPortalSession(returnUrl);
-      
+
       if (res.data?.url) {
-        window.location.href = res.data.url;
+        const w = 600;
+        const h = 700;
+        const left = Math.round((window.screen.width - w) / 2);
+        const top = Math.round((window.screen.height - h) / 2);
+        const popup = window.open(
+          res.data.url,
+          'stripe_billing_portal',
+          `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`
+        );
+        if (!popup) {
+          alert('Popup was blocked. Please allow popups for this site and try again.');
+          setUpdating(false);
+          return;
+        }
+        const checkClosed = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkClosed);
+            window.removeEventListener('message', onMessage);
+            loadPaymentMethod();
+            refreshUser();
+            setUpdating(false);
+          }
+        }, 500);
+        const onMessage = (event: MessageEvent) => {
+          if (event.data?.type === 'STRIPE_PORTAL_DONE') {
+            clearInterval(checkClosed);
+            window.removeEventListener('message', onMessage);
+            loadPaymentMethod();
+            refreshUser();
+            setUpdating(false);
+          }
+        };
+        window.addEventListener('message', onMessage);
       }
     } catch (error: any) {
       console.error('Error creating billing portal session:', error);
@@ -292,7 +332,7 @@ export default function SecurityBillingPage() {
                 {updating ? 'Opening...' : 'Update Card'}
               </button>
               <p className="text-xs text-gray-500 mt-4">
-                All card details are securely encrypted and managed by Stripe — PCI Level 1 certified. UNICASH never stores your payment information.
+                Card details are managed by Stripe (PCI Level 1). We never store your full card number — only brand, last 4 digits and expiry are shown from Stripe for display.
               </p>
             </div>
           ) : (
