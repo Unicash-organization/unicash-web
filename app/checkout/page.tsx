@@ -371,17 +371,17 @@ function CheckoutContent() {
 
   // Shared: create payment intent (used by Continue to Pay and by Step 2 pack change)
   const createPaymentIntent = async (plan: any, pack: any) => {
-    const normalizedPhone = normalizePhoneNumber(formData.phone);
+    // Gửi phone đúng format 04XXXXXXXX (bỏ +61)
+    const cleanedPhone = formData.phone.replace(/\s+/g, '');
     if (plan) {
       const payload = {
         planId: plan.id,
         boostPackId: pack?.id || undefined,
         customerEmail: formData.email,
         customerName: `${formData.firstName} ${formData.lastName}`.trim(),
-        customerPhone: normalizedPhone,
+        customerPhone: cleanedPhone,
         promoCode: promoCodeValid?.valid ? promoCode.trim() : undefined,
       };
-      console.log('[Checkout] createMembershipPaymentIntent → sending to API', payload);
       const res = await api.payments.createMembershipPaymentIntent({
         planId: payload.planId,
         boostPackId: payload.boostPackId,
@@ -393,16 +393,11 @@ function CheckoutContent() {
       return res;
     }
     if (pack) {
-      console.log('[Checkout] createBoostPackPaymentIntent → sending to API', {
-        boostPackId: pack.id,
-        customerEmail: formData.email,
-        customerName: `${formData.firstName} ${formData.lastName}`.trim(),
-      });
       return await api.payments.createBoostPackPaymentIntent({
         boostPackId: pack.id,
         customerEmail: formData.email,
         customerName: `${formData.firstName} ${formData.lastName}`.trim(),
-        customerPhone: normalizedPhone,
+        customerPhone: cleanedPhone,
         promoCode: promoCodeValid?.valid ? promoCode.trim() : undefined,
       });
     }
@@ -447,44 +442,22 @@ function CheckoutContent() {
     }
   };
 
-  // Called when user selects/changes Boost Pack in Step 2 - recreate intent immediately
+  // Chọn Boost Pack.
+  // - Ở Step 1 (info): chỉ set selectedPack, intent sẽ lấy theo state hiện tại khi bấm Continue.
+  // - Ở Step 2 (pay): không cho đổi pack nữa để tránh reset form thẻ (Stripe phải tạo intent mới nếu đổi số tiền).
   const handlePackChangeInStep2 = async (newPack: any) => {
     const packId = newPack?.id ?? null;
     if (packId === intentPackIdRef.current) {
       setSelectedPack(newPack);
       return;
     }
-    setSelectedPack(newPack);
-    if (step !== 'pay' || !clientSecret) return;
-
-    const planToSend = selectedPlanRef.current;
-    const packToSend = newPack;
-    console.log('[Checkout] Step 2 pack change → recreating intent', {
-      planId: planToSend?.id ?? null,
-      boostPackId: packToSend?.id ?? null,
-      from: 'handlePackChangeInStep2',
-    });
-
-    setClientSecret(null);
-    setPaymentId(null);
-    setPaymentError(null);
-    setIsProcessingPayment(true);
-    intentPackIdRef.current = packId;
-    try {
-      const response = await createPaymentIntent(planToSend, packToSend);
-      if (response?.data?.clientSecret) {
-        setClientSecret(response.data.clientSecret);
-        setPaymentId(response.data.paymentId);
-      } else {
-        setPaymentError('Failed to update payment. Please try again.');
-      }
-    } catch (error: any) {
-      setPaymentError(error?.response?.data?.message || 'Failed to update payment. Please try again.');
-      intentPackIdRef.current = selectedPackRef.current?.id ?? null;
-      setStep('info');
-    } finally {
-      setIsProcessingPayment(false);
+    // Step 2: chặn đổi pack để không reset thông tin thẻ
+    if (step === 'pay') {
+      alert('To change your Boost Pack, please go back to Step 1 (Info). Card details will then be kept.');
+      return;
     }
+    // Step 1: chỉ cần set state, intent sẽ dùng state hiện tại khi bấm Continue
+    setSelectedPack(newPack);
   };
 
   // Calculate discount amount if promo code is valid
