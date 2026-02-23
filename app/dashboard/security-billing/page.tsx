@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import UpdateCardModal from '@/components/UpdateCardModal';
 
 export default function SecurityBillingPage() {
   const { user, refreshUser } = useAuth();
@@ -28,7 +29,7 @@ export default function SecurityBillingPage() {
   // Billing state
   const [paymentMethod, setPaymentMethod] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
+  const [showUpdateCardModal, setShowUpdateCardModal] = useState(false);
   
   // Ref to prevent loading payment method multiple times
   const hasLoadedPaymentMethod = useRef(false);
@@ -197,52 +198,13 @@ export default function SecurityBillingPage() {
     }
   };
 
-  const handleUpdateCard = async () => {
-    try {
-      setUpdating(true);
-      const returnUrl = `${window.location.origin}/dashboard/security-billing?paymentUpdated=true`;
-      const res = await api.payments.createBillingPortalSession(returnUrl);
+  const handleUpdateCard = () => {
+    setShowUpdateCardModal(true);
+  };
 
-      if (res.data?.url) {
-        const w = 600;
-        const h = 700;
-        const left = Math.round((window.screen.width - w) / 2);
-        const top = Math.round((window.screen.height - h) / 2);
-        const popup = window.open(
-          res.data.url,
-          'stripe_billing_portal',
-          `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`
-        );
-        if (!popup) {
-          alert('Popup was blocked. Please allow popups for this site and try again.');
-          setUpdating(false);
-          return;
-        }
-        const checkClosed = setInterval(() => {
-          if (popup.closed) {
-            clearInterval(checkClosed);
-            window.removeEventListener('message', onMessage);
-            loadPaymentMethod();
-            refreshUser();
-            setUpdating(false);
-          }
-        }, 500);
-        const onMessage = (event: MessageEvent) => {
-          if (event.data?.type === 'STRIPE_PORTAL_DONE') {
-            clearInterval(checkClosed);
-            window.removeEventListener('message', onMessage);
-            loadPaymentMethod();
-            refreshUser();
-            setUpdating(false);
-          }
-        };
-        window.addEventListener('message', onMessage);
-      }
-    } catch (error: any) {
-      console.error('Error creating billing portal session:', error);
-      alert(error.response?.data?.message || 'Failed to open billing portal. Please try again.');
-      setUpdating(false);
-    }
+  const handleUpdateCardSuccess = async () => {
+    await loadPaymentMethod();
+    await refreshUser();
   };
 
   const formatDate = (date: string | Date) => {
@@ -326,10 +288,9 @@ export default function SecurityBillingPage() {
               <p className="text-sm text-gray-500">Last updated: {formatDate(new Date())}</p>
               <button
                 onClick={handleUpdateCard}
-                disabled={updating}
                 className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold py-2 px-6 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {updating ? 'Opening...' : 'Update Card'}
+                Update Card
               </button>
               <p className="text-xs text-gray-500 mt-4">
                 Card details are managed by Stripe (PCI Level 1). We never store your full card number — only brand, last 4 digits and expiry are shown from Stripe for display.
@@ -505,6 +466,12 @@ export default function SecurityBillingPage() {
           </form>
         </div>
       </div>
+
+      <UpdateCardModal
+        open={showUpdateCardModal}
+        onClose={() => setShowUpdateCardModal(false)}
+        onSuccess={handleUpdateCardSuccess}
+      />
     </div>
   );
 }
