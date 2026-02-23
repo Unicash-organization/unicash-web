@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
@@ -28,6 +28,7 @@ function CheckoutContent() {
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const intentPackIdRef = useRef<string | null>(null);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -419,6 +420,7 @@ function CheckoutContent() {
       }
 
       if (response?.data?.clientSecret) {
+        intentPackIdRef.current = selectedPack?.id ?? null;
         setClientSecret(response.data.clientSecret);
         setPaymentId(response.data.paymentId);
         setStep('pay');
@@ -439,6 +441,56 @@ function CheckoutContent() {
       setIsProcessingPayment(false); // Re-enable button
     }
   };
+
+  // Recreate payment intent when user selects/changes Boost Pack in Step 2 (order summary)
+  useEffect(() => {
+    if (step !== 'pay' || !clientSecret) return;
+    const currentPackId = selectedPack?.id ?? null;
+    if (currentPackId === intentPackIdRef.current) return;
+    if (!selectedPlan && !selectedPack) return;
+
+    const recreateIntent = async () => {
+      const prevPackId = intentPackIdRef.current;
+      intentPackIdRef.current = currentPackId;
+      setClientSecret(null);
+      setPaymentId(null);
+      setPaymentError(null);
+      setIsProcessingPayment(true);
+      const normalizedPhone = normalizePhoneNumber(formData.phone);
+      try {
+        let response;
+        if (selectedPlan) {
+          response = await api.payments.createMembershipPaymentIntent({
+            planId: selectedPlan.id,
+            boostPackId: selectedPack?.id || undefined,
+            customerEmail: formData.email,
+            customerName: `${formData.firstName} ${formData.lastName}`.trim(),
+            customerPhone: normalizedPhone,
+            promoCode: promoCodeValid?.valid ? promoCode.trim() : undefined,
+          });
+        } else if (selectedPack) {
+          response = await api.payments.createBoostPackPaymentIntent({
+            boostPackId: selectedPack.id,
+            customerEmail: formData.email,
+            customerName: `${formData.firstName} ${formData.lastName}`.trim(),
+            customerPhone: normalizedPhone,
+            promoCode: promoCodeValid?.valid ? promoCode.trim() : undefined,
+          });
+        }
+        if (response?.data?.clientSecret) {
+          setClientSecret(response.data.clientSecret);
+          setPaymentId(response.data.paymentId);
+        }
+      } catch (error: any) {
+        setPaymentError(error?.response?.data?.message || 'Failed to update payment. Please try again.');
+        intentPackIdRef.current = prevPackId;
+        setStep('info');
+      } finally {
+        setIsProcessingPayment(false);
+      }
+    };
+    recreateIntent();
+  }, [step, selectedPack?.id, selectedPlan?.id]);
 
   // Calculate discount amount if promo code is valid
   const discountAmount = promoCodeValid?.valid && promoCodeValid.discount 
@@ -754,10 +806,16 @@ function CheckoutContent() {
                 </div>
               )}
 
+              {step === 'pay' && !clientSecret && isProcessingPayment && (
+                <div className="py-12 text-center">
+                  <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-purple-600"></div>
+                  <p className="mt-3 text-gray-600">Updating payment...</p>
+                </div>
+              )}
               {step === 'pay' && clientSecret && paymentId && (
                 <div>
                   <StripeCheckoutForm
-                    key={user?.id || 'guest'}
+                    key={`${user?.id || 'guest'}-${paymentId}`}
                     clientSecret={clientSecret}
                     paymentId={paymentId}
                     amount={totalAmount}
