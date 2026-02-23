@@ -142,30 +142,34 @@ export default function UpdateCardModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
+        className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Update payment method</h2>
-        <p className="text-sm text-gray-600 mb-6">Enter your new card details below. Secured by Stripe.</p>
+        <div className="p-6 flex-shrink-0">
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Update payment method</h2>
+          <p className="text-sm text-gray-600">Enter your new card details below. Secured by Stripe.</p>
+        </div>
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          <div className="mx-6 mb-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex-shrink-0">
             {error}
           </div>
         )}
         {loading && !clientSecret && (
-          <div className="flex justify-center py-8">
+          <div className="flex justify-center py-8 flex-1">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" />
           </div>
         )}
         {clientSecret && (
-          <Elements options={options} stripe={stripePromise}>
-            <UpdateCardForm
-              clientSecret={clientSecret}
-              onSuccess={onSuccess}
-              onClose={onClose}
-              onError={setError}
-            />
-          </Elements>
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
+            <Elements options={options} stripe={stripePromise}>
+              <UpdateCardForm
+                clientSecret={clientSecret}
+                onSuccess={onSuccess}
+                onClose={onClose}
+                onError={setError}
+              />
+            </Elements>
+          </div>
         )}
       </div>
     </div>
