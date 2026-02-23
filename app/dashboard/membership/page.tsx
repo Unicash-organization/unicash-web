@@ -597,6 +597,28 @@ export default function MembershipPage() {
       <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Current Plan</h2>
         
+        {/* Scheduled to cancel (cancelAtPeriodEnd = true, still active) — synced from Stripe Dashboard */}
+        {membership && membership.status !== 'canceled' && membership.cancelAtPeriodEnd && membership.currentPeriodEnd && new Date(membership.currentPeriodEnd) > new Date() ? (
+          <div>
+            <div className="mb-4 p-4 bg-orange-50 border border-orange-300 rounded-lg">
+              <div className="flex items-start space-x-3">
+                <svg className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-orange-800 font-semibold">
+                    Cancellation scheduled — access until {formatMembershipDate(membership.currentPeriodEnd)}
+                  </p>
+                  <p className="text-orange-700 text-sm mt-1">
+                    Your membership will remain active until the end of your current billing period. You won't be charged again.
+                  </p>
+                </div>
+              </div>
+            </div>
+            {/* Fall through to show the normal active plan card below */}
+          </div>
+        ) : null}
+
         {/* Cancelled - Still in billing period */}
         {membership && membership.status === 'canceled' && membership.currentPeriodEnd && new Date(membership.currentPeriodEnd) > new Date() ? (
           <div className="bg-red-50 border border-red-200 rounded-lg p-6">
@@ -731,8 +753,8 @@ export default function MembershipPage() {
                         </button>
                       ) : null;
                     })()}
-                    {/* Show Cancel button if not already canceled */}
-                    {membership.status !== 'canceled' && (
+                    {/* Show Cancel button only if not already canceled AND not already scheduled to cancel */}
+                    {membership.status !== 'canceled' && !membership.cancelAtPeriodEnd && (
                       <button
                         onClick={() => setShowCancelConfirm(true)}
                         disabled={actionLoading !== null}
@@ -755,11 +777,18 @@ export default function MembershipPage() {
               </div>
             </div>
             <div className="text-right">
-              {/* ❌ Hide "Next billing" when membership is paused or canceled */}
+              {/* Hide "Next billing" when paused, canceled, or cancelAtPeriodEnd */}
               {membership.currentPeriodEnd && 
                !membership.isPaused && 
-               membership.status !== 'canceled' && (
+               membership.status !== 'canceled' &&
+               !membership.cancelAtPeriodEnd && (
                 <p className="text-sm text-gray-600">Next billing: {formatMembershipDate(membership.currentPeriodEnd)}</p>
+              )}
+              {/* Show "Access until" when cancelAtPeriodEnd */}
+              {membership.currentPeriodEnd &&
+               !membership.isPaused &&
+               membership.cancelAtPeriodEnd && (
+                <p className="text-sm text-orange-600 font-medium">Access until: {formatMembershipDate(membership.currentPeriodEnd)}</p>
               )}
             </div>
           </div>
