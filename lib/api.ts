@@ -266,6 +266,8 @@ export const api = {
     createBillingPortalSession: (returnUrl: string) => apiClient.post('/payments/billing-portal', { returnUrl }),
     createSetupIntentForUpdateCard: () => apiClient.post<{ clientSecret: string }>('/payments/setup-intent/update-card'),
     setDefaultPaymentMethod: (paymentMethodId: string) => apiClient.post('/payments/set-default-payment-method', { paymentMethodId }),
+    detachPaymentMethod: (paymentMethodId: string) => apiClient.post('/payments/detach-payment-method', { paymentMethodId }),
+    listPaymentMethods: () => apiClient.get<{ id: string; brand: string; last4: string; exp_month: number; exp_year: number; isDefault: boolean }[]>('/payments/payment-methods/me'),
     retryFailedInvoice: () => apiClient.post('/payments/retry-failed-invoice'),
   },
 };

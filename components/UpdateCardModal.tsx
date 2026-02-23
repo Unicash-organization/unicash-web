@@ -12,15 +12,18 @@ function UpdateCardForm({
   onSuccess,
   onClose,
   onError,
+  setAsDefault,
 }: {
   clientSecret: string;
   onSuccess: () => void;
   onClose: () => void;
   onError: (message: string) => void;
+  setAsDefault: boolean;
 }) {
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
+  const [setAsDefaultChecked, setSetAsDefaultChecked] = useState(setAsDefault);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +51,9 @@ function UpdateCardForm({
         setLoading(false);
         return;
       }
-      await api.payments.setDefaultPaymentMethod(paymentMethodId);
+      if (setAsDefaultChecked) {
+        await api.payments.setDefaultPaymentMethod(paymentMethodId);
+      }
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -65,6 +70,15 @@ function UpdateCardForm({
           wallets: { applePay: 'never', googlePay: 'never' },
         }}
       />
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={setAsDefaultChecked}
+          onChange={(e) => setSetAsDefaultChecked(e.target.checked)}
+          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+        />
+        <span className="text-sm text-gray-700">Set as default payment method</span>
+      </label>
       <div className="flex gap-3">
         <button
           type="submit"
@@ -89,10 +103,12 @@ export default function UpdateCardModal({
   open,
   onClose,
   onSuccess,
+  setAsDefault = false,
 }: {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  setAsDefault?: boolean;
 }) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -167,6 +183,7 @@ export default function UpdateCardModal({
                 onSuccess={onSuccess}
                 onClose={onClose}
                 onError={setError}
+                setAsDefault={setAsDefault}
               />
             </Elements>
           </div>
