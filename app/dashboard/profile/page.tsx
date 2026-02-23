@@ -4,6 +4,45 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 
+// Format as 04XX XXX XXX while typing
+const formatAustralianPhone = (value: string): string => {
+  let cleaned = value.replace(/\D/g, '');
+  if (cleaned.length > 0 && !cleaned.startsWith('04')) {
+    if (cleaned === '0' || cleaned.startsWith('04')) {
+      // allow
+    } else {
+      return '';
+    }
+  }
+  if (cleaned.length > 10) cleaned = cleaned.substring(0, 10);
+  if (cleaned.length > 6) return `${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7)}`;
+  if (cleaned.length > 4) return `${cleaned.substring(0, 4)} ${cleaned.substring(4)}`;
+  return cleaned;
+};
+
+// Convert DB format (+614XXXXXXXX) → display format (04XX XXX XXX)
+const denormalizePhoneNumber = (phone: string): string => {
+  if (!phone?.trim()) return '';
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.startsWith('614') && cleaned.length === 11) {
+    return formatAustralianPhone(`0${cleaned.substring(2)}`);
+  }
+  if (cleaned.startsWith('04') && cleaned.length === 10) {
+    return formatAustralianPhone(cleaned);
+  }
+  return phone;
+};
+
+// Convert display format (04XX XXX XXX) → DB format (+614XXXXXXXX)
+const normalizePhoneNumber = (phone: string): string => {
+  if (!phone?.trim()) return '';
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.startsWith('04') && cleaned.length === 10) {
+    return `+61${cleaned.substring(1)}`;
+  }
+  return phone;
+};
+
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
   const [formData, setFormData] = useState({
@@ -17,6 +56,7 @@ export default function ProfilePage() {
     state: '',
     postcode: '',
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
@@ -29,7 +69,7 @@ export default function ProfilePage() {
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         email: user.email || '',
-        phone: user.phone || '',
+        phone: denormalizePhoneNumber((user as any).phone || ''),
         address: user.metadata?.address || '',
         streetAddress: user.metadata?.streetAddress || '',
         city: user.metadata?.city || '',
@@ -76,14 +116,27 @@ export default function ProfilePage() {
     }
   };
 
+  const validatePhone = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    if (formData.phone.trim()) {
+      const cleaned = formData.phone.replace(/\D/g, '');
+      if (cleaned.length !== 10 || !cleaned.startsWith('04')) {
+        newErrors.phone = 'Please enter a valid Australian mobile number (04XX XXX XXX)';
+      }
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validatePhone()) return;
     setSaving(true);
     try {
       await api.users.updateProfile({
         firstName: formData.firstName,
         lastName: formData.lastName,
-        phone: formData.phone,
+        phone: formData.phone.trim() ? normalizePhoneNumber(formData.phone) : '',
         metadata: {
           address: formData.address,
           streetAddress: formData.streetAddress,
@@ -149,9 +202,20 @@ export default function ProfilePage() {
             <input
               type="tel"
               value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              onChange={(e) => {
+                setFormData({ ...formData, phone: formatAustralianPhone(e.target.value) });
+                if (errors.phone) setErrors({ ...errors, phone: '' });
+              }}
+              placeholder="04XX XXX XXX"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 ${
+                errors.phone ? 'border-red-500' : 'border-gray-300'
+              }`}
             />
+            {errors.phone ? (
+              <p className="mt-1 text-xs text-red-600">{errors.phone}</p>
+            ) : (
+              <p className="mt-1 text-xs text-gray-500">Enter your Australian mobile number (04XX XXX XXX)</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Address (Optional)</label>
