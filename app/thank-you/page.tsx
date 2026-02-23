@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,6 +15,7 @@ function ThankYouContent() {
   const [membership, setMembership] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [redirectDrawId, setRedirectDrawId] = useState<string | null>(null);
+  const hasRefreshedOnce = useRef(false);
 
   // Format AUD currency - Always use A$ prefix
   const formatAUD = (amount: number | string) => {
@@ -39,32 +40,35 @@ function ThankYouContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentId]);
 
+  // Refresh user + membership only ONCE after we have user/token (avoid infinite loop)
   useEffect(() => {
-    // Check if user is logged in (either from context or localStorage token)
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    
-    if (user || token) {
-      // User is logged in - refresh user data to get updated membership and credits
-      if (user) {
-        fetchMembership();
-        refreshUser(); // Refresh user to get updated credits
-        
-        // Auto-redirect to draw if drawId exists and user is now logged in
-        if (redirectDrawId && membership?.status === 'active') {
-          // Small delay to ensure everything is loaded
-          setTimeout(() => {
-            if (typeof window !== 'undefined') {
-              sessionStorage.removeItem('redirectDrawId');
-            }
-            router.push(`/giveaways/${redirectDrawId}`);
-          }, 2000); // 2 second delay to show thank you message
-        }
-      } else if (token) {
-        // Token exists but user not in context - refresh user
-        refreshUser();
-      }
-    }
-  }, [user, membership, redirectDrawId, router, refreshUser]);
+    if (!user && !token) return;
+    if (hasRefreshedOnce.current) return;
+    hasRefreshedOnce.current = true;
+
+    const run = async () => {
+      try {
+        await refreshUser();
+      } catch (_) {}
+    };
+    run();
+  }, [refreshUser]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchMembership();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!redirectDrawId || membership?.status !== 'active') return;
+    const t = setTimeout(() => {
+      if (typeof window !== 'undefined') sessionStorage.removeItem('redirectDrawId');
+      router.push(`/giveaways/${redirectDrawId}`);
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [redirectDrawId, membership?.status, router]);
 
   const fetchPaymentDetails = async () => {
     try {

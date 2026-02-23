@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import api from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import { getDeviceFingerprint } from '@/lib/deviceFingerprint';
@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData);
   };
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     if (token) {
       await fetchUser(token);
     } else if (typeof window !== 'undefined') {
@@ -128,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await fetchUser(storedToken);
       }
     }
-  };
+  }, [token]);
 
   return (
     <AuthContext.Provider value={{ user, token, loading, login, logout, setAuth, refreshUser }}>
