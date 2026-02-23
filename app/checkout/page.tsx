@@ -365,25 +365,43 @@ function CheckoutContent() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Shared: create payment intent (used by Continue to Pay and by Step 2 pack change)
+  const createPaymentIntent = async (plan: any, pack: any) => {
+    const normalizedPhone = normalizePhoneNumber(formData.phone);
+    if (plan) {
+      const res = await api.payments.createMembershipPaymentIntent({
+        planId: plan.id,
+        boostPackId: pack?.id || undefined,
+        customerEmail: formData.email,
+        customerName: `${formData.firstName} ${formData.lastName}`.trim(),
+        customerPhone: normalizedPhone,
+        promoCode: promoCodeValid?.valid ? promoCode.trim() : undefined,
+      });
+      return res;
+    }
+    if (pack) {
+      return await api.payments.createBoostPackPaymentIntent({
+        boostPackId: pack.id,
+        customerEmail: formData.email,
+        customerName: `${formData.firstName} ${formData.lastName}`.trim(),
+        customerPhone: normalizedPhone,
+        promoCode: promoCodeValid?.valid ? promoCode.trim() : undefined,
+      });
+    }
+    return null;
+  };
+
   const handleContinueToPayment = async () => {
     if (!validateInfo()) return;
-    
-    // Prevent double-click
     if (isProcessingPayment) return;
-
-    // Case 1 & 3: Must select membership if buying boost
     if (requiresMembership && !selectedPlan) {
       setErrors({ membership: 'Please select a membership plan to continue' });
       return;
     }
-
-    // Case 4: Active member buying boost only - no plan needed
     if (skipPlanSelection && !selectedPack) {
       alert('Please select a boost pack');
       return;
     }
-
-    // Must have at least plan or pack
     if (!selectedPlan && !selectedPack) {
       alert('Please select a membership plan or boost pack');
       return;
@@ -391,34 +409,9 @@ function CheckoutContent() {
 
     setPaymentError(null);
     setLoading(true);
-    setIsProcessingPayment(true); // Prevent double-click
-
-    // Normalize phone number before sending (required field)
-    const normalizedPhone = normalizePhoneNumber(formData.phone);
-
+    setIsProcessingPayment(true);
     try {
-      let response;
-      if (selectedPlan) {
-        // Create membership payment intent (includes upgrade if different plan)
-        response = await api.payments.createMembershipPaymentIntent({
-          planId: selectedPlan.id,
-          boostPackId: selectedPack?.id || undefined,
-          customerEmail: formData.email,
-          customerName: `${formData.firstName} ${formData.lastName}`.trim(),
-          customerPhone: normalizedPhone,
-          promoCode: promoCodeValid?.valid ? promoCode.trim() : undefined,
-        });
-      } else if (selectedPack) {
-        // Create boost pack payment intent (Case 4: active member buying boost only)
-        response = await api.payments.createBoostPackPaymentIntent({
-          boostPackId: selectedPack.id,
-          customerEmail: formData.email,
-          customerName: `${formData.firstName} ${formData.lastName}`.trim(),
-          customerPhone: normalizedPhone,
-          promoCode: promoCodeValid?.valid ? promoCode.trim() : undefined,
-        });
-      }
-
+      const response = await createPaymentIntent(selectedPlan, selectedPack);
       if (response?.data?.clientSecret) {
         intentPackIdRef.current = selectedPack?.id ?? null;
         setClientSecret(response.data.clientSecret);
@@ -428,69 +421,44 @@ function CheckoutContent() {
         setPaymentError('Failed to initialize payment. Please try again.');
       }
     } catch (error: any) {
-      console.error('Error creating payment intent:', error);
-      const errorMessage = error?.response?.data?.message || 'Failed to initialize payment. Please try again.';
-      setPaymentError(errorMessage);
-      
-      // If rate limit error, show user-friendly message
-      if (errorMessage.includes('Too Many Requests') || errorMessage.includes('ThrottlerException')) {
-        setPaymentError('Too many requests. Please wait a moment and try again.');
-      }
+      const msg = error?.response?.data?.message || 'Failed to initialize payment. Please try again.';
+      setPaymentError(msg.includes('Throttler') ? 'Too many requests. Please wait a moment and try again.' : msg);
     } finally {
       setLoading(false);
-      setIsProcessingPayment(false); // Re-enable button
+      setIsProcessingPayment(false);
     }
   };
 
-  // Recreate payment intent when user selects/changes Boost Pack in Step 2 (order summary)
-  useEffect(() => {
+  // Called when user selects/changes Boost Pack in Step 2 - recreate intent immediately
+  const handlePackChangeInStep2 = async (newPack: any) => {
+    const packId = newPack?.id ?? null;
+    if (packId === intentPackIdRef.current) {
+      setSelectedPack(newPack);
+      return;
+    }
+    setSelectedPack(newPack);
     if (step !== 'pay' || !clientSecret) return;
-    const currentPackId = selectedPack?.id ?? null;
-    if (currentPackId === intentPackIdRef.current) return;
-    if (!selectedPlan && !selectedPack) return;
-
-    const recreateIntent = async () => {
-      const prevPackId = intentPackIdRef.current;
-      intentPackIdRef.current = currentPackId;
-      setClientSecret(null);
-      setPaymentId(null);
-      setPaymentError(null);
-      setIsProcessingPayment(true);
-      const normalizedPhone = normalizePhoneNumber(formData.phone);
-      try {
-        let response;
-        if (selectedPlan) {
-          response = await api.payments.createMembershipPaymentIntent({
-            planId: selectedPlan.id,
-            boostPackId: selectedPack?.id || undefined,
-            customerEmail: formData.email,
-            customerName: `${formData.firstName} ${formData.lastName}`.trim(),
-            customerPhone: normalizedPhone,
-            promoCode: promoCodeValid?.valid ? promoCode.trim() : undefined,
-          });
-        } else if (selectedPack) {
-          response = await api.payments.createBoostPackPaymentIntent({
-            boostPackId: selectedPack.id,
-            customerEmail: formData.email,
-            customerName: `${formData.firstName} ${formData.lastName}`.trim(),
-            customerPhone: normalizedPhone,
-            promoCode: promoCodeValid?.valid ? promoCode.trim() : undefined,
-          });
-        }
-        if (response?.data?.clientSecret) {
-          setClientSecret(response.data.clientSecret);
-          setPaymentId(response.data.paymentId);
-        }
-      } catch (error: any) {
-        setPaymentError(error?.response?.data?.message || 'Failed to update payment. Please try again.');
-        intentPackIdRef.current = prevPackId;
-        setStep('info');
-      } finally {
-        setIsProcessingPayment(false);
+    setClientSecret(null);
+    setPaymentId(null);
+    setPaymentError(null);
+    setIsProcessingPayment(true);
+    intentPackIdRef.current = packId;
+    try {
+      const response = await createPaymentIntent(selectedPlan, newPack);
+      if (response?.data?.clientSecret) {
+        setClientSecret(response.data.clientSecret);
+        setPaymentId(response.data.paymentId);
+      } else {
+        setPaymentError('Failed to update payment. Please try again.');
       }
-    };
-    recreateIntent();
-  }, [step, selectedPack?.id, selectedPlan?.id]);
+    } catch (error: any) {
+      setPaymentError(error?.response?.data?.message || 'Failed to update payment. Please try again.');
+      intentPackIdRef.current = selectedPack?.id ?? null;
+      setStep('info');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
 
   // Calculate discount amount if promo code is valid
   const discountAmount = promoCodeValid?.valid && promoCodeValid.discount 
@@ -860,7 +828,7 @@ function CheckoutContent() {
                           .map((pack: any) => (
                             <div
                               key={pack.id}
-                              onClick={() => setSelectedPack(selectedPack?.id === pack.id ? null : pack)}
+                              onClick={() => handlePackChangeInStep2(selectedPack?.id === pack.id ? null : pack)}
                               className={`p-4 border-2 rounded-lg cursor-pointer transition relative ${
                                 selectedPack?.id === pack.id
                                   ? 'border-purple-500 bg-purple-50'
@@ -957,7 +925,7 @@ function CheckoutContent() {
                         .map((pack: any) => (
                         <div
                           key={pack.id}
-                          onClick={() => setSelectedPack(selectedPack?.id === pack.id ? null : pack)}
+                          onClick={() => handlePackChangeInStep2(selectedPack?.id === pack.id ? null : pack)}
                           className={`p-4 border-2 rounded-lg cursor-pointer transition relative ${
                             selectedPack?.id === pack.id
                               ? 'border-purple-500 bg-purple-50'
@@ -1037,7 +1005,7 @@ function CheckoutContent() {
                         .map((pack: any) => (
                         <div
                           key={pack.id}
-                          onClick={() => setSelectedPack(selectedPack?.id === pack.id ? null : pack)}
+                          onClick={() => handlePackChangeInStep2(selectedPack?.id === pack.id ? null : pack)}
                           className={`p-4 border-2 rounded-lg cursor-pointer transition relative ${
                             selectedPack?.id === pack.id
                               ? 'border-purple-500 bg-purple-50'
