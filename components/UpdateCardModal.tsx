@@ -27,19 +27,22 @@ function UpdateCardForm({
     if (!stripe || !elements) return;
     setLoading(true);
     try {
-      const { error, setupIntent } = await stripe.confirmSetup({
+      const result = await stripe.confirmSetup({
         elements,
-        confirmParams: {},
+        confirmParams: {
+          return_url: typeof window !== 'undefined' ? window.location.href : '',
+        },
       });
-      if (error) {
-        onError(error.message || 'Setup failed');
+      if (result.error) {
+        onError(result.error.message || 'Setup failed');
         setLoading(false);
         return;
       }
+      const si = 'setupIntent' in result ? result.setupIntent : null;
       const paymentMethodId =
-        typeof setupIntent?.payment_method === 'string'
-          ? setupIntent.payment_method
-          : (setupIntent?.payment_method as any)?.id;
+        si && (typeof (si as any).payment_method === 'string')
+          ? (si as any).payment_method
+          : (si as any)?.payment_method?.id;
       if (!paymentMethodId) {
         onError('Could not get payment method');
         setLoading(false);
@@ -59,7 +62,6 @@ function UpdateCardForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       <PaymentElement
         options={{
-          layout: 'tiled',
           wallets: { applePay: 'never', googlePay: 'never' },
         }}
       />
