@@ -29,6 +29,10 @@ function CheckoutContent() {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const intentPackIdRef = useRef<string | null>(null);
+  const selectedPlanRef = useRef<any>(null);
+  const selectedPackRef = useRef<any>(null);
+  selectedPlanRef.current = selectedPlan;
+  selectedPackRef.current = selectedPack;
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -369,17 +373,31 @@ function CheckoutContent() {
   const createPaymentIntent = async (plan: any, pack: any) => {
     const normalizedPhone = normalizePhoneNumber(formData.phone);
     if (plan) {
-      const res = await api.payments.createMembershipPaymentIntent({
+      const payload = {
         planId: plan.id,
         boostPackId: pack?.id || undefined,
         customerEmail: formData.email,
         customerName: `${formData.firstName} ${formData.lastName}`.trim(),
         customerPhone: normalizedPhone,
         promoCode: promoCodeValid?.valid ? promoCode.trim() : undefined,
+      };
+      console.log('[Checkout] createMembershipPaymentIntent → sending to API', payload);
+      const res = await api.payments.createMembershipPaymentIntent({
+        planId: payload.planId,
+        boostPackId: payload.boostPackId,
+        customerEmail: payload.customerEmail,
+        customerName: payload.customerName,
+        customerPhone: payload.customerPhone,
+        promoCode: payload.promoCode,
       });
       return res;
     }
     if (pack) {
+      console.log('[Checkout] createBoostPackPaymentIntent → sending to API', {
+        boostPackId: pack.id,
+        customerEmail: formData.email,
+        customerName: `${formData.firstName} ${formData.lastName}`.trim(),
+      });
       return await api.payments.createBoostPackPaymentIntent({
         boostPackId: pack.id,
         customerEmail: formData.email,
@@ -438,13 +456,22 @@ function CheckoutContent() {
     }
     setSelectedPack(newPack);
     if (step !== 'pay' || !clientSecret) return;
+
+    const planToSend = selectedPlanRef.current;
+    const packToSend = newPack;
+    console.log('[Checkout] Step 2 pack change → recreating intent', {
+      planId: planToSend?.id ?? null,
+      boostPackId: packToSend?.id ?? null,
+      from: 'handlePackChangeInStep2',
+    });
+
     setClientSecret(null);
     setPaymentId(null);
     setPaymentError(null);
     setIsProcessingPayment(true);
     intentPackIdRef.current = packId;
     try {
-      const response = await createPaymentIntent(selectedPlan, newPack);
+      const response = await createPaymentIntent(planToSend, packToSend);
       if (response?.data?.clientSecret) {
         setClientSecret(response.data.clientSecret);
         setPaymentId(response.data.paymentId);
@@ -453,7 +480,7 @@ function CheckoutContent() {
       }
     } catch (error: any) {
       setPaymentError(error?.response?.data?.message || 'Failed to update payment. Please try again.');
-      intentPackIdRef.current = selectedPack?.id ?? null;
+      intentPackIdRef.current = selectedPackRef.current?.id ?? null;
       setStep('info');
     } finally {
       setIsProcessingPayment(false);
