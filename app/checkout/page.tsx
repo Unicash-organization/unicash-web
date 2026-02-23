@@ -442,22 +442,41 @@ function CheckoutContent() {
     }
   };
 
-  // Chọn Boost Pack.
-  // - Ở Step 1 (info): chỉ set selectedPack, intent sẽ lấy theo state hiện tại khi bấm Continue.
-  // - Ở Step 2 (pay): không cho đổi pack nữa để tránh reset form thẻ (Stripe phải tạo intent mới nếu đổi số tiền).
   const handlePackChangeInStep2 = async (newPack: any) => {
     const packId = newPack?.id ?? null;
     if (packId === intentPackIdRef.current) {
       setSelectedPack(newPack);
       return;
     }
-    // Step 2: chặn đổi pack để không reset thông tin thẻ
-    if (step === 'pay') {
-      alert('To change your Boost Pack, please go back to Step 1 (Info). Card details will then be kept.');
-      return;
-    }
-    // Step 1: chỉ cần set state, intent sẽ dùng state hiện tại khi bấm Continue
     setSelectedPack(newPack);
+
+    // Step 1: chỉ cập nhật state, intent sẽ dùng state hiện tại khi bấm Continue
+    if (step !== 'pay' || !clientSecret) return;
+
+    // Step 2: cho phép đổi Boost Pack, chấp nhận phải tạo intent mới (và reset form thẻ)
+    const planToSend = selectedPlanRef.current;
+    const packToSend = newPack;
+
+    setClientSecret(null);
+    setPaymentId(null);
+    setPaymentError(null);
+    setIsProcessingPayment(true);
+    intentPackIdRef.current = packId;
+
+    try {
+      const response = await createPaymentIntent(planToSend, packToSend);
+      if (response?.data?.clientSecret) {
+        setClientSecret(response.data.clientSecret);
+        setPaymentId(response.data.paymentId);
+      } else {
+        setPaymentError('Failed to update payment. Please try again.');
+      }
+    } catch (error: any) {
+      setPaymentError(error?.response?.data?.message || 'Failed to update payment. Please try again.');
+      setStep('info');
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   // Calculate discount amount if promo code is valid
