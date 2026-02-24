@@ -21,9 +21,11 @@ interface StripeCheckoutFormProps {
   amount: number;
   currency?: string;
   buttonText?: string;
+  /** When set, user pays with this saved card (no PaymentElement). Only used when logged in and has saved cards. */
+  savedPaymentMethod?: { id: string; brand: string; last4: string } | null;
 }
 
-function CheckoutForm({ clientSecret, paymentId, amount, currency = 'AUD', buttonText = 'Pay and Start Membership' }: StripeCheckoutFormProps) {
+function CheckoutForm({ clientSecret, paymentId, amount, currency = 'AUD', buttonText = 'Pay and Start Membership', savedPaymentMethod = null }: StripeCheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const { setAuth, user, refreshUser } = useAuth();
@@ -165,15 +167,55 @@ function CheckoutForm({ clientSecret, paymentId, amount, currency = 'AUD', butto
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!stripe || !elements) {
-      return;
-    }
+    if (!stripe) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      // Confirm payment
+      // Pay with saved card: confirm with existing payment method
+      if (savedPaymentMethod) {
+        const { error: confirmError } = await stripe.confirmCardPayment(clientSecret, {
+          payment_method: savedPaymentMethod.id,
+        }, { handleActions: false });
+
+        if (confirmError) {
+          let errorMessage = confirmError.message || 'Payment failed';
+          if (confirmError.code === 'card_declined') {
+            errorMessage = 'Your card was declined. Please try a different payment method or contact your bank.';
+          } else if (confirmError.code === 'insufficient_funds') {
+            errorMessage = 'Insufficient funds. Please use a different card or add funds to your account.';
+          } else if (confirmError.code === 'expired_card') {
+            errorMessage = 'Your card has expired. Please use a different card.';
+          }
+          setError(errorMessage);
+          setLoading(false);
+          return;
+        }
+
+        const confirmResponse = await api.payments.confirmPayment(paymentId);
+        if (confirmResponse.data.success && confirmResponse.data.user) {
+          const existingToken = localStorage.getItem('token');
+          if (existingToken) {
+            await refreshUser();
+            router.push(`/thank-you?paymentId=${paymentId}`);
+          } else if (confirmResponse.data.token) {
+            setAuth(confirmResponse.data.token, confirmResponse.data.user);
+            router.push(`/thank-you?paymentId=${paymentId}`);
+          } else {
+            router.push(`/thank-you?paymentId=${paymentId}`);
+          }
+        } else {
+          router.push(`/thank-you?paymentId=${paymentId}`);
+        }
+        return;
+      }
+
+      // New card: use PaymentElement
+      if (!elements) {
+        setLoading(false);
+        return;
+      }
       const { error: submitError } = await elements.submit();
       if (submitError) {
         setError(submitError.message || 'An error occurred');
@@ -181,14 +223,9 @@ function CheckoutForm({ clientSecret, paymentId, amount, currency = 'AUD', butto
         return;
       }
 
-      // Prepare confirmParams - PaymentElement will handle payment method creation
       const confirmParams: any = {
         return_url: `${window.location.origin}/checkout/success?payment_id=${paymentId}`,
       };
-
-      // Note: We don't pass payment_method_data here because PaymentElement
-      // automatically creates the payment method when submitted.
-      // The billing details are already collected/pre-filled via defaultValues.
 
       const { error: confirmError } = await stripe.confirmPayment({
         elements,
@@ -284,7 +321,16 @@ function CheckoutForm({ clientSecret, paymentId, amount, currency = 'AUD', butto
       {/* Payment Section */}
       <div>
         <h2 className="text-lg font-semibold mb-4">Payment</h2>
-        
+
+        {/* Saved card: show label only, no PaymentElement */}
+        {savedPaymentMethod ? (
+          <div className="p-4 border-2 border-purple-500 bg-purple-50 rounded-lg mb-4">
+            <p className="font-medium text-gray-900">
+              Paying with {savedPaymentMethod.brand.toUpperCase()} •••• {savedPaymentMethod.last4}
+            </p>
+          </div>
+        ) : (
+        <>
         {/* Apple Pay and Google Pay Buttons */}
         {paymentRequest && (paymentMethodsAvailable.applePay || paymentMethodsAvailable.googlePay) && (
           <div className="grid grid-cols-2 gap-3 mb-4">
@@ -362,6 +408,8 @@ function CheckoutForm({ clientSecret, paymentId, amount, currency = 'AUD', butto
             />
           </div>
         )}
+        </>
+        )}
       </div>
       
       {error && (
@@ -383,7 +431,7 @@ function CheckoutForm({ clientSecret, paymentId, amount, currency = 'AUD', butto
 
       <button
         type="submit"
-        disabled={!stripe || loading || selectedPaymentMethod !== 'card'}
+        disabled={!stripe || loading || (!savedPaymentMethod && selectedPaymentMethod !== 'card')}
         className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-4 rounded-lg hover:from-purple-700 hover:to-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? 'Processing...' : buttonText}
@@ -410,12 +458,13 @@ function CheckoutForm({ clientSecret, paymentId, amount, currency = 'AUD', butto
   );
 }
 
-interface StripeCheckoutFormWrapperProps {
+export interface StripeCheckoutFormWrapperProps {
   clientSecret: string;
   paymentId: string;
   amount: number;
   currency?: string;
   buttonText?: string;
+  savedPaymentMethod?: { id: string; brand: string; last4: string } | null;
 }
 
 export default function StripeCheckoutFormWrapper({
@@ -424,6 +473,7 @@ export default function StripeCheckoutFormWrapper({
   amount,
   currency = 'AUD',
   buttonText,
+  savedPaymentMethod = null,
 }: StripeCheckoutFormWrapperProps) {
   const options: StripeElementsOptions = {
     clientSecret,
@@ -451,6 +501,7 @@ export default function StripeCheckoutFormWrapper({
         amount={amount}
         currency={currency}
         buttonText={buttonText}
+        savedPaymentMethod={savedPaymentMethod}
       />
     </Elements>
   );

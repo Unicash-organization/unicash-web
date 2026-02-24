@@ -28,6 +28,8 @@ function CheckoutContent() {
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [savedCards, setSavedCards] = useState<{ id: string; brand: string; last4: string; exp_month: number; exp_year: number; isDefault: boolean }[]>([]);
+  const [payWithSavedId, setPayWithSavedId] = useState<string | null>(null);
   const intentPackIdRef = useRef<string | null>(null);
   const selectedPlanRef = useRef<any>(null);
   const selectedPackRef = useRef<any>(null);
@@ -311,6 +313,27 @@ function CheckoutContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPlan?.id, selectedPack?.id]);
+
+  // Load saved payment methods when user is logged in (for "pay with saved card" on step 2)
+  useEffect(() => {
+    if (!user) {
+      setSavedCards([]);
+      setPayWithSavedId(null);
+      return;
+    }
+    api.payments
+      .listPaymentMethods()
+      .then((res) => {
+        const list = Array.isArray(res.data) ? res.data : [];
+        setSavedCards(list);
+        const defaultCard = list.find((c) => c.isDefault) ?? list[0];
+        setPayWithSavedId(defaultCard?.id ?? null);
+      })
+      .catch(() => {
+        setSavedCards([]);
+        setPayWithSavedId(null);
+      });
+  }, [user?.id]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -801,13 +824,62 @@ function CheckoutContent() {
               )}
               {step === 'pay' && clientSecret && paymentId && (
                 <div>
+                  {savedCards.length > 0 && (
+                    <div className="mb-6">
+                      <h2 className="text-lg font-semibold mb-3">Payment method</h2>
+                      <div className="space-y-2">
+                        {savedCards.map((card) => (
+                          <label
+                            key={card.id}
+                            className={`flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition ${
+                              payWithSavedId === card.id ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="payWithCard"
+                              checked={payWithSavedId === card.id}
+                              onChange={() => setPayWithSavedId(card.id)}
+                              className="text-purple-600 focus:ring-purple-500"
+                            />
+                            <span className="font-medium text-gray-900">
+                              {card.brand.toUpperCase()} •••• {card.last4}
+                              {card.isDefault && <span className="ml-2 text-xs text-purple-600 font-normal">(Default)</span>}
+                            </span>
+                          </label>
+                        ))}
+                        <label
+                          className={`flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition ${
+                            payWithSavedId === null ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="payWithCard"
+                            checked={payWithSavedId === null}
+                            onChange={() => setPayWithSavedId(null)}
+                            className="text-purple-600 focus:ring-purple-500"
+                          />
+                          <span className="font-medium text-gray-900">Use a new card</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
                   <StripeCheckoutForm
-                    key={`${user?.id || 'guest'}-${paymentId}`}
+                    key={`${user?.id || 'guest'}-${paymentId}-${payWithSavedId ?? 'new'}`}
                     clientSecret={clientSecret}
                     paymentId={paymentId}
                     amount={totalAmount}
                     currency="AUD"
                     buttonText={selectedPlan ? 'Pay and Start Membership' : 'Complete Payment'}
+                    savedPaymentMethod={
+                      payWithSavedId
+                        ? (() => {
+                            const c = savedCards.find((x) => x.id === payWithSavedId);
+                            return c ? { id: c.id, brand: c.brand, last4: c.last4 } : null;
+                          })()
+                        : null
+                    }
                   />
 
                   <button
