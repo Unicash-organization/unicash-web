@@ -57,6 +57,27 @@ export default function EntriesPage() {
     return formatSydneyDateOnly(date);
   };
 
+  // Group entries by same draw + source + date (day) so we show one row with Count
+  const dayKey = (d: string | Date) => new Date(d).toISOString().slice(0, 10);
+  const groupedEntries = React.useMemo(() => {
+    const groups = new Map<string, any[]>();
+    for (const entry of entries) {
+      const key = `${entry.drawId ?? ''}-${entry.source ?? ''}-${dayKey(entry.createdAt)}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(entry);
+    }
+    return Array.from(groups.entries()).map(([key, groupItems]) => ({
+      key,
+      drawId: groupItems[0]?.drawId,
+      draw: groupItems[0]?.draw,
+      source: groupItems[0]?.source,
+      creditsSpent: groupItems[0]?.creditsSpent ?? 0,
+      date: formatDate(groupItems[0]?.createdAt),
+      count: groupItems.length,
+      orderNoSample: groupItems.length === 1 ? groupItems[0].orderNo : null,
+    }));
+  }, [entries]);
+
   return (
     <div>
       <h1 className="text-3xl font-bold text-gray-900 mb-8">My Entries</h1>
@@ -82,33 +103,37 @@ export default function EntriesPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Credits</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Count</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {entries.map((entry: any) => (
-                  <tr key={entry.id}>
+                {groupedEntries.map((row) => (
+                  <tr key={row.key}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {entry.orderNo}
+                      {row.orderNoSample ?? '—'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {entry.draw?.title || 'N/A'}
+                      {row.draw?.title || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {entry.creditsSpent}
+                      {row.creditsSpent}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        entry.source === 'membership_credit' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                        row.source === 'membership_credit' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
                       }`}>
-                        {entry.source === 'membership_credit' ? 'Membership' : entry.source === 'boost_credit' ? 'Boost' : entry.source}
+                        {row.source === 'membership_credit' ? 'Membership' : row.source === 'boost_credit' ? 'Boost' : row.source}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {formatDate(entry.createdAt)}
+                      {row.date}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {row.count}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <Link href={`/giveaways/${entry.drawId}`}>
+                      <Link href={`/giveaways/${row.drawId}`}>
                         <button className="text-purple-600 hover:text-purple-900">View Draw</button>
                       </Link>
                     </td>

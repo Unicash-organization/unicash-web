@@ -33,8 +33,11 @@ function CheckoutContent() {
   const intentPackIdRef = useRef<string | null>(null);
   const selectedPlanRef = useRef<any>(null);
   const selectedPackRef = useRef<any>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
   selectedPlanRef.current = selectedPlan;
   selectedPackRef.current = selectedPack;
+
+  const [showEmailExistsModal, setShowEmailExistsModal] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -444,6 +447,20 @@ function CheckoutContent() {
     }
 
     setPaymentError(null);
+
+    // When not logged in, check if email is already registered
+    if (isNewUser && formData.email?.trim()) {
+      try {
+        const checkRes = await api.auth.checkEmail(formData.email.trim());
+        if (checkRes.data?.exists) {
+          setShowEmailExistsModal(true);
+          return;
+        }
+      } catch {
+        // On error, proceed (e.g. network issue)
+      }
+    }
+
     setLoading(true);
     setIsProcessingPayment(true);
     try {
@@ -678,6 +695,7 @@ function CheckoutContent() {
                         Email *
                       </label>
                       <input
+                        ref={emailInputRef}
                         type="email"
                         name="email"
                         value={formData.email}
@@ -1195,6 +1213,45 @@ function CheckoutContent() {
         </div>
       </div>
       </div>
+
+      {/* Email already registered modal */}
+      {showEmailExistsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">This email is already registered</h2>
+              <p className="text-gray-600 mb-6">
+                It looks like you already have a UNICASH account with this email. Log in to continue.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => router.push('/login')}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition"
+                >
+                  Log in
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData((prev) => ({ ...prev, email: '' }));
+                    setShowEmailExistsModal(false);
+                    setTimeout(() => emailInputRef.current?.focus(), 0);
+                  }}
+                  className="flex-1 px-4 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition"
+                >
+                  Use a different email
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

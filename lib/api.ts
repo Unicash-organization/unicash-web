@@ -52,6 +52,8 @@ export const api = {
       apiClient.post('/auth/login', { email, password, deviceId }),
     register: (data: any) => 
       apiClient.post('/auth/register', data),
+    checkEmail: (email: string) => 
+      apiClient.post<{ exists: boolean }>('/auth/check-email', { email }),
     me: () => 
       apiClient.get('/auth/me'),
     // Social Login
