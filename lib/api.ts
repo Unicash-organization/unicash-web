@@ -85,8 +85,15 @@ export const api = {
 
   // Draws
   draws: {
-    getAll: (userId?: string) => {
-      const params = userId ? { userId } : {};
+    getAll: (arg?: string | { userId?: string; includeMajor?: boolean; includeFuture?: boolean }) => {
+      let params: any = {};
+      if (typeof arg === 'string') {
+        if (arg) params.userId = arg;
+      } else if (arg) {
+        if (arg.userId) params.userId = arg.userId;
+        if (arg.includeMajor) params.excludeMajorDraws = 'false';
+        if (arg.includeFuture) params.skipDateFilter = 'true';
+      }
       return apiClient.get('/draws', { params });
     },
     get: (id: string, userId?: string) => {

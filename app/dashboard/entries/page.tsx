@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 import Link from 'next/link';
@@ -9,6 +9,9 @@ export default function EntriesPage() {
   const { user } = useAuth();
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'mini' | 'major'>('mini');
+  const [search, setSearch] = useState('');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
   useEffect(() => {
     if (user) {
@@ -59,7 +62,7 @@ export default function EntriesPage() {
 
   // Group entries by same draw + source + date (day) so we show one row with Count
   const dayKey = (d: string | Date) => new Date(d).toISOString().slice(0, 10);
-  const groupedEntries = React.useMemo(() => {
+  const groupedEntries = useMemo(() => {
     const groups = new Map<string, any[]>();
     for (const entry of entries) {
       const key = `${entry.drawId ?? ''}-${entry.source ?? ''}-${dayKey(entry.createdAt)}`;
@@ -70,13 +73,36 @@ export default function EntriesPage() {
       key,
       drawId: groupItems[0]?.drawId,
       draw: groupItems[0]?.draw,
+      drawType: groupItems[0]?.draw?.drawType || null,
       source: groupItems[0]?.source,
       creditsSpent: groupItems[0]?.creditsSpent ?? 0,
       date: formatDate(groupItems[0]?.createdAt),
+      createdAtRaw: new Date(groupItems[0]?.createdAt).getTime() || 0,
       count: groupItems.length,
       orderNoSample: groupItems.length === 1 ? groupItems[0].orderNo : null,
     }));
   }, [entries]);
+
+  const visibleEntries = useMemo(() => {
+    const searchLower = search.trim().toLowerCase();
+    return groupedEntries
+      .filter((row) =>
+        activeTab === 'mini'
+          ? row.drawType === 'mini'
+          : row.drawType === 'major',
+      )
+      .filter((row) => {
+        if (!searchLower) return true;
+        const title = row.draw?.title?.toLowerCase() || '';
+        const order = row.orderNoSample?.toLowerCase() || '';
+        return title.includes(searchLower) || order.includes(searchLower);
+      })
+      .sort((a, b) =>
+        sortOrder === 'newest'
+          ? b.createdAtRaw - a.createdAtRaw
+          : a.createdAtRaw - b.createdAtRaw,
+      );
+  }, [groupedEntries, activeTab, search, sortOrder]);
 
   return (
     <div>
@@ -95,6 +121,49 @@ export default function EntriesPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
+            <div className="flex items-center justify-between px-6 pt-4 pb-2">
+              <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('mini')}
+                  className={`px-3 py-1 text-sm font-medium rounded-md ${
+                    activeTab === 'mini'
+                      ? 'bg-white text-gray-900 shadow'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  Mini Draw
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('major')}
+                  className={`ml-1 px-3 py-1 text-sm font-medium rounded-md ${
+                    activeTab === 'major'
+                      ? 'bg-white text-gray-900 shadow'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  Major Draw
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by draw or order no..."
+                  className="w-56 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                />
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                >
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                </select>
+              </div>
+            </div>
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -108,7 +177,17 @@ export default function EntriesPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {groupedEntries.map((row) => (
+                {visibleEntries.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-6 py-6 text-center text-sm text-gray-500"
+                    >
+                      No entries found for this tab/search.
+                    </td>
+                  </tr>
+                ) : (
+                  visibleEntries.map((row) => (
                   <tr key={row.key}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {row.orderNoSample ?? '—'}
@@ -138,7 +217,7 @@ export default function EntriesPage() {
                       </Link>
                     </td>
                   </tr>
-                ))}
+                )))}
               </tbody>
             </table>
           </div>

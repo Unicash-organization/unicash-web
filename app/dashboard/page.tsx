@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
@@ -16,6 +16,8 @@ export default function DashboardPage() {
   const [entries, setEntries] = useState<any[]>([]);
   const [creditLedger, setCreditLedger] = useState<any[]>([]);
   const [activeDraws, setActiveDraws] = useState<any[]>([]);
+  const [activeEntriesTab, setActiveEntriesTab] = useState<'mini' | 'major'>('mini');
+  const [activeEntriesPage, setActiveEntriesPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [showMembershipModal, setShowMembershipModal] = useState(false);
   const [fixingPayment, setFixingPayment] = useState(false);
@@ -89,26 +91,56 @@ export default function DashboardPage() {
         api.payments.getPaymentsByUserId(user?.id || '').catch(() => ({ data: [] })),
         api.entries.getUserEntries().catch(() => ({ data: [] })),
         api.users.getCreditLedger().catch(() => ({ data: [] })),
-        api.draws.getAll(user?.id).catch(() => ({ data: [] })), // Pass userId for early access filtering
+        api.draws
+          .getAll({ userId: user?.id, includeMajor: true, includeFuture: true })
+          .catch(() => ({ data: [] })), // Include Major Draws and future draws for dashboard
       ]);
 
-      setMembership(membershipRes.data);
+      let currentMembership = membershipRes.data;
+      setMembership(currentMembership);
       setPayments(paymentsRes.data || []);
       setEntries(entriesRes.data || []);
       setCreditLedger(ledgerRes.data || []);
       
-      // Find all active draws with entries
+      // Find all draws (Mini & Major) where user has entries (current, past, or future)
       const userEntryDrawIds = new Set(entriesRes.data?.map((e: any) => e.drawId) || []);
-      const drawsWithEntries = drawsRes.data?.filter((d: any) => 
-        d.state === 'open' && userEntryDrawIds.has(d.id)
-      ) || [];
+      const drawsWithEntries =
+        drawsRes.data?.filter((d: any) => userEntryDrawIds.has(d.id)) || [];
       
       const drawsWithUserEntries = drawsWithEntries.map((draw: any) => {
         const drawEntries = entriesRes.data?.filter((e: any) => e.drawId === draw.id) || [];
         return { ...draw, userEntries: drawEntries.length };
       });
-      
+
+      // Sort by closedAt (newest first) for display
+      drawsWithUserEntries.sort((a: any, b: any) => {
+        const aTime = a.closedAt ? new Date(a.closedAt).getTime() : 0;
+        const bTime = b.closedAt ? new Date(b.closedAt).getTime() : 0;
+        return bTime - aTime;
+      });
+
       setActiveDraws(drawsWithUserEntries);
+
+      // Auto-heal membership status if Stripe has already recovered payment
+      if (
+        currentMembership &&
+        (currentMembership.status === 'payment_failed' ||
+          currentMembership.status === 'past_due')
+      ) {
+        try {
+          const retryResult = await api.payments.retryFailedInvoice();
+          if (retryResult.data?.success) {
+            const refreshedMembership = await api.membership
+              .getUserMembership()
+              .catch(() => ({ data: null }));
+            if (refreshedMembership.data) {
+              setMembership(refreshedMembership.data);
+            }
+          }
+        } catch (err) {
+          console.error('Auto retry invoice on dashboard load failed:', err);
+        }
+      }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -391,16 +423,74 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Active Entries */}
+      {/* Active Entries (Mini & Major) */}
       {activeDraws.length > 0 && (
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Your Active Entries</h2>
-          <div className="space-y-4">
-            {activeDraws.map((draw: any) => {
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Your Active Entries</h2>
+            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveEntriesTab('mini');
+                  setActiveEntriesPage(1);
+                }}
+                className={`px-3 py-1 text-xs font-medium rounded-md ${
+                  activeEntriesTab === 'mini'
+                    ? 'bg-white text-gray-900 shadow'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                Mini Draw
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveEntriesTab('major');
+                  setActiveEntriesPage(1);
+                }}
+                className={`ml-1 px-3 py-1 text-xs font-medium rounded-md ${
+                  activeEntriesTab === 'major'
+                    ? 'bg-white text-gray-900 shadow'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                Major Draw
+              </button>
+            </div>
+          </div>
+          {(() => {
+            const pageSize = 5;
+            const filtered = activeDraws.filter((draw: any) =>
+              activeEntriesTab === 'mini'
+                ? draw.drawType === 'mini'
+                : draw.drawType === 'major',
+            );
+            const total = filtered.length;
+            if (total === 0) {
+              return (
+                <p className="text-sm text-gray-500">
+                  You don&apos;t have any {activeEntriesTab === 'mini' ? 'Mini' : 'Major'} Draw entries yet.
+                </p>
+              );
+            }
+            const totalPages = Math.max(1, Math.ceil(total / pageSize));
+            const currentPage = Math.min(activeEntriesPage, totalPages);
+            const start = (currentPage - 1) * pageSize;
+            const end = Math.min(start + pageSize, total);
+            const pageItems = filtered.slice(start, end);
+
+            return (
+              <>
+                <div className="space-y-4">
+                  {pageItems.map((draw: any) => {
               const primaryImage = Array.isArray(draw.images) && draw.images.length > 0
                 ? draw.images.find((img: any) => img.isPrimary) || draw.images[0]
                 : null;
               const imageUrl = primaryImage?.url || primaryImage?.src || null;
+              const now = new Date();
+              const closedAtDate = draw.closedAt ? new Date(draw.closedAt) : null;
+              const isPast = closedAtDate ? closedAtDate < now : false;
               
               return (
                 <div key={draw.id} className="flex items-center space-x-6 p-4 border border-gray-200 rounded-lg hover:border-purple-300 transition">
@@ -427,7 +517,11 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <span>Time left: {formatTimeRemaining(draw.closedAt)}</span>
+                      <span>
+                        {isPast
+                          ? 'Ended'
+                          : `Time left: ${formatTimeRemaining(draw.closedAt)}`}
+                      </span>
                       <span>Drawn: {formatDateTime(draw.closedAt)}</span>
                     </div>
                   </div>
@@ -440,8 +534,39 @@ export default function DashboardPage() {
                   </div>
                 </div>
               );
-            })}
-          </div>
+                  })}
+                </div>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 text-xs text-gray-600">
+                    <span>
+                      Showing {start + 1}–{end} of {total} draws
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveEntriesPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-2 py-1 border border-gray-300 rounded disabled:opacity-50"
+                      >
+                        Previous
+                      </button>
+                      <span>
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveEntriesPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-2 py-1 border border-gray-300 rounded disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
 
