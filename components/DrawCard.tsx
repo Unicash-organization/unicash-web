@@ -14,7 +14,8 @@ function getDisplayImageUrl(draw: { image?: string; images?: Array<{ url?: strin
   if (draw.images && Array.isArray(draw.images) && draw.images.length > 0) {
     const sorted = [...draw.images].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     const first = sorted[0];
-    const url = typeof first === 'string' ? first : (first?.url ?? first);
+    const raw = typeof first === 'string' ? first : (first && typeof first === 'object' ? (first as { url?: string }).url : undefined);
+    const url = typeof raw === 'string' ? raw : null;
     if (url) return url.startsWith('http') ? url : `${API_BASE}/${url}`;
   }
   if (draw.image) return draw.image.startsWith('http') ? draw.image : `${API_BASE}/${draw.image}`;
