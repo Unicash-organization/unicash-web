@@ -54,10 +54,11 @@ export default function GiveawaysClient() {
                   key={draw.id}
                   id={draw.id}
                   title={draw.title}
-                  image={draw.prizeImage}
+                  image={typeof draw.prizeImage === 'string' ? draw.prizeImage : draw.prizeImage?.url}
+                  images={draw.images}
                   creditsPerEntry={draw.costPerEntry}
                   entrants={draw.entrants || 0}
-                  cap={draw.cap ?? 100} // Keep -1 for unlimited, default to 100 if null
+                  cap={draw.cap ?? 100}
                   closedAt={draw.closedAt}
                   state={draw.state}
                   requiresMembership={draw.requiresMembership}

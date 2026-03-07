@@ -2,10 +2,28 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import Countdown from './Countdown';
 import ScrollReveal from './ScrollReveal';
 import api from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+function getFeaturedDrawImageUrl(draw: any): string | null {
+  if (draw.images && Array.isArray(draw.images) && draw.images.length > 0) {
+    const sorted = [...draw.images].sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+    const first = sorted[0];
+    const url = typeof first === 'string' ? first : (first?.url ?? first);
+    if (url) return url.startsWith('http') ? url : `${API_BASE}/${url}`;
+  }
+  const prize = draw.prizeImage;
+  if (prize) {
+    const url = typeof prize === 'string' ? prize : prize?.url ?? prize;
+    if (url) return url.startsWith('http') ? url : `${API_BASE}/${url}`;
+  }
+  return null;
+}
 
 export default function FeaturedBonusDraw() {
   const { user } = useAuth();
@@ -65,6 +83,7 @@ export default function FeaturedBonusDraw() {
 
   if (!featuredDraw) return null;
 
+  const featuredImageUrl = getFeaturedDrawImageUrl(featuredDraw);
   const isUnlimited = featuredDraw.cap === -1;
   const entrantsProgress = isUnlimited 
     ? 0 
@@ -112,8 +131,8 @@ export default function FeaturedBonusDraw() {
         <ScrollReveal delay={200}>
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
           <div className="grid md:grid-cols-2 gap-0">
-            {/* Left - Image */}
-            <div className="relative bg-gradient-to-br from-gray-100 to-gray-200 h-80 md:h-auto">
+            {/* Left - Image from backend config */}
+            <div className="relative bg-gradient-to-br from-gray-100 to-gray-200 h-80 md:h-auto min-h-[320px]">
               {featuredDraw.requiresMembership && (
                 <div className="absolute top-4 left-4 z-10">
                   <span className="bg-purple-600 text-white text-xs font-bold px-3 py-1.5 rounded-full">
@@ -121,9 +140,20 @@ export default function FeaturedBonusDraw() {
                   </span>
                 </div>
               )}
-              <div className="w-full h-full flex items-center justify-center text-9xl">
-                📱
-              </div>
+              {featuredImageUrl ? (
+                <Image
+                  src={featuredImageUrl}
+                  alt={featuredDraw.title}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  unoptimized
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-400 text-9xl">
+                  📱
+                </div>
+              )}
             </div>
 
             {/* Right - Details */}

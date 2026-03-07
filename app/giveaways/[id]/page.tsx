@@ -534,10 +534,11 @@ export default function DrawDetailPage() {
                 key={relatedDraw.id}
                 id={relatedDraw.id}
                 title={relatedDraw.title}
-                image={relatedDraw.prizeImage}
+                image={typeof relatedDraw.prizeImage === 'string' ? relatedDraw.prizeImage : relatedDraw.prizeImage?.url}
+                images={relatedDraw.images}
                 creditsPerEntry={relatedDraw.costPerEntry}
                 entrants={relatedDraw.entrants || 0}
-                cap={relatedDraw.cap || 100}
+                cap={relatedDraw.cap ?? 100}
                 closedAt={relatedDraw.closedAt}
                 state={relatedDraw.state}
                 requiresMembership={relatedDraw.requiresMembership}

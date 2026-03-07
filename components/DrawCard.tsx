@@ -2,15 +2,30 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { formatTimeRemaining } from '@/lib/utils';
 import ConfirmEntryModal from './ConfirmEntryModal';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+function getDisplayImageUrl(draw: { image?: string; images?: Array<{ url?: string; order?: number }> }): string | null {
+  if (draw.images && Array.isArray(draw.images) && draw.images.length > 0) {
+    const sorted = [...draw.images].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const first = sorted[0];
+    const url = typeof first === 'string' ? first : (first?.url ?? first);
+    if (url) return url.startsWith('http') ? url : `${API_BASE}/${url}`;
+  }
+  if (draw.image) return draw.image.startsWith('http') ? draw.image : `${API_BASE}/${draw.image}`;
+  return null;
+}
+
 interface DrawCardProps {
   id: string;
   title: string;
   image?: string;
+  images?: Array<{ id?: string; url: string; order?: number; isPrimary?: boolean }>;
   creditsPerEntry: number;
   entrants: number;
   cap: number;
@@ -23,6 +38,7 @@ export default function DrawCard({
   id,
   title,
   image,
+  images,
   creditsPerEntry,
   entrants,
   cap,
@@ -30,6 +46,7 @@ export default function DrawCard({
   state,
   requiresMembership = false,
 }: DrawCardProps) {
+  const displayImageUrl = getDisplayImageUrl({ image, images });
   const { user } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState('');
@@ -208,7 +225,7 @@ export default function DrawCard({
     >
       {/* Image */}
       <Link href={`/giveaways/${id}`}>
-        <div className="relative h-48 bg-gradient-to-br from-orange-400 to-orange-500 overflow-hidden">
+        <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
           {requiresMembership && (
             <div className="absolute top-3 left-3 z-10">
               <span className="bg-accent-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
@@ -221,10 +238,20 @@ export default function DrawCard({
               🎁 State
             </span>
           </div>
-          {/* Placeholder image - replace with actual image */}
-          <div className="w-full h-full flex items-center justify-center text-white text-6xl">
-            🎁
-          </div>
+          {displayImageUrl ? (
+            <Image
+              src={displayImageUrl}
+              alt={title}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 33vw"
+              unoptimized
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-400 text-6xl">
+              🎁
+            </div>
+          )}
         </div>
       </Link>
 

@@ -465,10 +465,11 @@ export default function Home() {
                   <DrawCard
                     id={draw.id}
                     title={draw.title}
-                    image={draw.prizeImage}
+                    image={typeof draw.prizeImage === 'string' ? draw.prizeImage : draw.prizeImage?.url}
+                    images={draw.images}
                     creditsPerEntry={draw.costPerEntry}
                     entrants={draw.entrants || 0}
-                    cap={draw.cap || 100}
+                    cap={draw.cap ?? 100}
                     closedAt={draw.closedAt}
                     state={draw.state}
                     requiresMembership={draw.requiresMembership}
