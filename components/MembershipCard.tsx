@@ -259,8 +259,8 @@ export default function MembershipCard({
             {membership.currentPeriodEnd && (
               <p className="text-xs text-green-600 text-center mt-1">
                 Next billing: {(() => {
-                  const { formatUTCDateOnly } = require('@/lib/timezone');
-                  return formatUTCDateOnly(membership.currentPeriodEnd);
+                  const { formatSydneyDateOnly } = require('@/lib/timezone');
+                  return formatSydneyDateOnly(membership.currentPeriodEnd);
                 })()}
               </p>
             )}

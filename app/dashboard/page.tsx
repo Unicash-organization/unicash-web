@@ -209,8 +209,8 @@ export default function DashboardPage() {
   };
 
   const formatMembershipDate = (date: string | Date) => {
-    const { formatUTCDateOnly } = require('@/lib/timezone');
-    return formatUTCDateOnly(date);
+    const { formatSydneyDateOnly } = require('@/lib/timezone');
+    return formatSydneyDateOnly(date);
   };
 
   const formatDateTime = (date: string | Date) => {

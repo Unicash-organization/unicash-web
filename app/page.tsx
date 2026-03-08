@@ -78,8 +78,8 @@ export default function Home() {
   }, [loading]);
 
   const formatMembershipDate = (date: string | Date) => {
-    const { formatUTCDateOnly } = require('@/lib/timezone');
-    return formatUTCDateOnly(date);
+    const { formatSydneyDateOnly } = require('@/lib/timezone');
+    return formatSydneyDateOnly(date);
   };
 
   const isPlanUpgrade = (oldPlan: any, newPlan: any): boolean => {
