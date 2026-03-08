@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import ScrollToTop from '@/components/ScrollToTop'
 import { AuthProvider } from '@/contexts/AuthContext'
 
 export const metadata: Metadata = {
@@ -19,8 +20,9 @@ export default function RootLayout({
       <body className="min-h-screen bg-gray-50 overflow-x-hidden">
         <AuthProvider>
           <Header />
-          <main className="overflow-x-hidden">{children}</main>
+          <main className="overflow-x-hidden pt-16">{children}</main>
           <Footer />
+          <ScrollToTop />
         </AuthProvider>
       </body>
     </html>

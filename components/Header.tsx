@@ -5,10 +5,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 
+const SCROLL_THRESHOLD = 24;
+
 export default function Header() {
   const { user, loading: authLoading } = useAuth();
   const [credits, setCredits] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -17,8 +20,23 @@ export default function Header() {
     }
   }, [user]);
 
+  useEffect(() => {
+    const onScroll = () => {
+      setScrolled(window.scrollY > SCROLL_THRESHOLD);
+    };
+    onScroll(); // init
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
-    <header className="bg-white shadow-sm sticky top-0 z-50 w-full">
+    <header
+      className={`fixed left-0 right-0 top-0 z-50 w-full transition-all duration-300 ease-out ${
+        scrolled
+          ? 'bg-white/95 shadow-md backdrop-blur-md'
+          : 'bg-white shadow-sm'
+      }`}
+    >
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Mobile Layout */}
         <div className="flex md:hidden justify-between items-center h-16 relative">
