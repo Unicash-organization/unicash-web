@@ -796,11 +796,9 @@ export default function MembershipPage() {
       </div>
 
       {/* Available Plans */}
-      {/* Hide Available Plans section if membership is cancelled but still in billing period, or if paused */}
-      {plans.length > 0 && !(membership && (
-        (membership.status === 'canceled' && membership.currentPeriodEnd && new Date(membership.currentPeriodEnd) > new Date()) ||
-        membership.isPaused
-      )) && (
+      {/* Chỉ hiển thị Available Plans khi đang có membership active (không paused, không canceled).
+          Khi user đã "No active membership" hoặc mới chưa mua, họ sẽ mua lại ở trang chủ. */}
+      {plans.length > 0 && membership && !membership.isPaused && membership.status !== 'canceled' && (
         <div>
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Available Plans</h2>
           {availablePlans.length === 0 && membership && (
