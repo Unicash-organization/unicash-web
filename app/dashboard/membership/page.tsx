@@ -1120,9 +1120,10 @@ export default function MembershipPage() {
         onConfirm={handleCancel}
         title="Cancel your membership?"
         message="Are you sure you want to cancel your UNICASH membership? All of your entries will be deleted immediately, and you will lose access to all active draws."
-        confirmText="Cancel membership"
+        confirmText={actionLoading === 'cancel' ? 'Cancelling...' : 'Cancel membership'}
         cancelText="Keep my membership"
         type="danger"
+        confirmDisabled={actionLoading === 'cancel'}
       />
 
       <ConfirmModal
@@ -1133,9 +1134,10 @@ export default function MembershipPage() {
         message={`You're pausing your membership for 30 days.
 No charges and no entries will be issued during this period.
 You can resume anytime. Your membership will automatically reactivate after 30 days with all your data saved.`}
-        confirmText="Pause membership"
+        confirmText={actionLoading === 'pause' ? 'Pausing...' : 'Pause membership'}
         cancelText="Keep my membership active"
         type="warning"
+        confirmDisabled={actionLoading === 'pause'}
       />
 
       <ConfirmModal

@@ -11,6 +11,7 @@ interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   type?: 'danger' | 'warning' | 'success' | 'info';
+  confirmDisabled?: boolean;
 }
 
 export default function ConfirmModal({
@@ -22,6 +23,7 @@ export default function ConfirmModal({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   type = 'info',
+  confirmDisabled = false,
 }: ConfirmModalProps) {
   if (!isOpen) return null;
 
@@ -52,7 +54,8 @@ export default function ConfirmModal({
           </button>
           <button
             onClick={onConfirm}
-            className={`flex-1 px-4 py-2 text-white rounded-lg font-semibold transition ${getButtonClass()}`}
+            disabled={confirmDisabled}
+            className={`flex-1 px-4 py-2 text-white rounded-lg font-semibold transition ${getButtonClass()} disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {confirmText}
           </button>
