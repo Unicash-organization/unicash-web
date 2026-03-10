@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { showToast } from '@/lib/toast';
 import Link from 'next/link';
 import ConfirmModal from '@/components/ConfirmModal';
 import { formatDateGB } from '@/lib/timezone';
@@ -85,7 +86,7 @@ export default function MembershipPage() {
           if (updatedMembership.data?.status !== 'payment_failed' && 
               updatedMembership.data?.status !== 'past_due') {
             // Payment already succeeded (Stripe auto-retried)
-            alert('Payment method updated successfully! Your membership is now active.');
+            showToast('Payment method updated successfully! Your membership is now active.', 'success');
           } else {
             // Payment method updated but invoice still needs to be retried
             // Try to retry failed invoice immediately
@@ -99,17 +100,17 @@ export default function MembershipPage() {
                 const finalMembership = await api.membership.getUserMembership().catch(() => ({ data: null }));
                 if (finalMembership.data?.status !== 'payment_failed' && 
                     finalMembership.data?.status !== 'past_due') {
-                  alert('Payment method updated and invoice paid successfully! Your membership is now active.');
+                  showToast('Payment method updated and invoice paid successfully! Your membership is now active.', 'success');
                 } else {
-                  alert('Payment method updated. We attempted to retry your payment. Please check back in a moment.');
+                  showToast('Payment method updated. We attempted to retry your payment. Please check back in a moment.', 'info');
                 }
               } else {
-                alert('Payment method updated. We attempted to retry your payment, but it may still be processing. Please check back in a few minutes.');
+                showToast('Payment method updated. We attempted to retry your payment, but it may still be processing. Please check back in a few minutes.', 'info');
               }
             } catch (retryError: any) {
               console.error('Error retrying invoice:', retryError);
               // If retry fails, Stripe will auto-retry later
-              alert('Payment method updated. Stripe will automatically retry your payment. Please check back in a few minutes.');
+              showToast('Payment method updated. Stripe will automatically retry your payment. Please check back in a few minutes.', 'info');
             }
           }
         }, 1000);
@@ -201,7 +202,7 @@ export default function MembershipPage() {
       await refreshUser();
       setShowPauseConfirm(false);
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to pause membership');
+      showToast(error.response?.data?.message || 'Failed to pause membership', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -215,7 +216,7 @@ export default function MembershipPage() {
       await refreshUser();
       setShowResumeConfirm(false);
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to resume membership');
+      showToast(error.response?.data?.message || 'Failed to resume membership', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -229,7 +230,7 @@ export default function MembershipPage() {
       await refreshUser();
       setShowCancelConfirm(false);
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to cancel membership');
+      showToast(error.response?.data?.message || 'Failed to cancel membership', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -243,7 +244,7 @@ export default function MembershipPage() {
       await refreshUser();
       setShowCancelUpgradeConfirm(false);
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to cancel upgrade');
+      showToast(error.response?.data?.message || 'Failed to cancel upgrade', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -276,12 +277,12 @@ export default function MembershipPage() {
     
     // ✅ Block if already has pending upgrade/downgrade
     if (isUpgrade && membership.pendingUpgradePlanId) {
-      alert('You already have a pending upgrade scheduled. Please wait for it to be applied on your next billing date before upgrading again.');
+      showToast('You already have a pending upgrade scheduled. Please wait for it to be applied on your next billing date before upgrading again.', 'info');
       return;
     }
     
     if (!isUpgrade && membership.pendingDowngradePlanId) {
-      alert('You already have a pending downgrade scheduled. Please wait for it to be applied on your next billing date before downgrading again.');
+      showToast('You already have a pending downgrade scheduled. Please wait for it to be applied on your next billing date before downgrading again.', 'info');
       return;
     }
     
@@ -368,18 +369,18 @@ export default function MembershipPage() {
         // Clear actionLoading and show success message
         setActionLoading(null);
         setSelectedUpgradePlanId(null);
-        alert('Upgrade scheduled successfully! Your plan will be upgraded on your next billing date. Stripe will handle proration automatically.');
+        showToast('Upgrade scheduled successfully! Your plan will be upgraded on your next billing date. Stripe will handle proration automatically.', 'success');
       } else {
         console.error('[handleConfirmUpgrade] ❌ ERROR: Updated membership not found!');
         setActionLoading(null);
         setSelectedUpgradePlanId(null);
-        alert('Upgrade successful! Your subscription has been updated. Stripe will handle proration automatically.');
+        showToast('Upgrade successful! Your subscription has been updated. Stripe will handle proration automatically.', 'success');
       }
     } catch (error: any) {
       console.error('[handleConfirmUpgrade] Error:', error);
       setActionLoading(null);
       setSelectedUpgradePlanId(null);
-      alert(error.response?.data?.message || 'Failed to upgrade membership');
+      showToast(error.response?.data?.message || 'Failed to upgrade membership', 'error');
     }
   };
 
@@ -426,24 +427,24 @@ export default function MembershipPage() {
           console.log('[handleConfirmDowngrade] ✅ Downgrade is now pending, clearing actionLoading');
           setActionLoading(null);
           setSelectedDowngradePlanId(null);
-          alert('Downgrade scheduled successfully. It will apply on your next billing date.');
+          showToast('Downgrade scheduled successfully. It will apply on your next billing date.', 'success');
         } else {
           // If downgrade is not pending yet, keep actionLoading to prevent double-click
           console.log('[handleConfirmDowngrade] ⚠️ Downgrade not pending yet, keeping actionLoading');
           setSelectedDowngradePlanId(null);
-          alert('Downgrade scheduled successfully. It will apply on your next billing date.');
+          showToast('Downgrade scheduled successfully. It will apply on your next billing date.', 'success');
         }
       } else {
         // Fallback: clear actionLoading even if membership not found
         setActionLoading(null);
         setSelectedDowngradePlanId(null);
-        alert('Downgrade scheduled successfully. It will apply on your next billing date.');
+        showToast('Downgrade scheduled successfully. It will apply on your next billing date.', 'success');
       }
     } catch (error: any) {
       console.error('[handleConfirmDowngrade] Error:', error);
       setActionLoading(null);
       setSelectedDowngradePlanId(null);
-      alert(error.response?.data?.message || 'Failed to downgrade membership');
+      showToast(error.response?.data?.message || 'Failed to downgrade membership', 'error');
     }
   };
 
@@ -497,7 +498,7 @@ export default function MembershipPage() {
       }
     } catch (error: any) {
       console.error('Error creating billing portal session:', error);
-      alert(error.response?.data?.message || 'Failed to open payment update page. Please try again.');
+      showToast(error.response?.data?.message || 'Failed to open payment update page. Please try again.', 'error');
       setActionLoading(null);
     }
   };

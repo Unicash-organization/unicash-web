@@ -7,6 +7,7 @@ import { formatTimeRemaining } from '@/lib/utils';
 import ConfirmEntryModal from './ConfirmEntryModal';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
+import { showToast } from '@/lib/toast';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -132,9 +133,10 @@ export default function DrawCard({
     try {
       await api.waitlist.add(id);
       setIsOnWaitlist(true);
+      showToast('Added to waitlist successfully.', 'success');
     } catch (error: any) {
       console.error('Error adding to waitlist:', error);
-      alert(error.response?.data?.message || 'Failed to add to waitlist');
+      showToast(error.response?.data?.message || 'Failed to add to waitlist', 'error');
     } finally {
       setAddingToWaitlist(false);
     }

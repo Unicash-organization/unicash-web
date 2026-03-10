@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { showToast } from '@/lib/toast';
 
 export default function BillingPage() {
   const { user } = useAuth();
@@ -44,7 +45,7 @@ export default function BillingPage() {
       }
     } catch (error: any) {
       console.error('Error creating billing portal session:', error);
-      alert(error.response?.data?.message || 'Failed to open billing portal. Please try again.');
+      showToast(error.response?.data?.message || 'Failed to open billing portal. Please try again.', 'error');
       setUpdating(false);
     }
   };

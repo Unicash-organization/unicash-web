@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { showToast } from '@/lib/toast';
 import UpdateCardModal from '@/components/UpdateCardModal';
 
 export default function SecurityBillingPage() {
@@ -112,24 +113,24 @@ export default function SecurityBillingPage() {
                   const finalMembership = await api.membership.getUserMembership().catch(() => ({ data: null }));
                   if (finalMembership.data?.status !== 'payment_failed' && 
                       finalMembership.data?.status !== 'past_due') {
-                    alert('Payment method updated and invoice paid successfully! Your membership is now active.');
+                    showToast('Payment method updated and invoice paid successfully! Your membership is now active.', 'success');
                   } else {
-                    alert('Payment method updated. We attempted to retry your payment. Please check back in a moment.');
+                    showToast('Payment method updated. We attempted to retry your payment. Please check back in a moment.', 'info');
                   }
                 } else {
-                  alert('Payment method updated. We attempted to retry your payment, but it may still be processing. Please check back in a few minutes.');
+                  showToast('Payment method updated. We attempted to retry your payment, but it may still be processing. Please check back in a few minutes.', 'info');
                 }
               } catch (retryError: any) {
                 console.error('Error retrying invoice:', retryError);
                 // If retry fails, Stripe will auto-retry later
-                alert('Payment method updated. Stripe will automatically retry your payment. Please check back in a few minutes.');
+                showToast('Payment method updated. Stripe will automatically retry your payment. Please check back in a few minutes.', 'info');
               }
             } else {
-              alert('Payment method updated successfully!');
+              showToast('Payment method updated successfully!', 'success');
             }
           } catch (error: any) {
             console.error('Error checking membership:', error);
-            alert('Payment method updated successfully!');
+            showToast('Payment method updated successfully!', 'success');
           }
         } catch (error: any) {
           console.error('Error processing payment update:', error);
@@ -174,7 +175,7 @@ export default function SecurityBillingPage() {
     // Verify user exists - if user is in dashboard, they are logged in
     // Token will be automatically added by apiClient interceptor from localStorage
     if (!user) {
-      alert('You are not logged in. Please log in again.');
+      showToast('You are not logged in. Please log in again.', 'error');
       router.push('/login');
       return;
     }
@@ -187,19 +188,19 @@ export default function SecurityBillingPage() {
         skipCurrentPasswordCheck: isFirstTimeChange,
       });
       await refreshUser(); // Refresh user to update hasChangedPassword flag
-      alert('Password updated successfully!');
+      showToast('Password updated successfully!', 'success');
       setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setIsFirstTimeChange(false); // Reset flag after successful change
     } catch (error: any) {
       if (error.response?.status === 401) {
-        alert('Your session has expired. Please log in again.');
+        showToast('Your session has expired. Please log in again.', 'error');
         // Clear token and redirect to login
         if (typeof window !== 'undefined') {
           localStorage.removeItem('token');
         }
         router.push('/login');
       } else {
-        alert(error.response?.data?.message || 'Failed to update password');
+        showToast(error.response?.data?.message || 'Failed to update password', 'error');
       }
     } finally {
       setSaving(false);
@@ -221,7 +222,7 @@ export default function SecurityBillingPage() {
       await api.payments.setDefaultPaymentMethod(paymentMethodId);
       await loadPaymentMethods();
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Failed to set default');
+      showToast(err?.response?.data?.message || 'Failed to set default', 'error');
     }
   };
 
@@ -231,8 +232,9 @@ export default function SecurityBillingPage() {
     try {
       await api.payments.detachPaymentMethod(paymentMethodId);
       await loadPaymentMethods();
+      showToast('Card removed successfully.', 'success');
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Failed to remove card');
+      showToast(err?.response?.data?.message || 'Failed to remove card', 'error');
     }
   };
 

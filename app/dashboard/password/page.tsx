@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
+import { showToast } from '@/lib/toast';
 
 export default function PasswordPage() {
   const { user, refreshUser } = useAuth();
@@ -49,7 +50,7 @@ export default function PasswordPage() {
     // Verify user exists - if user is in dashboard, they are logged in
     // Token will be automatically added by apiClient interceptor from localStorage
     if (!user) {
-      alert('You are not logged in. Please log in again.');
+      showToast('You are not logged in. Please log in again.', 'error');
       return;
     }
     
@@ -61,18 +62,18 @@ export default function PasswordPage() {
         skipCurrentPasswordCheck: isFirstTimeChange,
       });
       await refreshUser(); // Refresh user to update hasChangedPassword flag
-      alert('Password updated successfully!');
+      showToast('Password updated successfully!', 'success');
       setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setIsFirstTimeChange(false); // Reset flag after successful change
     } catch (error: any) {
       if (error.response?.status === 401) {
-        alert('Your session has expired. Please log in again.');
+        showToast('Your session has expired. Please log in again.', 'error');
         // Clear token and redirect to login
         if (typeof window !== 'undefined') {
           localStorage.removeItem('token');
         }
       } else {
-        alert(error.response?.data?.message || 'Failed to update password');
+        showToast(error.response?.data?.message || 'Failed to update password', 'error');
       }
     } finally {
       setSaving(false);

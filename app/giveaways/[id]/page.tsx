@@ -7,6 +7,7 @@ import Countdown from '@/components/Countdown';
 import DrawCard from '@/components/DrawCard';
 import ImageSlider from '@/components/ImageSlider';
 import api from '@/lib/api';
+import { showToast } from '@/lib/toast';
 import ConfirmEntryModal from '@/components/ConfirmEntryModal';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -135,9 +136,10 @@ export default function DrawDetailPage() {
     try {
       await api.waitlist.add(id as string);
       setIsOnWaitlist(true);
+      showToast('Added to waitlist successfully.', 'success');
     } catch (error: any) {
       console.error('Error adding to waitlist:', error);
-      alert(error.response?.data?.message || 'Failed to add to waitlist');
+      showToast(error.response?.data?.message || 'Failed to add to waitlist', 'error');
     } finally {
       setAddingToWaitlist(false);
     }

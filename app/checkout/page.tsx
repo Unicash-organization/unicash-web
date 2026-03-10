@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { showToast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import StripeCheckoutForm from '@/components/StripeCheckoutForm';
 
@@ -438,11 +439,11 @@ function CheckoutContent() {
       return;
     }
     if (skipPlanSelection && !selectedPack) {
-      alert('Please select a boost pack');
+      showToast('Please select a boost pack', 'warning');
       return;
     }
     if (!selectedPlan && !selectedPack) {
-      alert('Please select a membership plan or boost pack');
+      showToast('Please select a membership plan or boost pack', 'warning');
       return;
     }
 

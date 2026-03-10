@@ -13,6 +13,7 @@ import NewsletterSection from '@/components/NewsletterSection';
 import ConfirmModal from '@/components/ConfirmModal';
 import api from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { showToast } from '@/lib/toast';
 
 export default function Home() {
   const { user, refreshUser } = useAuth();
@@ -113,12 +114,12 @@ export default function Home() {
     const isUpgrade = isPlanUpgrade(membership.plan, newPlan);
     
     if (isUpgrade && membership.pendingUpgradePlanId) {
-      alert('You already have a pending upgrade scheduled.');
+      showToast('You already have a pending upgrade scheduled.', 'info');
       return;
     }
     
     if (!isUpgrade && membership.pendingDowngradePlanId) {
-      alert('You already have a pending downgrade scheduled.');
+      showToast('You already have a pending downgrade scheduled.', 'info');
       return;
     }
     
@@ -148,12 +149,12 @@ export default function Home() {
       
       setActionLoading(null);
       setSelectedUpgradePlanId(null);
-      alert('Upgrade scheduled successfully! Your plan will be upgraded on your next billing date.');
+      showToast('Upgrade scheduled successfully! Your plan will be upgraded on your next billing date.', 'success');
     } catch (error: any) {
       console.error('Error upgrading:', error);
       setActionLoading(null);
       setSelectedUpgradePlanId(null);
-      alert(error.response?.data?.message || 'Failed to upgrade membership');
+      showToast(error.response?.data?.message || 'Failed to upgrade membership', 'error');
     }
   };
 
@@ -174,12 +175,12 @@ export default function Home() {
       
       setActionLoading(null);
       setSelectedDowngradePlanId(null);
-      alert('Downgrade scheduled successfully. It will apply on your next billing date.');
+      showToast('Downgrade scheduled successfully. It will apply on your next billing date.', 'success');
     } catch (error: any) {
       console.error('Error downgrading:', error);
       setActionLoading(null);
       setSelectedDowngradePlanId(null);
-      alert(error.response?.data?.message || 'Failed to downgrade membership');
+      showToast(error.response?.data?.message || 'Failed to downgrade membership', 'error');
     }
   };
 

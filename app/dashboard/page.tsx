@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { showToast } from '@/lib/toast';
 import Link from 'next/link';
 import { formatTimeRemaining } from '@/lib/utils';
 import MembershipRequiredModal from '@/components/MembershipRequiredModal';
@@ -50,7 +51,7 @@ export default function DashboardPage() {
             if (updatedMembership.data?.status !== 'payment_failed' && 
                 updatedMembership.data?.status !== 'past_due') {
               // Payment already succeeded (Stripe auto-retried)
-              alert('Payment method updated successfully! Your membership is now active.');
+              showToast('Payment method updated successfully! Your membership is now active.', 'success');
             } else {
               // Payment method updated but invoice still needs to be retried
               // Try to retry failed invoice immediately
@@ -64,17 +65,17 @@ export default function DashboardPage() {
                   const finalMembership = await api.membership.getUserMembership().catch(() => ({ data: null }));
                   if (finalMembership.data?.status !== 'payment_failed' && 
                       finalMembership.data?.status !== 'past_due') {
-                    alert('Payment method updated and invoice paid successfully! Your membership is now active.');
+                    showToast('Payment method updated and invoice paid successfully! Your membership is now active.', 'success');
                   } else {
-                    alert('Payment method updated. We attempted to retry your payment. Please check back in a moment.');
+                    showToast('Payment method updated. We attempted to retry your payment. Please check back in a moment.', 'info');
                   }
                 } else {
-                  alert('Payment method updated. We attempted to retry your payment, but it may still be processing. Please check back in a few minutes.');
+                  showToast('Payment method updated. We attempted to retry your payment, but it may still be processing. Please check back in a few minutes.', 'info');
                 }
               } catch (retryError: any) {
                 console.error('Error retrying invoice:', retryError);
                 // If retry fails, Stripe will auto-retry later
-                alert('Payment method updated. Stripe will automatically retry your payment. Please check back in a few minutes.');
+                showToast('Payment method updated. Stripe will automatically retry your payment. Please check back in a few minutes.', 'info');
               }
             }
           }, 1000);
@@ -198,7 +199,7 @@ export default function DashboardPage() {
       }
     } catch (error: any) {
       console.error('Error creating billing portal session:', error);
-      alert(error.response?.data?.message || 'Failed to open payment update page. Please try again.');
+      showToast(error.response?.data?.message || 'Failed to open payment update page. Please try again.', 'error');
       setFixingPayment(false);
     }
   };
@@ -685,8 +686,16 @@ export default function DashboardPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <button
                       onClick={() => {
-                        // Show payment details in a modal or navigate to payment detail page
-                        alert(`Payment ID: ${payment.id}\nStatus: ${payment.status}\n${payment.promoCode ? `Promo Code: ${payment.promoCode}\nDiscount: ${formatCurrency(parseFloat(payment.discountAmount?.toString() || '0'), payment.currency)}` : ''}`);
+                        const details = [
+                          `Payment ID: ${payment.id}`,
+                          `Status: ${payment.status}`,
+                          payment.promoCode
+                            ? `Promo Code: ${payment.promoCode} | Discount: ${formatCurrency(parseFloat(payment.discountAmount?.toString() || '0'), payment.currency)}`
+                            : '',
+                        ]
+                          .filter(Boolean)
+                          .join('\n');
+                        showToast(details || 'Payment details', 'info');
                       }}
                       className="text-purple-600 hover:text-purple-800 font-medium"
                     >

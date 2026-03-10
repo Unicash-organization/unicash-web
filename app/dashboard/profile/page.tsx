@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
+import { showToast } from '@/lib/toast';
 
 // Format as 04XX XXX XXX while typing
 const formatAustralianPhone = (value: string): string => {
@@ -107,10 +108,10 @@ export default function ProfilePage() {
       setUnsubscribing(true);
       await api.newsletter.unsubscribe();
       setNewsletterSubscribed(false);
-      alert('Successfully unsubscribed from newsletter');
+      showToast('Successfully unsubscribed from newsletter', 'success');
     } catch (error: any) {
       console.error('Error unsubscribing:', error);
-      alert(error.response?.data?.message || 'Failed to unsubscribe. Please try again.');
+      showToast(error.response?.data?.message || 'Failed to unsubscribe. Please try again.', 'error');
     } finally {
       setUnsubscribing(false);
     }
@@ -146,9 +147,9 @@ export default function ProfilePage() {
         },
       });
       await refreshUser();
-      alert('Profile updated successfully!');
+      showToast('Profile updated successfully!', 'success');
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to update profile');
+      showToast(error.response?.data?.message || 'Failed to update profile', 'error');
     } finally {
       setSaving(false);
     }
