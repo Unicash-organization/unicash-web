@@ -587,7 +587,9 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {creditLedger.slice(0, 10).map((ledger: any) => (
+              {creditLedger.filter((ledger: any) =>
+                ledger.metadata?.action !== 'admin_force_sync'
+              ).slice(0, 10).map((ledger: any) => (
                 <tr key={ledger.id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {formatDate(ledger.createdAt)}
