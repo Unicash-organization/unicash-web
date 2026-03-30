@@ -100,6 +100,9 @@ export const api = {
       const params = userId ? { userId } : {};
       return apiClient.get(`/draws/${id}`, { params });
     },
+    /** Public major-draw landing (enabled + slug); no auth */
+    getByWinSlug: (slug: string) =>
+      apiClient.get(`/draws/win/${encodeURIComponent(slug)}`),
     enter: (drawId: string, idempotencyKey?: string) => {
       const headers: any = {};
       if (idempotencyKey) {
@@ -168,6 +171,9 @@ export const api = {
   settings: {
     getAll: () => apiClient.get('/settings'),
     getByKey: (key: string) => apiClient.get(`/settings/${key}`),
+    /** Public membership marketing landing config (must match admin `urlSlug`). */
+    getPublicMembershipLanding: (slug: string) =>
+      apiClient.get(`/settings/public/membership-landing/${slug}`),
   },
 
   // Banners
@@ -267,6 +273,14 @@ export const api = {
       customerPhone?: string;
       promoCode?: string;
     }) => apiClient.post('/payments/payment-intent/membership', data),
+    /** Major draw landing: amount derived server-side from packageSnapshot.price */
+    createMajorDrawLandingPaymentIntent: (data: {
+      drawId: string;
+      packageSnapshot: Record<string, unknown>;
+      customerEmail: string;
+      customerName: string;
+      customerPhone: string;
+    }) => apiClient.post('/payments/payment-intent/major-draw-landing', data),
     confirmPayment: (paymentId: string) => apiClient.post(`/payments/confirm/${paymentId}`),
     getPaymentBySession: (sessionId: string) => apiClient.get(`/payments/session/${sessionId}`),
     getPaymentById: (paymentId: string) => apiClient.get(`/payments/${paymentId}`),

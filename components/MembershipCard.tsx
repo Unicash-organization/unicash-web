@@ -16,6 +16,9 @@ interface PlanFeature {
 }
 
 interface MembershipCardProps {
+  /** When set with onLandingEnter, replaces default CTAs with a single "Enter now" (e.g. membership landing page). */
+  landingEnterMode?: boolean;
+  onLandingEnter?: (plan: MembershipCardProps['plan']) => void;
   plan: {
     id: string;
     name: string;
@@ -44,6 +47,8 @@ interface MembershipCardProps {
 
 export default function MembershipCard({ 
   plan, 
+  landingEnterMode,
+  onLandingEnter,
   membership: externalMembership,
   actionLoading,
   onUpgradeDowngrade,
@@ -267,8 +272,21 @@ export default function MembershipCard({
           </div>
         )} */}
 
-        {/* Payment Failed - Show Fix Payment button on current plan only */}
-        {isPaymentFailed && hasThisPlan ? (
+        {landingEnterMode && onLandingEnter ? (
+          <button
+            type="button"
+            onClick={() => onLandingEnter(plan)}
+            disabled={loading}
+            className={`w-full py-3 px-6 rounded-full font-bold transition-all ${
+              badgeType === 'popular'
+                ? 'btn-primary'
+                : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
+            }`}
+          >
+            {loading ? 'Loading...' : 'Enter now'}
+          </button>
+        ) : /* Payment Failed - Show Fix Payment button on current plan only */
+        isPaymentFailed && hasThisPlan ? (
           <Link href="/dashboard/membership">
             <button 
               disabled={loading}

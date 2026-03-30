@@ -7,6 +7,7 @@ import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import StripeCheckoutForm from '@/components/StripeCheckoutForm';
+import { formatAustralianPhone } from '@/lib/australianPhone';
 
 function CheckoutContent() {
   const router = useRouter();
@@ -79,36 +80,6 @@ function CheckoutContent() {
 
   // Case 8: Returning user with active membership - auto-load plan
   const shouldAutoLoadPlan = hasActiveMembership && !wantsOnlyBoost;
-
-  // ✅ Format Australian mobile phone number (04XX XXX XXX only)
-  const formatAustralianPhone = (value: string): string => {
-    // Remove all non-digit characters
-    let cleaned = value.replace(/\D/g, '');
-    
-    // Only allow numbers starting with 04
-    if (cleaned.length > 0 && !cleaned.startsWith('04')) {
-      // If user types something that doesn't start with 04, only keep if they're typing 0
-      if (cleaned === '0' || cleaned.startsWith('04')) {
-        // Allow 0 or 04
-      } else {
-        // Remove digits that don't match 04 pattern
-        return '';
-      }
-    }
-    
-    // Limit to 10 digits
-    if (cleaned.length > 10) {
-      cleaned = cleaned.substring(0, 10);
-    }
-    
-    // Format as 04XX XXX XXX
-    if (cleaned.length > 6) {
-      return `${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7)}`;
-    } else if (cleaned.length > 4) {
-      return `${cleaned.substring(0, 4)} ${cleaned.substring(4)}`;
-    }
-    return cleaned;
-  };
 
   // ✅ Denormalize phone number from international format (+614XX...) to display format (04XX XXX XXX)
   const denormalizePhoneNumber = (phone: string): string => {

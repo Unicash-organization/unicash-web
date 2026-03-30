@@ -41,6 +41,26 @@ export default function PurchasesPage() {
     return new Intl.NumberFormat('en-AU', { style: 'currency', currency }).format(numAmount);
   };
 
+  const formatPurchaseItem = (payment: any) => {
+    if (payment.paymentType === 'membership') {
+      return `${payment.metadata?.planName || 'Membership'} ${payment.metadata?.isRenewal ? 'Renewal' : ''}`.trim();
+    }
+    if (payment.metadata?.majorDrawLanding === true) {
+      const snap = payment.metadata?.packageSnapshot || {};
+      const title =
+        snap.drawTitleAtPurchase || payment.metadata?.drawTitle || 'Major draw';
+      const tier = snap.tierName || '';
+      const n =
+        payment.creditsGranted ??
+        snap.entryCount ??
+        payment.metadata?.entryCount ??
+        0;
+      const tierPart = tier ? ` — ${tier}` : '';
+      return `Major draw: ${title}${tierPart} (${n} entries)`;
+    }
+    return `Boost Pack ${payment.metadata?.packName || ''} (${payment.creditsGranted || 0} credits)`;
+  };
+
   return (
     <div>
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Purchase History</h1>
@@ -75,10 +95,7 @@ export default function PurchasesPage() {
                       {formatDate(payment.createdAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {payment.paymentType === 'membership' 
-                        ? `${payment.metadata?.planName || 'Membership'} ${payment.metadata?.isRenewal ? 'Renewal' : ''}`
-                        : `Boost Pack ${payment.metadata?.packName || ''} (${payment.creditsGranted || 0} credits)`
-                      }
+                      {formatPurchaseItem(payment)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                       {formatCurrency(payment.amount, payment.currency)}
