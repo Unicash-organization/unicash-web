@@ -140,6 +140,16 @@ export const api = {
   // Entries
   entries: {
     getUserEntries: () => apiClient.get('/entries/me'),
+    getMyEntryCountsByDraw: () => apiClient.get('/entries/me/counts-by-draw'),
+    getMyEntriesGrouped: (params?: {
+      page?: number;
+      limit?: number;
+      drawType?: 'mini' | 'major';
+      search?: string;
+      sort?: 'newest' | 'oldest';
+    }) => apiClient.get('/entries/me/grouped', { params }),
+    hasEntryForDraw: (drawId: string) =>
+      apiClient.get<{ hasEntry: boolean }>(`/entries/me/has-entry/${drawId}`),
     get: (id: string) => apiClient.get(`/entries/${id}`),
     getPublicDrawEntries: (
       drawId: string,

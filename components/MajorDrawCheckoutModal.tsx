@@ -321,10 +321,17 @@ export default function MajorDrawCheckoutModal({
                 )}
               </div>
               <div>
+                {user?.email && (
+                  <p className="text-xs text-stone-600 mb-1">
+                    Purchasing as your logged-in account. To use a different email, log out first.
+                  </p>
+                )}
                 <input
                   type="email"
                   placeholder="Email address*"
                   value={email}
+                  readOnly={!!user?.email}
+                  aria-readonly={!!user?.email}
                   onChange={(e) => {
                     setEmail(e.target.value);
                     if (fieldErrors.email) {
@@ -333,7 +340,7 @@ export default function MajorDrawCheckoutModal({
                   }}
                   className={`w-full rounded-xl border px-4 py-3 text-gray-900 placeholder:text-gray-400 ${
                     fieldErrors.email ? 'border-red-500 focus:ring-red-500' : 'border-stone-300'
-                  }`}
+                  } ${user?.email ? 'bg-stone-100 cursor-not-allowed' : ''}`}
                 />
                 {fieldErrors.email && (
                   <p className="text-red-600 text-sm mt-1">{fieldErrors.email}</p>

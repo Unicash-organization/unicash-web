@@ -89,10 +89,10 @@ export default function DrawDetailPage() {
     if (!user) return;
     setCheckingEntry(true);
     try {
-      const entriesRes = await api.entries.getUserEntries().catch(() => ({ data: [] }));
-      const userEntries = entriesRes.data || [];
-      const hasEntry = userEntries.some((entry: any) => entry.drawId === id && !entry.isRefunded);
-      setHasEntered(hasEntry);
+      const res = await api.entries.hasEntryForDraw(id as string).catch(() => ({
+        data: { hasEntry: false },
+      }));
+      setHasEntered(!!res.data?.hasEntry);
     } catch (error) {
       console.error('Error checking user entry:', error);
     } finally {

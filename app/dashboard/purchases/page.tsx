@@ -47,16 +47,13 @@ export default function PurchasesPage() {
     }
     if (payment.metadata?.majorDrawLanding === true) {
       const snap = payment.metadata?.packageSnapshot || {};
-      const title =
-        snap.drawTitleAtPurchase || payment.metadata?.drawTitle || 'Major draw';
-      const tier = snap.tierName || '';
       const n =
         payment.creditsGranted ??
         snap.entryCount ??
         payment.metadata?.entryCount ??
         0;
-      const tierPart = tier ? ` — ${tier}` : '';
-      return `Major draw: ${title}${tierPart} (${n} entries)`;
+      const entryWord = n === 1 ? 'entry' : 'entries';
+      return `One-time package (${n} ${entryWord})`;
     }
     return `Boost Pack ${payment.metadata?.packName || ''} (${payment.creditsGranted || 0} credits)`;
   };

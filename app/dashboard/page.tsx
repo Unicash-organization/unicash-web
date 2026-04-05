@@ -14,7 +14,6 @@ export default function DashboardPage() {
   const router = useRouter();
   const [membership, setMembership] = useState<any>(null);
   const [payments, setPayments] = useState<any[]>([]);
-  const [entries, setEntries] = useState<any[]>([]);
   const [creditLedger, setCreditLedger] = useState<any[]>([]);
   const [activeDraws, setActiveDraws] = useState<any[]>([]);
   const [activeEntriesTab, setActiveEntriesTab] = useState<'mini' | 'major'>('mini');
@@ -87,10 +86,10 @@ export default function DashboardPage() {
 
   const loadData = async () => {
     try {
-      const [membershipRes, paymentsRes, entriesRes, ledgerRes, drawsRes] = await Promise.all([
+      const [membershipRes, paymentsRes, entryCountsRes, ledgerRes, drawsRes] = await Promise.all([
         api.membership.getUserMembership().catch(() => ({ data: null })),
         api.payments.getPaymentsByUserId(user?.id || '').catch(() => ({ data: [] })),
-        api.entries.getUserEntries().catch(() => ({ data: [] })),
+        api.entries.getMyEntryCountsByDraw().catch(() => ({ data: [] })),
         api.users.getCreditLedger().catch(() => ({ data: [] })),
         api.draws
           .getAll({ userId: user?.id, includeMajor: true, includeFuture: true })
@@ -100,18 +99,22 @@ export default function DashboardPage() {
       let currentMembership = membershipRes.data;
       setMembership(currentMembership);
       setPayments(paymentsRes.data || []);
-      setEntries(entriesRes.data || []);
       setCreditLedger(ledgerRes.data || []);
-      
+
+      const countsList = (entryCountsRes.data || []) as { drawId: string; count: number }[];
+      const countByDraw = new Map<string, number>(
+        countsList.map((c) => [c.drawId, c.count]),
+      );
+
       // Find all draws (Mini & Major) where user has entries (current, past, or future)
-      const userEntryDrawIds = new Set(entriesRes.data?.map((e: any) => e.drawId) || []);
+      const userEntryDrawIds = new Set(countsList.map((c) => c.drawId));
       const drawsWithEntries =
         drawsRes.data?.filter((d: any) => userEntryDrawIds.has(d.id)) || [];
-      
-      const drawsWithUserEntries = drawsWithEntries.map((draw: any) => {
-        const drawEntries = entriesRes.data?.filter((e: any) => e.drawId === draw.id) || [];
-        return { ...draw, userEntries: drawEntries.length };
-      });
+
+      const drawsWithUserEntries = drawsWithEntries.map((draw: any) => ({
+        ...draw,
+        userEntries: countByDraw.get(draw.id) ?? 0,
+      }));
 
       // Sort by closedAt (newest first) for display
       drawsWithUserEntries.sort((a: any, b: any) => {
@@ -229,6 +232,33 @@ export default function DashboardPage() {
       style: 'currency', 
       currency: currency || 'AUD' 
     }).format(numAmount);
+  };
+
+  const formatPurchaseItem = (payment: any) => {
+    if (payment.paymentType === 'membership') {
+      return `${payment.metadata?.planName || 'Membership'} ${payment.metadata?.isRenewal ? 'Renewal' : ''}`.trim();
+    }
+    if (payment.metadata?.majorDrawLanding === true) {
+      const snap = payment.metadata?.packageSnapshot || {};
+      const n =
+        payment.creditsGranted ??
+        snap.entryCount ??
+        payment.metadata?.entryCount ??
+        0;
+      const entryWord = n === 1 ? 'entry' : 'entries';
+      return `One-time package (${n} ${entryWord})`;
+    }
+    return `Boost Pack ${payment.metadata?.packName || ''} (${payment.creditsGranted || 0} credits)`;
+  };
+
+  const formatPurchaseItemPromoLine = (payment: any) => {
+    if (payment.paymentType === 'membership') {
+      return `${payment.metadata?.planName || 'Membership'}`;
+    }
+    if (payment.metadata?.majorDrawLanding === true) {
+      return formatPurchaseItem(payment);
+    }
+    return `Boost Pack ${payment.metadata?.packName || ''}`;
   };
 
   return (
@@ -508,12 +538,21 @@ export default function DashboardPage() {
                     <h3 className="text-lg font-bold text-gray-900 mb-2">{draw.title || 'Major Reward Draw'}</h3>
                     <div className="mb-2">
                       <div className="flex justify-between text-sm text-gray-600 mb-1">
-                        <span>{draw.entrants || 0}/{draw.cap || 100} entrants</span>
+                        <span>
+                          {draw.cap === -1 || draw.cap == null
+                            ? `${draw.entrants ?? 0} entrants`
+                            : `${draw.entrants ?? 0}/${draw.cap} entrants`}
+                        </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-purple-600 h-2 rounded-full transition-all"
-                          style={{ width: `${Math.min(((draw.entrants || 0) / (draw.cap || 100)) * 100, 100)}%` }}
+                          style={{
+                            width:
+                              draw.cap === -1 || draw.cap == null || !draw.cap
+                                ? '100%'
+                                : `${Math.min(((draw.entrants || 0) / draw.cap) * 100, 100)}%`,
+                          }}
                         />
                       </div>
                     </div>
@@ -647,10 +686,7 @@ export default function DashboardPage() {
                     {formatDate(payment.createdAt)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {payment.paymentType === 'membership' 
-                      ? `${payment.metadata?.planName || 'Membership'} ${payment.metadata?.isRenewal ? 'Renewal' : ''}`
-                      : `Boost Pack ${payment.metadata?.packName || ''} (${payment.creditsGranted || 0} credits)`
-                    }
+                    {formatPurchaseItem(payment)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     {payment.discountAmount && payment.discountAmount > 0 ? (
@@ -730,10 +766,7 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <div className="mt-2 text-sm text-gray-500">
-                      {payment.paymentType === 'membership' 
-                        ? `${payment.metadata?.planName || 'Membership'}`
-                        : `Boost Pack ${payment.metadata?.packName || ''}`
-                      }
+                      {formatPurchaseItemPromoLine(payment)}
                     </div>
                   </div>
                   <div className="text-right">

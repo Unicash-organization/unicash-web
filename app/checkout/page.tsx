@@ -312,7 +312,10 @@ function CheckoutContent() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    
+    if (name === 'email' && user?.email) {
+      return;
+    }
+
     // Format phone number if it's the phone field
     let formattedValue = value;
     if (name === 'phone') {
@@ -666,16 +669,23 @@ function CheckoutContent() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Email *
                       </label>
+                      {user?.email && (
+                        <p className="text-xs text-gray-600 mb-1">
+                          Purchasing as your logged-in account. To use a different email, log out first.
+                        </p>
+                      )}
                       <input
                         ref={emailInputRef}
                         type="email"
                         name="email"
                         value={formData.email}
+                        readOnly={!!user?.email}
+                        aria-readonly={!!user?.email}
                         onChange={handleInputChange}
                         placeholder="Enter your email here..."
                         className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
                           errors.email ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-purple-500'
-                        }`}
+                        } ${user?.email ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                       />
                       {errors.email && (
                         <p className="text-red-500 text-sm mt-1">{errors.email}</p>

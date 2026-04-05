@@ -86,6 +86,7 @@ export default function DrawEntriesPage() {
   const getSourceLabel = (source: string) => {
     if (source === 'membership_credit') return 'Membership Credit';
     if (source === 'boost_credit') return 'Boost Credit';
+    if (source === 'external_payment') return 'One-time package';
     return source;
   };
 
