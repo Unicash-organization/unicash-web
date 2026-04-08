@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { loadStripe, StripeElementsOptions } from '@stripe/stripe-js';
 import {
   Elements,
@@ -24,9 +24,21 @@ interface StripeCheckoutFormProps {
   buttonText?: string;
   /** When set, user pays with this saved card (no PaymentElement). Only used when logged in and has saved cards. */
   savedPaymentMethod?: { id: string; brand: string; last4: string } | null;
+  /** Major draw landing: guest checkout — no auto-login; success page shows password + Login. */
+  guestLandingFlow?: boolean;
+  onGuestLandingPurchaseComplete?: () => void;
 }
 
-function CheckoutForm({ clientSecret, paymentId, amount, currency = 'AUD', buttonText = 'Pay and Start Membership', savedPaymentMethod = null }: StripeCheckoutFormProps) {
+function CheckoutForm({
+  clientSecret,
+  paymentId,
+  amount,
+  currency = 'AUD',
+  buttonText = 'Pay and Start Membership',
+  savedPaymentMethod = null,
+  guestLandingFlow = false,
+  onGuestLandingPurchaseComplete,
+}: StripeCheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const { setAuth, user, refreshUser } = useAuth();
@@ -39,6 +51,54 @@ function CheckoutForm({ clientSecret, paymentId, amount, currency = 'AUD', butto
     googlePay: boolean;
   }>({ applePay: false, googlePay: false });
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'card' | 'applePay' | 'googlePay'>('card');
+
+  const navigateAfterConfirm = useCallback(
+    async (confirmResponse: { data?: any }) => {
+      const data = confirmResponse?.data;
+      if (guestLandingFlow && data?.majorDrawLandingGuest) {
+        try {
+          sessionStorage.setItem(
+            'unicash_mdl_guest_success',
+            JSON.stringify(data.majorDrawLandingGuest),
+          );
+        } catch {
+          /* ignore */
+        }
+        onGuestLandingPurchaseComplete?.();
+        router.push('/win/purchase-success');
+        return;
+      }
+
+      if (data?.success && data?.user) {
+        const existingToken = localStorage.getItem('token');
+        const isAlreadyLoggedIn = !!existingToken;
+
+        if (isAlreadyLoggedIn) {
+          await refreshUser();
+          router.push(`/thank-you?paymentId=${paymentId}`);
+        } else if (data.token) {
+          setAuth(data.token, data.user);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          if (!localStorage.getItem('token')) {
+            localStorage.setItem('token', data.token);
+          }
+          router.push(`/thank-you?paymentId=${paymentId}`);
+        } else {
+          router.push(`/thank-you?paymentId=${paymentId}`);
+        }
+      } else {
+        router.push(`/thank-you?paymentId=${paymentId}`);
+      }
+    },
+    [
+      guestLandingFlow,
+      paymentId,
+      router,
+      setAuth,
+      refreshUser,
+      onGuestLandingPurchaseComplete,
+    ],
+  );
 
   useEffect(() => {
     if (!stripe) return;
@@ -105,31 +165,9 @@ function CheckoutForm({ clientSecret, paymentId, amount, currency = 'AUD', butto
         }
 
         ev.complete('success');
-        
-        // Confirm on backend
+
         const confirmResponse = await api.payments.confirmPayment(paymentId);
-        if (confirmResponse.data.success && confirmResponse.data.user) {
-          // Check if user is already logged in
-          const existingToken = localStorage.getItem('token');
-          const isAlreadyLoggedIn = !!existingToken;
-          
-          if (isAlreadyLoggedIn) {
-            // User is already logged in - keep existing token and refresh user data
-            console.log('User already logged in, keeping existing token and refreshing user data');
-            // Refresh user data to get updated membership and credits
-            await refreshUser();
-            // Redirect to thank-you page
-            router.push(`/thank-you?paymentId=${paymentId}`);
-          } else if (confirmResponse.data.token) {
-            // New user or not logged in - set auth token and user data
-            setAuth(confirmResponse.data.token, confirmResponse.data.user);
-            router.push(`/thank-you?paymentId=${paymentId}`);
-          } else {
-            router.push(`/thank-you?paymentId=${paymentId}`);
-          }
-        } else {
-          router.push(`/thank-you?paymentId=${paymentId}`);
-        }
+        await navigateAfterConfirm(confirmResponse);
       } catch (err: any) {
         console.error('Payment confirmation error:', err);
         setError(err.response?.data?.message || 'An error occurred');
@@ -163,7 +201,7 @@ function CheckoutForm({ clientSecret, paymentId, amount, currency = 'AUD', butto
     return () => {
       pr.off('paymentmethod', handlePaymentMethod);
     };
-  }, [stripe, clientSecret, paymentId, amount, currency, setAuth, router, user, refreshUser]);
+  }, [stripe, clientSecret, paymentId, amount, currency, user, navigateAfterConfirm]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,20 +233,7 @@ function CheckoutForm({ clientSecret, paymentId, amount, currency = 'AUD', butto
         }
 
         const confirmResponse = await api.payments.confirmPayment(paymentId);
-        if (confirmResponse.data.success && confirmResponse.data.user) {
-          const existingToken = localStorage.getItem('token');
-          if (existingToken) {
-            await refreshUser();
-            router.push(`/thank-you?paymentId=${paymentId}`);
-          } else if (confirmResponse.data.token) {
-            setAuth(confirmResponse.data.token, confirmResponse.data.user);
-            router.push(`/thank-you?paymentId=${paymentId}`);
-          } else {
-            router.push(`/thank-you?paymentId=${paymentId}`);
-          }
-        } else {
-          router.push(`/thank-you?paymentId=${paymentId}`);
-        }
+        await navigateAfterConfirm(confirmResponse);
         return;
       }
 
@@ -257,44 +282,8 @@ function CheckoutForm({ clientSecret, paymentId, amount, currency = 'AUD', butto
         return;
       }
 
-      // Payment succeeded, confirm on backend
       const confirmResponse = await api.payments.confirmPayment(paymentId);
-      
-      if (confirmResponse.data.success && confirmResponse.data.user) {
-        // Check if user is already logged in
-        const existingToken = localStorage.getItem('token');
-        const isAlreadyLoggedIn = !!existingToken;
-        
-        if (isAlreadyLoggedIn) {
-          // User is already logged in - keep existing token and refresh user data
-          console.log('User already logged in, keeping existing token and refreshing user data');
-          // Refresh user data to get updated membership and credits
-          await refreshUser();
-          // Redirect to thank-you page
-          router.push(`/thank-you?paymentId=${paymentId}`);
-        } else if (confirmResponse.data.token) {
-          // New user or not logged in - set auth token and user data
-          setAuth(confirmResponse.data.token, confirmResponse.data.user);
-          // Wait a bit to ensure token is saved to localStorage
-          await new Promise(resolve => setTimeout(resolve, 100));
-          // Verify token is in localStorage
-          const savedToken = localStorage.getItem('token');
-          if (!savedToken) {
-            console.error('Token was not saved to localStorage!');
-            // Try again
-            localStorage.setItem('token', confirmResponse.data.token);
-          }
-          // Redirect to thank-you page
-          router.push(`/thank-you?paymentId=${paymentId}`);
-        } else {
-          console.warn('No token received from confirmPayment response and user not logged in');
-          // Fallback: redirect to thank-you page
-          router.push(`/thank-you?paymentId=${paymentId}`);
-        }
-      } else {
-        // Payment succeeded but no user data, redirect to thank-you page
-        router.push(`/thank-you?paymentId=${paymentId}`);
-      }
+      await navigateAfterConfirm(confirmResponse);
     } catch (err: any) {
       console.error('Payment error:', err);
       setError(err.response?.data?.message || 'An error occurred during payment');
@@ -450,6 +439,8 @@ export interface StripeCheckoutFormWrapperProps {
   currency?: string;
   buttonText?: string;
   savedPaymentMethod?: { id: string; brand: string; last4: string } | null;
+  guestLandingFlow?: boolean;
+  onGuestLandingPurchaseComplete?: () => void;
 }
 
 export default function StripeCheckoutFormWrapper({
@@ -459,6 +450,8 @@ export default function StripeCheckoutFormWrapper({
   currency = 'AUD',
   buttonText,
   savedPaymentMethod = null,
+  guestLandingFlow = false,
+  onGuestLandingPurchaseComplete,
 }: StripeCheckoutFormWrapperProps) {
   const options: StripeElementsOptions = {
     clientSecret,
@@ -487,6 +480,8 @@ export default function StripeCheckoutFormWrapper({
         currency={currency}
         buttonText={buttonText}
         savedPaymentMethod={savedPaymentMethod}
+        guestLandingFlow={guestLandingFlow}
+        onGuestLandingPurchaseComplete={onGuestLandingPurchaseComplete}
       />
     </Elements>
   );

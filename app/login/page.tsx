@@ -34,6 +34,21 @@ function LoginPageContent() {
     method: null,
   });
 
+  useEffect(() => {
+    const emailParam = searchParams.get('email');
+    if (!emailParam?.trim()) return;
+    try {
+      const decoded = decodeURIComponent(emailParam.trim());
+      if (decoded) {
+        setFormData((prev) => (prev.email === decoded ? prev : { ...prev, email: decoded }));
+      }
+    } catch {
+      setFormData((prev) =>
+        prev.email === emailParam ? prev : { ...prev, email: emailParam.trim() },
+      );
+    }
+  }, [searchParams]);
+
   // Handle OAuth callback and magic link callback
   useEffect(() => {
     // Check query parameters first (for OAuth and some magic link formats)

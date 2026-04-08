@@ -18,13 +18,6 @@ function CheckoutSuccessContent() {
     return `A$${numAmount.toFixed(2)}`;
   };
 
-  useEffect(() => {
-    if (sessionId) {
-      fetchPaymentStatus();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
-
   const fetchPaymentStatus = async () => {
     try {
       const response = await api.payments.getPaymentBySession(sessionId!);
@@ -35,6 +28,43 @@ function CheckoutSuccessContent() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (sessionId) {
+      fetchPaymentStatus();
+      return;
+    }
+    const paymentIdParam = searchParams.get('payment_id');
+    if (paymentIdParam) {
+      let cancelled = false;
+      (async () => {
+        try {
+          const res = await api.payments.confirmPayment(paymentIdParam);
+          const g = res.data?.majorDrawLandingGuest;
+          if (!cancelled && g) {
+            try {
+              sessionStorage.setItem('unicash_mdl_guest_success', JSON.stringify(g));
+            } catch {
+              /* ignore */
+            }
+            router.replace('/win/purchase-success');
+            return;
+          }
+        } catch (e) {
+          console.error('confirmPayment after redirect:', e);
+        } finally {
+          if (!cancelled) {
+            setLoading(false);
+          }
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+    setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, searchParams, router]);
 
   if (loading) {
     return (

@@ -422,6 +422,8 @@ export default function MajorDrawCheckoutModal({
                 amount={amountAud}
                 currency="AUD"
                 buttonText="Complete payment"
+                guestLandingFlow={!user}
+                onGuestLandingPurchaseComplete={onClose}
                 savedPaymentMethod={
                   payWithSavedId
                     ? (() => {
