@@ -9,6 +9,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import StripeCheckoutForm from '@/components/StripeCheckoutForm';
 import { formatAustralianPhone } from '@/lib/australianPhone';
 
+/** Matches API BadRequest when logged-in user's submitted email ≠ session account email (see resolveCheckoutUserForEmail). */
+function isLoggedInEmailMismatchPaymentMessage(message: string | null | undefined): boolean {
+  if (!message) return false;
+  return message.includes('Use the email address on your logged-in UniCash account');
+}
+
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -690,6 +696,14 @@ function CheckoutContent() {
                       {errors.email && (
                         <p className="text-red-500 text-sm mt-1">{errors.email}</p>
                       )}
+                      {paymentError && isLoggedInEmailMismatchPaymentMessage(paymentError) && (
+                        <div
+                          className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"
+                          role="alert"
+                        >
+                          {paymentError}
+                        </div>
+                      )}
                     </div>
 
                     {/* Phone Number */}
@@ -795,7 +809,7 @@ function CheckoutContent() {
                     </div>
                   )}
 
-                  {paymentError && (
+                  {paymentError && !isLoggedInEmailMismatchPaymentMessage(paymentError) && (
                     <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
                       {paymentError}
                     </div>
