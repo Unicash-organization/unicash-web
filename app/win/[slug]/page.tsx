@@ -1,12 +1,16 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
 import PaymentTrustStrip from '@/components/PaymentTrustStrip';
 import LandingHeroPicture from '@/components/LandingHeroPicture';
 import MajorDrawCheckoutModal from '@/components/MajorDrawCheckoutModal';
+import NewsletterSection from '@/components/NewsletterSection';
+import LandingPrizeSlider from '@/components/LandingPrizeSlider';
+import GiveawayDetailCards from '@/components/GiveawayDetailCards';
+import LandingInclusionsPanel from '@/components/LandingInclusionsPanel';
 
 type LandingPackage = {
   id?: string;
@@ -19,9 +23,11 @@ type LandingPackage = {
   ctaUrl?: string;
 };
 
-/** Rich HTML from admin (no @tailwindcss/typography — basic element styles) */
 const RICH_HTML =
   'text-gray-700 text-sm sm:text-base leading-relaxed [&_a]:text-indigo-600 [&_a]:underline [&_p]:mb-3 last:[&_p]:mb-0 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-semibold [&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-2';
+
+const RICH_PURPLE_HEAD =
+  '[&_h1]:text-transparent [&_h1]:bg-clip-text [&_h1]:bg-gradient-to-b [&_h1]:from-[#9186FF] [&_h1]:to-[#6356E5] [&_h1]:font-extrabold [&_h1]:text-2xl sm:[&_h1]:text-3xl [&_h1]:mb-2 [&_h2]:text-transparent [&_h2]:bg-clip-text [&_h2]:bg-gradient-to-b [&_h2]:from-[#9186FF] [&_h2]:to-[#6356E5] [&_h2]:font-bold [&_h2]:text-lg sm:[&_h2]:text-xl [&_p]:text-gray-600';
 
 const THEME_STYLES: Record<string, string> = {
   entry: 'bg-white border-2 border-slate-200 shadow-lg text-slate-900',
@@ -30,6 +36,10 @@ const THEME_STYLES: Record<string, string> = {
   gold: 'bg-gradient-to-b from-amber-300 to-amber-500 shadow-lg text-slate-900',
   platinum: 'bg-gradient-to-b from-indigo-600 to-purple-800 shadow-lg text-white',
 };
+
+function scrollToMajorDrawPackages() {
+  document.getElementById('major-draw-packages')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 function useCountdown(targetIso: string) {
   const [t, setT] = useState({ d: 0, h: 0, m: 0, s: 0 });
@@ -54,6 +64,8 @@ function useCountdown(targetIso: string) {
   return t;
 }
 
+type FaqRow = { id: string; question: string; answer: string; order: number };
+
 export default function MajorDrawWinPage() {
   const params = useParams();
   const slug = params?.slug as string;
@@ -62,6 +74,7 @@ export default function MajorDrawWinPage() {
   const [error, setError] = useState<string | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutPkg, setCheckoutPkg] = useState<LandingPackage | null>(null);
+  const [faqs, setFaqs] = useState<FaqRow[]>([]);
 
   useEffect(() => {
     if (!slug) return;
@@ -86,6 +99,31 @@ export default function MajorDrawWinPage() {
     };
   }, [slug]);
 
+  useEffect(() => {
+    const cat = draw?.landingFaqCategory;
+    if (!cat || typeof cat !== 'string') {
+      setFaqs([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.faqs.getAll(cat);
+        if (!cancelled && Array.isArray(res.data)) {
+          const sorted = [...res.data].sort(
+            (a: FaqRow, b: FaqRow) => (a.order ?? 0) - (b.order ?? 0),
+          );
+          setFaqs(sorted);
+        }
+      } catch {
+        if (!cancelled) setFaqs([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [draw?.landingFaqCategory]);
+
   const packages: LandingPackage[] = useMemo(() => {
     const raw = draw?.landingPackages;
     if (!raw || !Array.isArray(raw)) return [];
@@ -94,11 +132,29 @@ export default function MajorDrawWinPage() {
     );
   }, [draw]);
 
+  const entriesCloseAt =
+    draw?.landingGiveawayEntriesCloseAt != null
+      ? new Date(draw.landingGiveawayEntriesCloseAt)
+      : draw?.closedAt != null
+        ? new Date(draw.closedAt)
+        : null;
+
   const countdownTarget =
-    draw?.closedAt != null
-      ? new Date(draw.closedAt).toISOString()
+    entriesCloseAt != null && !Number.isNaN(entriesCloseAt.getTime())
+      ? entriesCloseAt.toISOString()
       : new Date(Date.now() + 7 * 86400000).toISOString();
   const cd = useCountdown(countdownTarget);
+
+  const countdownLabel = (draw?.landingCountdownLabel || 'Closes in').trim() || 'Closes in';
+
+  const sliderUrls: string[] = useMemo(() => {
+    const raw = draw?.landingPrizeSliderImages;
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((u: unknown) => typeof u === 'string' && u.length > 0);
+  }, [draw]);
+
+  const drawEventAt =
+    draw?.landingGiveawayDrawAt != null ? new Date(draw.landingGiveawayDrawAt) : null;
 
   if (loading) {
     return (
@@ -121,10 +177,9 @@ export default function MajorDrawWinPage() {
   }
 
   return (
-    <div className="bg-slate-50 pb-12 sm:pb-16">
-      {/* Countdown strip */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white py-2.5 sm:py-3 px-3 sm:px-4 text-center text-xs sm:text-sm md:text-base font-semibold tracking-wide leading-snug">
-        Closes In{' '}
+    <div className="bg-[#f5f3ff] pb-0">
+      <div className="bg-gradient-to-r from-[#9186FF] via-[#7c6ee8] to-[#6356E5] text-white py-2.5 sm:py-3 px-3 sm:px-4 text-center text-xs sm:text-sm md:text-base font-semibold tracking-wide leading-snug">
+        {countdownLabel}{' '}
         <span className="font-mono tabular-nums">
           {cd.d}d : {String(cd.h).padStart(2, '0')}h : {String(cd.m).padStart(2, '0')}m :{' '}
           {String(cd.s).padStart(2, '0')}s
@@ -134,36 +189,44 @@ export default function MajorDrawWinPage() {
       <LandingHeroPicture
         desktopPath={draw.landingBannerImage}
         mobilePath={draw.landingBannerMobileImage}
-        overlayClassName="bg-gradient-to-b from-sky-400/35 via-sky-900/25 to-slate-900/55"
-        fallbackBgClassName="bg-gradient-to-b from-sky-100 to-sky-50"
+        overlayClassName="bg-gradient-to-b from-violet-400/25 via-violet-900/20 to-slate-900/50"
+        fallbackBgClassName="bg-gradient-to-b from-violet-100 to-violet-50"
+        sectionClassName="relative overflow-hidden px-4 sm:px-6 min-h-[400px] h-[400px] md:min-h-[800px] md:h-[800px]"
+        anchorCtaToBottom
       >
-        <div className="inline-block max-w-[min(100%,28rem)] rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-extrabold text-base sm:text-xl md:text-2xl px-4 sm:px-6 py-3 sm:py-4 shadow-xl leading-tight">
+        <button
+          type="button"
+          onClick={scrollToMajorDrawPackages}
+          className="inline-block max-w-[min(100%,28rem)] rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-extrabold text-base sm:text-xl md:text-2xl px-4 sm:px-6 py-3 sm:py-4 shadow-xl leading-tight major-draw-cta-nudge cursor-pointer border-0 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-300/80"
+        >
           {draw.title}
-        </div>
+        </button>
       </LandingHeroPicture>
 
-      {/* Packages */}
-      <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 -mt-6 sm:-mt-8 relative z-20">
-        <div className="text-center mb-6 sm:mb-8 pt-3 sm:pt-4">
-          <h2 className="text-slate-500 text-xs sm:text-sm font-semibold tracking-[0.15em] sm:tracking-[0.2em] uppercase mb-2 sm:mb-3">
-            Select a package
+      <section
+        id="major-draw-packages"
+        className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 relative z-20 bg-white pt-12 sm:pt-16 md:pt-20 pb-2"
+      >
+        <div className="text-center mb-8 sm:mb-10">
+          <h2 className="text-transparent bg-clip-text bg-gradient-to-b from-[#9186FF] to-[#6356E5] text-3xl sm:text-4xl md:text-5xl lg:text-[3.25rem] font-extrabold tracking-tight mb-4 sm:mb-5 uppercase leading-tight">
+            SELECT A PACKAGE
           </h2>
           {draw.landingPageDescription && (
             <div
-              className={`max-w-3xl mx-auto text-left ${RICH_HTML}`}
+              className={`max-w-3xl mx-auto text-center ${RICH_HTML}`}
               dangerouslySetInnerHTML={{ __html: draw.landingPageDescription }}
             />
           )}
         </div>
 
         {packages.length > 0 ? (
-          <div className="flex flex-wrap justify-center gap-4 sm:gap-6 lg:gap-8 max-w-6xl mx-auto mb-6 sm:mb-8">
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-6 lg:gap-8 max-w-6xl mx-auto mb-4 sm:mb-6">
             {packages.map((pkg) => {
               const theme = (pkg.cardTheme || 'entry').toLowerCase();
               const shell = THEME_STYLES[theme] || THEME_STYLES.entry;
               const externalUrl = pkg.ctaUrl?.trim();
               const isExternal = externalUrl?.startsWith('http');
-              const btnClass = `mt-auto text-center rounded-full py-2.5 text-sm font-bold transition ${
+              const btnClass = `mt-auto text-center rounded-full py-2.5 text-sm font-bold transition uppercase tracking-wide ${
                 theme === 'entry'
                   ? 'border-2 border-blue-600 text-blue-600 bg-white hover:bg-blue-50'
                   : 'bg-white text-blue-700 hover:bg-blue-50'
@@ -220,35 +283,118 @@ export default function MajorDrawWinPage() {
           <p className="text-center text-gray-500 mb-8">Packages will be announced soon.</p>
         )}
 
-        {draw.landingFullDescription && (
-          <div
-            className={`max-w-4xl mx-auto mb-8 px-1 ${RICH_HTML}`}
-            dangerouslySetInnerHTML={{ __html: draw.landingFullDescription }}
-          />
-        )}
+        <LandingInclusionsPanel />
 
         <PaymentTrustStrip />
-
-        <p className="text-[11px] text-gray-500 text-center max-w-3xl mx-auto leading-relaxed">
-          One-time purchase. Entry credits are applied according to the package you select. See full
-          terms on the main site. Major draw administered in line with published rules.
-        </p>
       </section>
 
-      {draw.landingAdditionalContent && (
-        <section className="max-w-4xl mx-auto px-4 sm:px-6 mt-12">
+      {(draw.landingPrizeHeadingHtml || sliderUrls.length > 0 || draw.landingFullDescription || draw.landingAdditionalContent) && (
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+          {draw.landingPrizeHeadingHtml && (
+            <div
+              className={`text-center max-w-4xl mx-auto mb-8 ${RICH_HTML} ${RICH_PURPLE_HEAD}`}
+              dangerouslySetInnerHTML={{ __html: draw.landingPrizeHeadingHtml }}
+            />
+          )}
+          <div className="max-w-5xl mx-auto mb-10 sm:mb-12">
+            {sliderUrls.length > 0 ? (
+              <LandingPrizeSlider urls={sliderUrls} />
+            ) : (
+              <div className="rounded-2xl bg-violet-100/50 aspect-[16/10] border border-violet-100" />
+            )}
+          </div>
           <div
-            className={`max-w-none bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-10 ${RICH_HTML}`}
-            dangerouslySetInnerHTML={{ __html: draw.landingAdditionalContent }}
-          />
+            className={`grid gap-8 lg:gap-10 items-start ${
+              draw.landingFullDescription && draw.landingAdditionalContent
+                ? 'grid-cols-1 lg:grid-cols-3'
+                : 'grid-cols-1 max-w-3xl mx-auto w-full'
+            }`}
+          >
+            {draw.landingFullDescription ? (
+              <div
+                className={
+                  draw.landingAdditionalContent
+                    ? 'order-2 lg:order-1 lg:col-span-1'
+                    : ''
+                }
+              >
+                <h3 className="text-violet-700 font-bold text-sm uppercase tracking-widest mb-4">FULL SPECS</h3>
+                <div className={`${RICH_HTML}`} dangerouslySetInnerHTML={{ __html: draw.landingFullDescription }} />
+              </div>
+            ) : null}
+            {draw.landingAdditionalContent ? (
+              <div
+                className={
+                  draw.landingFullDescription ? 'order-1 lg:order-2 lg:col-span-2' : ''
+                }
+              >
+                <div className="card rounded-2xl border border-violet-100/90 p-6 sm:p-8 shadow-md bg-white">
+                  <h3 className="text-violet-700 font-bold text-sm uppercase tracking-widest mb-4">
+                    CHECK OUT THIS ABSOLUTE WEAPON
+                  </h3>
+                  <div
+                    className={`${RICH_HTML} rich-text-content text-gray-600`}
+                    dangerouslySetInnerHTML={{ __html: draw.landingAdditionalContent }}
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <div className="text-center mt-10 sm:mt-12">
+            <button
+              type="button"
+              onClick={scrollToMajorDrawPackages}
+              className="inline-block rounded-full px-10 py-3 font-bold text-white bg-gradient-to-b from-[#9186FF] to-[#6356E5] shadow-lg hover:opacity-95 transition uppercase text-sm tracking-wide border-0 cursor-pointer focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-300/80"
+            >
+              Enter now
+            </button>
+          </div>
         </section>
       )}
 
-      <div className="max-w-xl mx-auto text-center mt-10">
-        <Link href={`/giveaways/${draw.id}`} className="text-indigo-600 text-sm font-medium hover:underline">
-          View full giveaway details →
-        </Link>
-      </div>
+      <GiveawayDetailCards
+        firstPrizeHtml={draw.landingGiveawayFirstPrizeHtml}
+        entriesCloseAt={entriesCloseAt}
+        drawEventAt={drawEventAt}
+        showStreamFacebook={!!draw.landingGiveawayStreamFacebook}
+      />
+
+      {faqs.length > 0 && (
+        <section className="py-16 bg-white">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-center text-transparent bg-clip-text bg-gradient-to-b from-[#9186FF] to-[#6356E5] text-2xl sm:text-3xl font-extrabold mb-2">
+              FAQ
+            </h2>
+            <p className="text-center text-gray-600 text-sm mb-8">
+              Choose a plan, get monthly credits, and unlock every member draw.
+            </p>
+            <div className="space-y-4">
+              {faqs.map((faq) => (
+                <details key={faq.id} className="card p-6 group rounded-xl">
+                  <summary className="font-semibold text-lg cursor-pointer flex justify-between items-center gap-3 list-none [&::-webkit-details-marker]:hidden">
+                    <span>{faq.question}</span>
+                    <svg
+                      className="w-5 h-5 text-gray-400 shrink-0 group-open:rotate-180 transition-transform"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </summary>
+                  <div
+                    className={`mt-4 rich-text-content text-gray-600 leading-relaxed ${RICH_HTML}`}
+                    dangerouslySetInnerHTML={{ __html: faq.answer }}
+                  />
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <NewsletterSection />
 
       <MajorDrawCheckoutModal
         isOpen={checkoutOpen}

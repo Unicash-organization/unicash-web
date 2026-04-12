@@ -12,6 +12,15 @@ type Props = {
   overlayClassName: string;
   /** Background when no image is configured */
   fallbackBgClassName?: string;
+  /** Override outer section layout (e.g. fixed hero height for major draw) */
+  sectionClassName?: string;
+  /**
+   * When true, children are pinned to the bottom of the hero (horizontal center),
+   * with padding from the bottom edge (see `ctaBottomClassName`).
+   */
+  anchorCtaToBottom?: boolean;
+  /** Tailwind padding-bottom for CTA when `anchorCtaToBottom` (default 60px). */
+  ctaBottomClassName?: string;
   children: React.ReactNode;
 };
 
@@ -23,14 +32,26 @@ export default function LandingHeroPicture({
   mobilePath,
   overlayClassName,
   fallbackBgClassName = 'bg-gradient-to-b from-slate-200 to-slate-100',
+  sectionClassName,
+  anchorCtaToBottom = false,
+  ctaBottomClassName = 'pb-[60px]',
   children,
 }: Props) {
   const d = desktopPath ? getImageUrl(desktopPath) : '';
   const m = mobilePath ? getImageUrl(mobilePath) : '';
   const hasImage = !!(d || m);
 
+  const baseSection =
+    sectionClassName ||
+    'relative overflow-hidden flex items-center justify-center px-4 sm:px-6 min-h-[200px] sm:min-h-[260px] md:min-h-[300px]';
+  const sectionShell = anchorCtaToBottom ? `${baseSection} flex flex-col min-h-0` : baseSection;
+
+  const contentShell = anchorCtaToBottom
+    ? `relative z-10 flex h-full min-h-0 w-full flex-1 flex-col justify-end items-center px-4 sm:px-6 ${ctaBottomClassName}`
+    : 'relative z-10 w-full max-w-4xl mx-auto text-center py-6 sm:py-8 md:py-10';
+
   return (
-    <section className="relative overflow-hidden flex items-center justify-center px-4 sm:px-6 min-h-[200px] sm:min-h-[260px] md:min-h-[300px]">
+    <section className={sectionShell}>
       {hasImage ? (
         <>
           {d && m ? (
@@ -58,9 +79,7 @@ export default function LandingHeroPicture({
       ) : (
         <div className={`absolute inset-0 z-0 ${fallbackBgClassName}`} aria-hidden />
       )}
-      <div className="relative z-10 w-full max-w-4xl mx-auto text-center py-6 sm:py-8 md:py-10">
-        {children}
-      </div>
+      <div className={contentShell}>{children}</div>
     </section>
   );
 }

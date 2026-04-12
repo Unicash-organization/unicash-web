@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes major-draw-cta-nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+.major-draw-cta-nudge {
+  animation: major-draw-cta-nudge 0.85s ease-in-out infinite;
+}
+
+.major-draw-cta-nudge:hover {
+  animation-play-state: paused;
+}
+
 :root {
   --primary: 139, 92, 246;
   --accent: 99, 102, 241;
@@ -236,6 +254,27 @@ img, video, iframe {
 .rich-text-content li {
   margin: 0.5rem 0;
   line-height: 1.75;
+}
+
+/* Membership landing: optional rich-text feature lists with purple checkmarks */
+.membership-landing-card-features ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+.membership-landing-card-features ul > li {
+  position: relative;
+  padding-left: 1.75rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+.membership-landing-card-features ul > li::before {
+  content: '\2713';
+  position: absolute;
+  left: 0;
+  top: 0.1rem;
+  color: #9333ea;
+  font-weight: 700;
 }
 
 .rich-text-content ul ul,
