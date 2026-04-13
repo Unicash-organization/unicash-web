@@ -199,7 +199,9 @@ export default function MajorDrawWinPage() {
           onClick={scrollToMajorDrawPackages}
           className="inline-block max-w-[min(100%,28rem)] rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-extrabold text-base sm:text-xl md:text-2xl px-4 sm:px-6 py-3 sm:py-4 shadow-xl leading-tight major-draw-cta-nudge cursor-pointer border-0 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-300/80"
         >
-          {draw.title}
+          {(typeof draw.landingHeroButtonLabel === 'string' && draw.landingHeroButtonLabel.trim()
+            ? draw.landingHeroButtonLabel.trim()
+            : draw.title) || 'Enter now'}
         </button>
       </LandingHeroPicture>
 
