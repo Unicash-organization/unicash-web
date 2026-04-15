@@ -44,6 +44,8 @@ export default function MajorDrawCheckoutModal({
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loadingIntent, setLoadingIntent] = useState(false);
+  const [intentCreated, setIntentCreated] = useState(false);
+  const [intentPackageKey, setIntentPackageKey] = useState<string | null>(null);
 
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
@@ -66,14 +68,7 @@ export default function MajorDrawCheckoutModal({
       setStep(1);
       setFormError(null);
       setFieldErrors({});
-      setClientSecret(null);
-      setPaymentId(null);
-      setAmountAud(0);
       setLoadingIntent(false);
-      setFirstName('');
-      setLastName('');
-      setEmail('');
-      setMobile('');
       setSavedCards([]);
       setPayWithSavedId(null);
       return;
@@ -119,6 +114,15 @@ export default function MajorDrawCheckoutModal({
 
   const entries = Math.floor(Number(packageSnapshot.entryCount ?? 0));
   const price = Number(packageSnapshot.price ?? 0);
+  const currentPackageKey = `${drawId}:${packageSnapshot.id || ''}:${entries}:${price}`;
+
+  if (intentCreated && intentPackageKey && intentPackageKey !== currentPackageKey) {
+    setIntentCreated(false);
+    setIntentPackageKey(null);
+    setClientSecret(null);
+    setPaymentId(null);
+    setAmountAud(0);
+  }
 
   /** Same rules as checkout `validateInfo` (phone: digits only, 10 chars, starts with 04). */
   const validateInfo = (): boolean => {
@@ -154,9 +158,6 @@ export default function MajorDrawCheckoutModal({
 
   const goToStep1 = () => {
     setStep(1);
-    setClientSecret(null);
-    setPaymentId(null);
-    setAmountAud(0);
     setFormError(null);
   };
 
@@ -169,6 +170,11 @@ export default function MajorDrawCheckoutModal({
 
   const handleContinueToPay = async () => {
     if (!validateInfo()) return;
+    if (intentCreated && clientSecret && paymentId) {
+      setStep(2);
+      return;
+    }
+    if (loadingIntent || intentCreated) return;
     setLoadingIntent(true);
     setFormError(null);
     try {
@@ -185,6 +191,8 @@ export default function MajorDrawCheckoutModal({
       setClientSecret(data.clientSecret);
       setPaymentId(data.paymentId);
       setAmountAud(Number(data.amount));
+      setIntentCreated(true);
+      setIntentPackageKey(currentPackageKey);
       setStep(2);
     } catch (e: any) {
       const msg =
@@ -355,9 +363,9 @@ export default function MajorDrawCheckoutModal({
                 type="button"
                 disabled={loadingIntent}
                 onClick={handleContinueToPay}
-                className="w-full rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 uppercase tracking-wide disabled:opacity-50"
+                className="w-full rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loadingIntent ? 'Please wait…' : 'Click to enter now'}
+                {loadingIntent ? 'Please wait…' : intentCreated ? 'Continue to payment →' : 'Click to enter now'}
               </button>
             </div>
           )}
