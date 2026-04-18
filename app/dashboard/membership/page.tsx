@@ -145,9 +145,13 @@ export default function MembershipPage() {
       console.log('[loadData] Loaded plans:', plansData);
       console.log('[loadData] Current membership planId:', membershipRes.data?.planId);
 
-      // Load renewal history if membership exists
-      if (membershipRes.data) {
+      // Load renewal history only while membership is not canceled (canceled users see no history block)
+      if (membershipRes.data && membershipRes.data.status !== 'canceled') {
         loadRenewalHistory();
+      } else {
+        setRenewals([]);
+        setRenewalsTotal(0);
+        setRenewalsPage(1);
       }
     } catch (error) {
       console.error('[loadData] Error loading membership data:', error);
@@ -994,9 +998,9 @@ export default function MembershipPage() {
         </div>
       )}
 
-      {/* Renewal History */}
-      {membership && (
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+      {/* Renewal History — hidden for canceled membership (matches "No active membership" / post-cancel UX) */}
+      {membership && membership.status !== 'canceled' && (
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 mt-6">
           {loadingRenewals ? (
             <div className="text-center py-8">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>

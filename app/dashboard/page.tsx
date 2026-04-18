@@ -391,9 +391,12 @@ export default function DashboardPage() {
           ) : (
             <div>
               <p className="text-gray-600 mb-4">No active membership</p>
-              <Link href="/checkout">
-                <button className="btn-primary">Subscribe Now</button>
-              </Link>
+              <button
+                onClick={() => router.push('/#membership-plans')}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold py-2 px-6 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition"
+              >
+                Subscribe Now
+              </button>
             </div>
           )}
         </div>
