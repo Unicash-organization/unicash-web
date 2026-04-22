@@ -20,8 +20,10 @@ type PaymentMethodsPanelProps = {
   wrapperClassName?: string;
   /** Runs after payment methods reload and refreshUser (e.g. retry failed invoice). */
   onCardsChanged?: () => void | Promise<void>;
-  /** Forwarded to UpdateCardModal when nested inside another modal. */
+  /** Forwarded to UpdateCardModal when nested inside another modal (optional; portal usually makes this unnecessary). */
   updateCardOverlayClassName?: string;
+  /** Notifies when the add/update card (Stripe) modal opens or closes — parent can hide a wrapping modal to avoid two stacked UIs. */
+  onUpdateCardOpenChange?: (open: boolean) => void;
   /** Increment to force reloading the list from the API (e.g. after Stripe billing portal return). */
   refreshSignal?: number;
 };
@@ -31,6 +33,7 @@ export default function PaymentMethodsPanel({
   wrapperClassName = 'space-y-4',
   onCardsChanged,
   updateCardOverlayClassName,
+  onUpdateCardOpenChange,
   refreshSignal = 0,
 }: PaymentMethodsPanelProps) {
   const { refreshUser } = useAuth();
@@ -38,6 +41,10 @@ export default function PaymentMethodsPanel({
   const [loading, setLoading] = useState(true);
   const [showUpdateCardModal, setShowUpdateCardModal] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    onUpdateCardOpenChange?.(showUpdateCardModal);
+  }, [showUpdateCardModal, onUpdateCardOpenChange]);
 
   const loadPaymentMethods = useCallback(async () => {
     try {

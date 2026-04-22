@@ -31,6 +31,7 @@ export default function MembershipPage() {
   const [selectedDowngradePlanId, setSelectedDowngradePlanId] = useState<string | null>(null);
   const [selectedUpgradePlanId, setSelectedUpgradePlanId] = useState<string | null>(null);
   const [showManagePaymentModal, setShowManagePaymentModal] = useState(false);
+  const [hidePaymentMethodsShell, setHidePaymentMethodsShell] = useState(false);
 
   // ✅ Auto-clear actionLoading when membership state updates after upgrade/downgrade
   // Note: This is a fallback - actionLoading should be cleared in handleConfirmUpgrade/Downgrade
@@ -457,7 +458,13 @@ export default function MembershipPage() {
     return false;
   };
 
+  const closeManagePaymentModal = () => {
+    setShowManagePaymentModal(false);
+    setHidePaymentMethodsShell(false);
+  };
+
   const handleOpenManagePayment = () => {
+    setHidePaymentMethodsShell(false);
     setShowManagePaymentModal(true);
   };
 
@@ -472,7 +479,7 @@ export default function MembershipPage() {
       m.data.status !== 'payment_failed' &&
       m.data.status !== 'past_due'
     ) {
-      setShowManagePaymentModal(false);
+      closeManagePaymentModal();
     }
   };
 
@@ -1054,9 +1061,12 @@ You can resume anytime. Your membership will automatically reactivate after 30 d
 
       {showManagePaymentModal && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
-          onClick={() => setShowManagePaymentModal(false)}
+          className={`fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 ${
+            hidePaymentMethodsShell ? 'invisible pointer-events-none' : ''
+          }`}
+          onClick={closeManagePaymentModal}
           role="presentation"
+          aria-hidden={hidePaymentMethodsShell}
         >
           <div
             className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
@@ -1071,7 +1081,7 @@ You can resume anytime. Your membership will automatically reactivate after 30 d
               </h2>
               <button
                 type="button"
-                onClick={() => setShowManagePaymentModal(false)}
+                onClick={closeManagePaymentModal}
                 className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
                 aria-label="Close"
               >
@@ -1085,7 +1095,7 @@ You can resume anytime. Your membership will automatically reactivate after 30 d
                 title=""
                 wrapperClassName="space-y-4"
                 onCardsChanged={handlePaymentMethodsChanged}
-                updateCardOverlayClassName="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50"
+                onUpdateCardOpenChange={setHidePaymentMethodsShell}
               />
             </div>
           </div>

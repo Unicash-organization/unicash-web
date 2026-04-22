@@ -23,6 +23,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [showMembershipModal, setShowMembershipModal] = useState(false);
   const [showManagePaymentModal, setShowManagePaymentModal] = useState(false);
+  /** When add/update card opens, hide this shell so only the portaled Stripe modal is visible. */
+  const [hidePaymentMethodsShell, setHidePaymentMethodsShell] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -157,7 +159,13 @@ export default function DashboardPage() {
     return plan?.name || 'Unknown';
   };
 
+  const closeManagePaymentModal = () => {
+    setShowManagePaymentModal(false);
+    setHidePaymentMethodsShell(false);
+  };
+
   const handleOpenManagePayment = () => {
+    setHidePaymentMethodsShell(false);
     setShowManagePaymentModal(true);
   };
 
@@ -171,7 +179,7 @@ export default function DashboardPage() {
       m.data.status !== 'payment_failed' &&
       m.data.status !== 'past_due'
     ) {
-      setShowManagePaymentModal(false);
+      closeManagePaymentModal();
     }
   };
 
@@ -755,9 +763,12 @@ export default function DashboardPage() {
 
       {showManagePaymentModal && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
-          onClick={() => setShowManagePaymentModal(false)}
+          className={`fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 transition-[visibility] ${
+            hidePaymentMethodsShell ? 'invisible pointer-events-none' : ''
+          }`}
+          onClick={closeManagePaymentModal}
           role="presentation"
+          aria-hidden={hidePaymentMethodsShell}
         >
           <div
             className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
@@ -772,7 +783,7 @@ export default function DashboardPage() {
               </h2>
               <button
                 type="button"
-                onClick={() => setShowManagePaymentModal(false)}
+                onClick={closeManagePaymentModal}
                 className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
                 aria-label="Close"
               >
@@ -786,7 +797,7 @@ export default function DashboardPage() {
                 title=""
                 wrapperClassName="space-y-4"
                 onCardsChanged={handlePaymentMethodsChanged}
-                updateCardOverlayClassName="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50"
+                onUpdateCardOpenChange={setHidePaymentMethodsShell}
               />
             </div>
           </div>

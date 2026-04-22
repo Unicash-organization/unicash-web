@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { loadStripe, StripeElementsOptions } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import api from '@/lib/api';
@@ -110,12 +111,17 @@ export default function UpdateCardModal({
   onClose: () => void;
   onSuccess: () => void;
   setAsDefault?: boolean;
-  /** Use a higher z-index when this modal opens inside another overlay (e.g. manage cards on dashboard). */
+  /** When set, use this for the overlay. Default: high z + portal to body to sit above other modals. */
   overlayClassName?: string;
 }) {
+  const [mounted, setMounted] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -142,7 +148,7 @@ export default function UpdateCardModal({
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
   const options: StripeElementsOptions = {
     clientSecret: clientSecret!,
@@ -160,16 +166,21 @@ export default function UpdateCardModal({
 
   const overlay =
     overlayClassName ||
-    'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50';
+    'fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50';
 
-  return (
-    <div className={overlay} onClick={onClose}>
+  return createPortal(
+    <div className={overlay} onClick={onClose} role="presentation">
       <div
         className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="update-card-title"
       >
         <div className="p-6 flex-shrink-0">
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Update payment method</h2>
+          <h2 id="update-card-title" className="text-xl font-bold text-gray-900 mb-2">
+            Update payment method
+          </h2>
           <p className="text-sm text-gray-600">Enter your new card details below. Secured by Stripe.</p>
         </div>
         {error && (
@@ -196,6 +207,7 @@ export default function UpdateCardModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
