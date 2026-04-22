@@ -104,11 +104,14 @@ export default function UpdateCardModal({
   onClose,
   onSuccess,
   setAsDefault = false,
+  overlayClassName,
 }: {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
   setAsDefault?: boolean;
+  /** Use a higher z-index when this modal opens inside another overlay (e.g. manage cards on dashboard). */
+  overlayClassName?: string;
 }) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -155,8 +158,12 @@ export default function UpdateCardModal({
     },
   };
 
+  const overlay =
+    overlayClassName ||
+    'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+    <div className={overlay} onClick={onClose}>
       <div
         className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}

@@ -8,6 +8,8 @@ import { showToast } from '@/lib/toast';
 import Link from 'next/link';
 import ConfirmModal from '@/components/ConfirmModal';
 import { formatDateGB } from '@/lib/timezone';
+import PaymentMethodsPanel from '@/components/PaymentMethodsPanel';
+import { notifyAndRetryMembershipAfterPaymentUpdate } from '@/lib/membershipPaymentRetry';
 
 export default function MembershipPage() {
   const { user, refreshUser } = useAuth();
@@ -28,6 +30,7 @@ export default function MembershipPage() {
   const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
   const [selectedDowngradePlanId, setSelectedDowngradePlanId] = useState<string | null>(null);
   const [selectedUpgradePlanId, setSelectedUpgradePlanId] = useState<string | null>(null);
+  const [showManagePaymentModal, setShowManagePaymentModal] = useState(false);
 
   // ✅ Auto-clear actionLoading when membership state updates after upgrade/downgrade
   // Note: This is a fallback - actionLoading should be cleared in handleConfirmUpgrade/Downgrade
@@ -72,47 +75,12 @@ export default function MembershipPage() {
       
       // Check if user just returned from Stripe billing portal
       if (paymentUpdated === 'true') {
-        // Remove parameter from URL
         window.history.replaceState({}, '', window.location.pathname);
-        
-        // Reload data and try to retry failed invoice
         setTimeout(async () => {
           await loadData();
           await refreshUser();
-          
-          // Check current membership status
-          const updatedMembership = await api.membership.getUserMembership().catch(() => ({ data: null }));
-          
-          if (updatedMembership.data?.status !== 'payment_failed' && 
-              updatedMembership.data?.status !== 'past_due') {
-            // Payment already succeeded (Stripe auto-retried)
-            showToast('Payment method updated successfully! Your membership is now active.', 'success');
-          } else {
-            // Payment method updated but invoice still needs to be retried
-            // Try to retry failed invoice immediately
-            try {
-              const retryResult = await api.payments.retryFailedInvoice();
-              if (retryResult.data?.success) {
-                // Reload data again to check if status changed
-                await loadData();
-                await refreshUser();
-                
-                const finalMembership = await api.membership.getUserMembership().catch(() => ({ data: null }));
-                if (finalMembership.data?.status !== 'payment_failed' && 
-                    finalMembership.data?.status !== 'past_due') {
-                  showToast('Payment method updated and invoice paid successfully! Your membership is now active.', 'success');
-                } else {
-                  showToast('Payment method updated. We attempted to retry your payment. Please check back in a moment.', 'info');
-                }
-              } else {
-                showToast('Payment method updated. We attempted to retry your payment, but it may still be processing. Please check back in a few minutes.', 'info');
-              }
-            } catch (retryError: any) {
-              console.error('Error retrying invoice:', retryError);
-              // If retry fails, Stripe will auto-retry later
-              showToast('Payment method updated. Stripe will automatically retry your payment. Please check back in a few minutes.', 'info');
-            }
-          }
+          await notifyAndRetryMembershipAfterPaymentUpdate({ quietIfMembershipHealthy: false });
+          await loadData();
         }, 1000);
       }
     }
@@ -489,21 +457,22 @@ export default function MembershipPage() {
     return false;
   };
 
-  const handleFixPayment = async () => {
-    setActionLoading('fixPayment');
-    try {
-      // Return to membership page after updating payment method
-      const returnUrl = `${window.location.origin}/dashboard/membership?paymentUpdated=true`;
-      const res = await api.payments.createBillingPortalSession(returnUrl);
-      
-      if (res.data?.url) {
-        // Direct redirect to Stripe billing portal
-        window.location.href = res.data.url;
-      }
-    } catch (error: any) {
-      console.error('Error creating billing portal session:', error);
-      showToast(error.response?.data?.message || 'Failed to open payment update page. Please try again.', 'error');
-      setActionLoading(null);
+  const handleOpenManagePayment = () => {
+    setShowManagePaymentModal(true);
+  };
+
+  const handlePaymentMethodsChanged = async () => {
+    await loadData();
+    await refreshUser();
+    await notifyAndRetryMembershipAfterPaymentUpdate({ quietIfMembershipHealthy: false });
+    await loadData();
+    const m = await api.membership.getUserMembership().catch(() => ({ data: null }));
+    if (
+      m.data?.status &&
+      m.data.status !== 'payment_failed' &&
+      m.data.status !== 'past_due'
+    ) {
+      setShowManagePaymentModal(false);
     }
   };
 
@@ -579,18 +548,11 @@ export default function MembershipPage() {
               </p>
               <div className="flex gap-3">
                 <button
-                  onClick={handleFixPayment}
-                  disabled={actionLoading === 'fixPayment'}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition text-sm disabled:opacity-50"
+                  type="button"
+                  onClick={handleOpenManagePayment}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition text-sm"
                 >
-                  {actionLoading === 'fixPayment' ? 'Opening...' : 'Update payment'}
-                </button>
-                <button
-                  onClick={handleFixPayment}
-                  disabled={actionLoading === 'fixPayment'}
-                  className="px-4 py-2 bg-white text-red-600 border border-red-600 rounded-lg font-semibold hover:bg-red-50 transition text-sm disabled:opacity-50"
-                >
-                  Try again
+                  Update payment
                 </button>
               </div>
             </div>
@@ -945,11 +907,11 @@ export default function MembershipPage() {
                   {/* Payment Failed - Show Fix Payment Button */}
                   {isPaymentFailed ? (
                     <button
-                      onClick={handleFixPayment}
-                      disabled={actionLoading === 'fixPayment'}
-                      className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition disabled:opacity-50"
+                      type="button"
+                      onClick={handleOpenManagePayment}
+                      className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition"
                     >
-                      {actionLoading === 'fixPayment' ? 'Opening...' : 'Fix payment'}
+                      Fix payment
                     </button>
                   ) : isCurrentPlan ? (
                     <button
@@ -1089,6 +1051,46 @@ You can resume anytime. Your membership will automatically reactivate after 30 d
         cancelText="Cancel"
         type="warning"
       />
+
+      {showManagePaymentModal && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
+          onClick={() => setShowManagePaymentModal(false)}
+          role="presentation"
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="membership-manage-payment-title"
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-gray-100 bg-white px-6 py-4 rounded-t-2xl">
+              <h2 id="membership-manage-payment-title" className="text-xl font-bold text-gray-900">
+                Payment methods
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowManagePaymentModal(false)}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 pb-6 pt-2">
+              <PaymentMethodsPanel
+                title=""
+                wrapperClassName="space-y-4"
+                onCardsChanged={handlePaymentMethodsChanged}
+                updateCardOverlayClassName="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
