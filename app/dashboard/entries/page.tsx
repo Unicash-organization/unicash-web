@@ -88,6 +88,7 @@ export default function EntriesPage() {
       const list = payload?.data || [];
       const mapped: GroupedRow[] = list.map((r) => {
         const count = Number(r.count) || 0;
+        const rawOrder = r.sampleOrderNo != null ? String(r.sampleOrderNo).trim() : '';
         return {
           key: `${r.drawId}-${r.source}-${r.dayUtc}`,
           drawId: r.drawId,
@@ -97,7 +98,8 @@ export default function EntriesPage() {
           creditsSpent: Number(r.creditsSpent) || 0,
           date: formatDate(r.latestCreatedAt),
           count,
-          orderNoSample: count === 1 ? (r.sampleOrderNo ?? null) : null,
+          // Same sample as API (latest order no. in group); show for any count so it matches admin order column.
+          orderNoSample: rawOrder.length > 0 ? rawOrder : null,
         };
       });
       setRows(mapped);
