@@ -185,7 +185,7 @@ export default function MobileDrawer({ isOpen, onClose, user, onLogout, availabl
   })();
   const initials = displayName
     .split(' ')
-    .map((s) => s.charAt(0))
+    .map((s: string) => s.charAt(0))
     .join('')
     .slice(0, 2)
     .toUpperCase() || 'M';

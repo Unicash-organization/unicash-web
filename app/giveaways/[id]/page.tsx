@@ -203,7 +203,7 @@ export default function DrawDetailPage() {
   const [hasEntered, setHasEntered] = useState(false);
   const [checkingEntry, setCheckingEntry] = useState(false);
   const [isOnWaitlist, setIsOnWaitlist] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   const [checkingWaitlist, setCheckingWaitlist] = useState(false);
   const [addingToWaitlist, setAddingToWaitlist] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);

@@ -152,7 +152,7 @@ function LoginPageContent() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   const [otpSent, setOtpSent] = useState(false);
   const [verifyingAuth, setVerifyingAuth] = useState<{
     isVerifying: boolean;
@@ -391,7 +391,7 @@ function LoginPageContent() {
 
   /* OTP handlers — retained for backend safety even though OTP UI is removed.
      If OTP is re-enabled later, the auth plumbing is already in place. */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -407,7 +407,7 @@ function LoginPageContent() {
       setLoading(false);
     }
   };
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');

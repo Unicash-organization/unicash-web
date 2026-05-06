@@ -84,13 +84,13 @@ export default function FeaturedBonusDraw() {
   const [featuredDraw, setFeaturedDraw] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [membership, setMembership] = useState<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   const [checkingMembership, setCheckingMembership] = useState(false);
   /* CTA → ConfirmEntryModal trigger (matches DrawCard pattern) */
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   /* User entry status — same pattern as DrawCard */
   const [hasEntered, setHasEntered] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   const [checkingEntry, setCheckingEntry] = useState(false);
   /* Tracks whether membership status has been resolved at least once.
      Prevents flashing membership warnings during the ~1-2s async fetch on mount. */

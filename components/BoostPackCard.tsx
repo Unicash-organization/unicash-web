@@ -143,7 +143,7 @@ export default function BoostPackCard({ pack, v4Index }: BoostPackCardProps) {
   const [membership, setMembership] = useState<any>(null);
   const [showMembershipModal, setShowMembershipModal] = useState(false);
   const [checkingMembership, setCheckingMembership] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   const [userCredits, setUserCredits] = useState<{ boostCredits: number; membershipCredits: number } | null>(null);
 
   useEffect(() => {

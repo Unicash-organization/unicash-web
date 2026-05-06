@@ -299,11 +299,11 @@ function CheckoutContent() {
     (!userMembership?.currentPeriodEnd || new Date(userMembership.currentPeriodEnd) <= new Date());
   const effectivePackId = boostPackId || packId;
   const wantsOnlyBoost = effectivePackId && !planId && effectivePackId !== 'boost';
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   const wantsBoostPack = effectivePackId === 'boost' || (hasActiveMembership && !planId && !effectivePackId);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   const wantsOnlyMembership = planId && !packId;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   const wantsCombo = (planId && packId) || (selectedPlan && selectedPack);
   const requiresMembership = (isNewUser || !hasActiveMembership) && (wantsOnlyBoost || !!boostPackId);
   const skipPlanSelection = hasActiveMembership && wantsOnlyBoost && !planId;
@@ -323,7 +323,7 @@ function CheckoutContent() {
     }
     return '';
   };
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   const normalizePhoneNumber = (phone: string): string => {
     if (!phone || !phone.trim()) return '';
     const cleaned = phone.replace(/\D/g, '');
