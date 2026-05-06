@@ -4,8 +4,40 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
+import LoadingRing from '@/components/LoadingRing';
 
-// Format as 04XX XXX XXX while typing
+/* -----------------------------------------------------------------------
+   Inline icons
+----------------------------------------------------------------------- */
+const Icon = {
+  User: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
+  Pin: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M20 10c0 7-8 13-8 13s-8-6-8-13a8 8 0 0 1 16 0Z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  ),
+  Mail: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+    </svg>
+  ),
+  Check: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  ),
+};
+
+/* -----------------------------------------------------------------------
+   Phone formatting helpers — preserved from original
+----------------------------------------------------------------------- */
 const formatAustralianPhone = (value: string): string => {
   let cleaned = value.replace(/\D/g, '');
   if (cleaned.length > 0 && !cleaned.startsWith('04')) {
@@ -21,7 +53,6 @@ const formatAustralianPhone = (value: string): string => {
   return cleaned;
 };
 
-// Convert DB format (+614XXXXXXXX) → display format (04XX XXX XXX)
 const denormalizePhoneNumber = (phone: string): string => {
   if (!phone?.trim()) return '';
   const cleaned = phone.replace(/\D/g, '');
@@ -34,7 +65,6 @@ const denormalizePhoneNumber = (phone: string): string => {
   return phone;
 };
 
-// Convert display format (04XX XXX XXX) → DB format (+614XXXXXXXX)
 const normalizePhoneNumber = (phone: string): string => {
   if (!phone?.trim()) return '';
   const cleaned = phone.replace(/\D/g, '');
@@ -43,6 +73,17 @@ const normalizePhoneNumber = (phone: string): string => {
   }
   return phone;
 };
+
+const australianStates = [
+  'Australian Capital Territory',
+  'New South Wales',
+  'Northern Territory',
+  'Queensland',
+  'South Australia',
+  'Tasmania',
+  'Victoria',
+  'Western Australia',
+];
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
@@ -58,12 +99,13 @@ export default function ProfilePage() {
     postcode: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
   const [checkingNewsletter, setCheckingNewsletter] = useState(true);
   const [unsubscribing, setUnsubscribing] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
 
+  /* ===== Initial load — preserved logic ===== */
   useEffect(() => {
     if (user) {
       setFormData({
@@ -84,15 +126,12 @@ export default function ProfilePage() {
 
   const checkNewsletterStatus = async () => {
     if (!user) return;
-    
     try {
       setCheckingNewsletter(true);
       const res = await api.newsletter.checkSubscription();
-      console.log('Newsletter check response:', res.data);
       setNewsletterSubscribed(res.data?.subscribed || false);
     } catch (error: any) {
       console.error('Error checking newsletter status:', error);
-      console.error('Error response:', error.response?.data);
       setNewsletterSubscribed(false);
     } finally {
       setCheckingNewsletter(false);
@@ -100,10 +139,9 @@ export default function ProfilePage() {
   };
 
   const handleUnsubscribe = async () => {
-    if (!confirm('Are you sure you want to unsubscribe from the newsletter? You will no longer receive updates on bonus draws and winners.')) {
+    if (!confirm('Are you sure you want to unsubscribe from the newsletter? You will no longer receive updates on Bonus Draws and Winners.')) {
       return;
     }
-
     try {
       setUnsubscribing(true);
       await api.newsletter.unsubscribe();
@@ -114,6 +152,21 @@ export default function ProfilePage() {
       showToast(error.response?.data?.message || 'Failed to unsubscribe. Please try again.', 'error');
     } finally {
       setUnsubscribing(false);
+    }
+  };
+
+  const handleSubscribe = async () => {
+    if (!user?.email) return;
+    try {
+      setSubscribing(true);
+      await api.newsletter.subscribe(user.email);
+      setNewsletterSubscribed(true);
+      showToast('Successfully subscribed to newsletter!', 'success');
+    } catch (error: any) {
+      console.error('Error subscribing:', error);
+      showToast(error.response?.data?.message || 'Failed to subscribe. Please try again.', 'error');
+    } finally {
+      setSubscribing(false);
     }
   };
 
@@ -155,51 +208,67 @@ export default function ProfilePage() {
     }
   };
 
-  const australianStates = [
-    'Australian Capital Territory',
-    'New South Wales',
-    'Northern Territory',
-    'Queensland',
-    'South Australia',
-    'Tasmania',
-    'Victoria',
-    'Western Australia',
-  ];
-
+  /* =====================================================================
+     JSX — v4 redesign
+  ===================================================================== */
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">My profile</h1>
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+    <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
+      {/* Page header */}
+      <header>
+        <h1 className="text-[24px] font-extrabold tracking-tight text-[#0F1222] sm:text-[28px]">My profile</h1>
+      </header>
+
+      {/* ============================================================
+          PERSONAL INFO CARD
+      ============================================================ */}
+      <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-7">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F4F1FB] text-[#6356E5] ring-1 ring-[#E0DAFF]">
+            <Icon.User className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">Personal info</p>
+            <h2 className="mt-0.5 text-[18px] font-extrabold tracking-tight text-[#0F1222] sm:text-[20px]">Your details</h2>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+          <Field label="First name">
             <input
               type="text"
               value={formData.firstName}
               onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              className="h-11 w-full rounded-2xl border border-[#E0DAFF] bg-white px-4 text-[14px] text-[#0F1222] placeholder:text-[#667085] transition-colors focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+          </Field>
+          <Field label="Last name">
             <input
               type="text"
               value={formData.lastName}
               onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              className="h-11 w-full rounded-2xl border border-[#E0DAFF] bg-white px-4 text-[14px] text-[#0F1222] placeholder:text-[#667085] transition-colors focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+          </Field>
+
+          <Field
+            label="Email"
+            hint="Used for magic-link login. Contact support to change."
+            className="sm:col-span-2"
+          >
             <input
               type="email"
               value={formData.email}
               disabled
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100"
+              className="h-11 w-full rounded-2xl border border-[#E7E9F2] bg-[#FBFAFF] px-4 text-[14px] text-[#667085]"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+          </Field>
+
+          <Field
+            label="Phone"
+            hint="Australian mobile (04XX XXX XXX)"
+            error={errors.phone}
+            className="sm:col-span-2"
+          >
             <input
               type="tel"
               value={formData.phone}
@@ -208,126 +277,195 @@ export default function ProfilePage() {
                 if (errors.phone) setErrors({ ...errors, phone: '' });
               }}
               placeholder="04XX XXX XXX"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 ${
-                errors.phone ? 'border-red-500' : 'border-gray-300'
+              className={`h-11 w-full rounded-2xl border bg-white px-4 text-[14px] text-[#0F1222] placeholder:text-[#667085] transition-colors focus:outline-none focus:ring-2 ${
+                errors.phone
+                  ? 'border-[#FCA5A5] focus:border-[#EF4444] focus:ring-[#EF4444]/20'
+                  : 'border-[#E0DAFF] focus:border-[#6356E5] focus:ring-[#6356E5]/20'
               }`}
             />
-            {errors.phone ? (
-              <p className="mt-1 text-xs text-red-600">{errors.phone}</p>
-            ) : (
-              <p className="mt-1 text-xs text-gray-500">Enter your Australian mobile number (04XX XXX XXX)</p>
-            )}
+          </Field>
+        </div>
+      </article>
+
+      {/* ============================================================
+          ADDRESS CARD
+      ============================================================ */}
+      <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-7">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F4F1FB] text-[#6356E5] ring-1 ring-[#E0DAFF]">
+            <Icon.Pin className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">Address</p>
+            <h2 className="mt-0.5 text-[18px] font-extrabold tracking-tight text-[#0F1222] sm:text-[20px]">Where you live</h2>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Address (Optional)</label>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+          <Field label="Address line" className="sm:col-span-2">
             <input
               type="text"
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              placeholder="Apartment, suite, etc. (optional)"
+              className="h-11 w-full rounded-2xl border border-[#E0DAFF] bg-white px-4 text-[14px] text-[#0F1222] placeholder:text-[#667085] transition-colors focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
+          </Field>
+          <Field label="Street address" className="sm:col-span-2">
             <input
               type="text"
               value={formData.streetAddress}
               onChange={(e) => setFormData({ ...formData, streetAddress: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              className="h-11 w-full rounded-2xl border border-[#E0DAFF] bg-white px-4 text-[14px] text-[#0F1222] placeholder:text-[#667085] transition-colors focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+          </Field>
+          <Field label="City">
             <input
               type="text"
               value={formData.city}
               onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              className="h-11 w-full rounded-2xl border border-[#E0DAFF] bg-white px-4 text-[14px] text-[#0F1222] placeholder:text-[#667085] transition-colors focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">State/Territory</label>
+          </Field>
+          <Field label="State / Territory">
             <select
               value={formData.state}
               onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              className="h-11 w-full rounded-2xl border border-[#E0DAFF] bg-white px-4 text-[14px] text-[#0F1222] transition-colors focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
             >
-              <option value="">Select State</option>
+              <option value="">Select state</option>
               {australianStates.map((state) => (
-                <option key={state} value={state}>
-                  {state}
-                </option>
+                <option key={state} value={state}>{state}</option>
               ))}
             </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Postcode</label>
+          </Field>
+          <Field label="Postcode">
             <input
               type="text"
               value={formData.postcode}
               onChange={(e) => setFormData({ ...formData, postcode: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              placeholder="0000"
+              className="h-11 w-full rounded-2xl border border-[#E0DAFF] bg-white px-4 text-[14px] text-[#0F1222] placeholder:text-[#667085] transition-colors focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
             />
+          </Field>
+        </div>
+      </article>
+
+      {/* ============================================================
+          ACTIONS — sticky-ish at bottom of form
+      ============================================================ */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <button
+          type="submit"
+          disabled={saving}
+          className="inline-flex h-11 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-6 text-[13.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.55)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : 'Save changes'}
+        </button>
+        <button
+          type="button"
+          onClick={() => window.history.back()}
+          className="inline-flex h-11 items-center rounded-full border border-[#E0DAFF] bg-white px-5 text-[13.5px] font-bold text-[#0F1222] transition-colors hover:border-[#6356E5] hover:text-[#6356E5]"
+        >
+          Cancel
+        </button>
+      </div>
+
+      {/* ============================================================
+          NEWSLETTER CARD
+      ============================================================ */}
+      <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-7">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F4F1FB] text-[#6356E5] ring-1 ring-[#E0DAFF]">
+            <Icon.Mail className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">Communications</p>
+            <h2 className="mt-0.5 text-[18px] font-extrabold tracking-tight text-[#0F1222] sm:text-[20px]">Newsletter</h2>
           </div>
         </div>
-        <div className="flex items-center space-x-4 mt-6">
-          <button
-            type="submit"
-            disabled={saving}
-            className="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Save'}
-          </button>
-          <button
-            type="button"
-            onClick={() => window.history.back()}
-            className="text-gray-600 hover:text-gray-800 font-semibold"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
 
-      {/* Newsletter Subscription Section */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 mt-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Newsletter Subscription</h2>
         {checkingNewsletter ? (
-          <div className="flex items-center space-x-2 text-gray-600">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
-            <span>Checking subscription status...</span>
+          <div className="mt-4 flex justify-center py-6">
+            <LoadingRing size="sm" label="" />
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-700 font-medium">Email: {user?.email}</p>
-                <p className={`text-sm mt-1 ${
-                  newsletterSubscribed ? 'text-green-600' : 'text-gray-500'
-                }`}>
-                  {newsletterSubscribed 
-                    ? '✓ Subscribed to newsletter' 
-                    : 'Not subscribed to newsletter'}
+          <div className="mt-4 space-y-3">
+            <div className="flex items-start gap-3 rounded-2xl bg-[#FBFAFF] p-3.5 ring-1 ring-[#E0DAFF]">
+              <span
+                className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                  newsletterSubscribed
+                    ? 'bg-[#10B981] text-white'
+                    : 'bg-white text-[#667085] ring-1 ring-[#E0DAFF]'
+                }`}
+              >
+                {newsletterSubscribed ? (
+                  <Icon.Check className="h-3 w-3" />
+                ) : (
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#A3A8BE]" />
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="break-all text-[13px] font-semibold text-[#0F1222]">{user?.email}</p>
+                <p className="mt-0.5 text-[12px] text-[#667085]">
+                  {newsletterSubscribed
+                    ? 'Subscribed — getting Bonus Draws and Winners updates.'
+                    : 'Get updates on Bonus Draws, Winners, and member-only rewards.'}
                 </p>
               </div>
-              {newsletterSubscribed && (
-                <button
-                  onClick={handleUnsubscribe}
-                  disabled={unsubscribing}
-                  className="bg-red-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {unsubscribing ? 'Unsubscribing...' : 'Unsubscribe'}
-                </button>
-              )}
             </div>
-            {!newsletterSubscribed && (
-              <p className="text-sm text-gray-500">
-                You can subscribe to our newsletter from the homepage to receive updates on bonus draws and winners.
-              </p>
+
+            {newsletterSubscribed ? (
+              <button
+                type="button"
+                onClick={handleUnsubscribe}
+                disabled={unsubscribing}
+                className="inline-flex h-10 items-center rounded-full border border-[#FCA5A5] bg-white px-4 text-[12.5px] font-bold text-[#B91C1C] transition-colors hover:bg-[#FEF2F2] disabled:opacity-50"
+              >
+                {unsubscribing ? 'Unsubscribing…' : 'Unsubscribe'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubscribe}
+                disabled={subscribing || !user?.email}
+                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-4 text-[12.5px] font-bold text-white shadow-[0_10px_24px_-12px_rgba(99,86,229,0.55)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] disabled:opacity-50"
+              >
+                {subscribing ? 'Subscribing…' : 'Subscribe to newsletter'}
+              </button>
             )}
           </div>
         )}
-      </div>
-    </div>
+      </article>
+    </form>
   );
 }
 
+/* -----------------------------------------------------------------------
+   Reusable form field — label + hint + error
+----------------------------------------------------------------------- */
+function Field({
+  label,
+  hint,
+  error,
+  className = '',
+  children,
+}: {
+  label: string;
+  hint?: string;
+  error?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={className}>
+      <label className="mb-1.5 block text-[12px] font-bold text-[#0F1222]">{label}</label>
+      {children}
+      {error ? (
+        <p className="mt-1 text-[11.5px] font-semibold text-[#EF4444]">{error}</p>
+      ) : hint ? (
+        <p className="mt-1 text-[11.5px] text-[#667085]">{hint}</p>
+      ) : null}
+    </div>
+  );
+}

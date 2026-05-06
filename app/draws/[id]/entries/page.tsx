@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import Link from 'next/link';
+import LoadingRing from '@/components/LoadingRing';
 
 export default function DrawEntriesPage() {
   const params = useParams();
@@ -91,14 +92,7 @@ export default function DrawEntriesPage() {
   };
 
   if (loading && !draw) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingRing fullscreen label="Loading draw" />;
   }
 
   return (
@@ -186,9 +180,8 @@ export default function DrawEntriesPage() {
         {/* Entries Table */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           {loading ? (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-              <p className="mt-4 text-gray-600">Loading entries...</p>
+            <div className="flex justify-center py-12">
+              <LoadingRing label="Loading entries" />
             </div>
           ) : entries.length === 0 ? (
             <div className="text-center py-12">

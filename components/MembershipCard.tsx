@@ -5,6 +5,12 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 
+/* -----------------------------------------------------------------------
+   Types — preserved from existing implementation. featuresConfig is the
+   backend source of truth; legacy fields (grandPrizeEntriesPerPeriod,
+   freeCreditsPerPeriod) are still accepted as fallback. DO NOT modify.
+----------------------------------------------------------------------- */
+
 interface PlanFeature {
   type: 'grand_draw_entries' | 'free_credits' | 'early_access' | 'support' | 'access' | 'text' | 'comparison';
   label: string;
@@ -29,12 +35,9 @@ interface MembershipCardProps {
     badgeType?: string;
     featuresConfig?: {
       features: PlanFeature[];
-      badge?: {
-        text: string;
-        type: string;
-      };
+      badge?: { text: string; type: string };
     };
-    // Legacy support
+    /* Legacy fields — retained for backend compatibility */
     freeCreditsPerPeriod?: number;
     grandPrizeEntriesPerPeriod?: number;
   };
@@ -45,8 +48,159 @@ interface MembershipCardProps {
   showDowngradeConfirm?: boolean;
 }
 
-export default function MembershipCard({ 
-  plan, 
+/* -----------------------------------------------------------------------
+   v4 visual helpers
+----------------------------------------------------------------------- */
+
+const tierMeta = (tier: string) => {
+  switch (tier) {
+    case 'uni_one':
+      return { label: 'Silver', icon: 'medal' };
+    case 'uni_plus':
+      return { label: 'Gold', icon: 'trophy' };
+    case 'uni_max':
+      return { label: 'Platinum', icon: 'crown' };
+    default:
+      return { label: '', icon: 'medal' };
+  }
+};
+
+/* Tier icons — inline SVGs (no extra deps). All accept className */
+const TierIcon = ({ name, className = '' }: { name: string; className?: string }) => {
+  if (name === 'trophy') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+        <path d="M6 9H4a2 2 0 0 1-2-2V5h4" />
+        <path d="M18 9h2a2 2 0 0 0 2-2V5h-4" />
+        <path d="M4 22h16" />
+        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+      </svg>
+    );
+  }
+  if (name === 'crown') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+        <path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21 6l-2 9H5L3 6l4.094 3.163a1 1 0 0 0 1.516-.293Z" />
+        <path d="M5 21h14" />
+      </svg>
+    );
+  }
+  /* medal */
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15" />
+      <path d="M11 12 5.12 2.2" />
+      <path d="m13 12 5.88-9.8" />
+      <path d="M8 7h8" />
+      <circle cx="12" cy="17" r="5" />
+      <path d="M12 18v-2h-.5" />
+    </svg>
+  );
+};
+
+const CheckIcon = ({ className = '' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+const ArrowRight = ({ className = '' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);
+
+/* Tier-specific perks — sourced from UNICASH homepage v4 preview, locked copy.
+   ** ** markers are rendered as <strong> to emphasize the key value of each line. */
+const TIER_PERKS: Record<string, string[]> = {
+  uni_one: [
+    'Earn Points from eligible **everyday receipts**',
+    'Earn **boosted Points** from eligible fuel receipts',
+    'Add Point Boosters anytime',
+    'Gift Card redemption from **2,000 Points**',
+    'Cancel anytime',
+  ],
+  uni_plus: [
+    'Earn **1 Point per $1** from eligible receipts',
+    'Earn **2 Points per $1** from eligible fuel receipts',
+    '**Better monthly value** for active members',
+    'Access selected **exclusive Bonus Draws**',
+    'Gift Card redemption from **2,000 Points**',
+    'Cancel anytime',
+  ],
+  uni_max: [
+    'Highest receipt earn rate · **1.5 Points per $1**',
+    'Highest fuel earn rate · **3 Points per $1**',
+    '**24-hour early access** to selected Bonus Draws',
+    '**Priority support** for top-tier members',
+    'Best option for **maximum monthly value**',
+    'Cancel anytime',
+  ],
+};
+
+/* Pull headline stats out of features so we can render them in a stats panel.
+   Falls back to legacy plan.grandPrizeEntriesPerPeriod / plan.freeCreditsPerPeriod.
+   Perks come from TIER_PERKS (canonical v4 copy) with API-features as fallback. */
+function extractStats(plan: MembershipCardProps['plan']) {
+  const features = plan.featuresConfig?.features || [];
+  const drawFeat = features.find((f) => f.type === 'grand_draw_entries');
+  const pointsFeat = features.find((f) => f.type === 'free_credits');
+
+  const drawEntries =
+    typeof drawFeat?.value === 'number' ? drawFeat.value :
+    typeof plan.grandPrizeEntriesPerPeriod === 'number' ? plan.grandPrizeEntriesPerPeriod : null;
+
+  const monthlyPoints =
+    typeof pointsFeat?.value === 'number' ? pointsFeat.value :
+    typeof plan.freeCreditsPerPeriod === 'number' ? plan.freeCreditsPerPeriod : null;
+
+  /* Prefer tier-based v4 perks. If tier isn't recognized, fall back to API-derived perks. */
+  let perks: string[] = TIER_PERKS[plan.tier] || [];
+  if (perks.length === 0) {
+    perks = features
+      .filter((f) => f.type !== 'grand_draw_entries' && f.type !== 'free_credits')
+      .map((f) => {
+        if (f.description) return f.description;
+        if (f.type === 'early_access' && f.value) return `${f.value}${f.unit || 'h'} early access to selected Bonus Draws`;
+        return f.label;
+      })
+      .map(rewriteCreditsToPoints);
+  }
+
+  return { drawEntries, monthlyPoints, perks };
+}
+
+/* Render a perk string with **bold** markers converted to <strong>. */
+function renderPerkText(perk: string, isPopular: boolean) {
+  const parts = perk.split(/(\*\*[^*]+\*\*)/g);
+  const strongCls = isPopular ? 'font-bold text-white' : 'font-bold text-[#0f1222]';
+  return parts.map((part, k) =>
+    part.startsWith('**') && part.endsWith('**') ? (
+      <strong key={k} className={strongCls}>{part.slice(2, -2)}</strong>
+    ) : (
+      <React.Fragment key={k}>{part}</React.Fragment>
+    )
+  );
+}
+
+/* Display-only word swap. The underlying API field name (freeCreditsPerPeriod)
+   is preserved in the JS code — only the surface text shown to users changes. */
+function rewriteCreditsToPoints(text: string): string {
+  return text
+    .replace(/UniCash Credits/gi, 'Points')
+    .replace(/free credits/gi, 'Points')
+    .replace(/credits/gi, 'Points')
+    .replace(/credit/gi, 'Point');
+}
+
+/* -----------------------------------------------------------------------
+   MembershipCard — v4 PlanCard styling, ALL existing logic preserved.
+----------------------------------------------------------------------- */
+
+export default function MembershipCard({
+  plan,
   landingEnterMode,
   onLandingEnter,
   membership: externalMembership,
@@ -58,12 +212,10 @@ export default function MembershipCard({
   const { user } = useAuth();
   const [internalMembership, setInternalMembership] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  
-  // Use external membership if provided, otherwise use internal
+
   const membership = externalMembership !== undefined ? externalMembership : internalMembership;
 
   useEffect(() => {
-    // Only fetch internally if external membership is not provided
     if (externalMembership === undefined) {
       if (user) {
         checkMembership();
@@ -90,387 +242,370 @@ export default function MembershipCard({
 
   const badgeText = plan.badgeText || plan.featuresConfig?.badge?.text;
   const badgeType = plan.badgeType || plan.featuresConfig?.badge?.type;
-  
-  // Use featuresConfig.features (backend auto-syncs legacy fields)
-  const features = plan.featuresConfig?.features || [];
-  
-  // Check if user has this plan
+
+  const isPopular = badgeType === 'popular';
+  const isBest = badgeType === 'best_value';
+
   const hasThisPlan = membership?.planId === plan.id;
-  const hasActiveMembership = membership?.status === 'active' && 
-    membership?.currentPeriodEnd && 
+  const hasActiveMembership =
+    membership?.status === 'active' &&
+    membership?.currentPeriodEnd &&
     new Date(membership.currentPeriodEnd) > new Date();
   const isPaymentFailed = membership?.status === 'payment_failed' || membership?.status === 'past_due';
   const isCancelled = membership?.status === 'canceled' || membership?.cancelAtPeriodEnd;
   const isPaused = membership?.isPaused;
 
-  // Check if moving from current plan to this plan is an upgrade
   const isPlanUpgrade = (oldPlan: any, newPlan: any): boolean => {
-    // Define tier hierarchy
     const tierOrder: Record<string, number> = {
-      'basic': 1,
-      'premium': 2,
-      'uni_one': 3,
-      'uni_plus': 4,
-      'uni_max': 5,
-      'elite': 6,
+      basic: 1, premium: 2, uni_one: 3, uni_plus: 4, uni_max: 5, elite: 6,
     };
-
     const oldTierOrder = tierOrder[oldPlan?.tier] || 0;
     const newTierOrder = tierOrder[newPlan?.tier] || 0;
-
-    // If tier is higher, it's an upgrade
-    if (newTierOrder > oldTierOrder) {
-      return true;
-    }
-
-    // If same tier but higher price, it's an upgrade
-    if (newTierOrder === oldTierOrder && newPlan.priceMonthly > oldPlan.priceMonthly) {
-      return true;
-    }
-
-    // If same tier and price but more credits, it's an upgrade
+    if (newTierOrder > oldTierOrder) return true;
+    if (newTierOrder === oldTierOrder && newPlan.priceMonthly > oldPlan.priceMonthly) return true;
     if (
       newTierOrder === oldTierOrder &&
       newPlan.priceMonthly === oldPlan.priceMonthly &&
       newPlan.freeCreditsPerPeriod > oldPlan.freeCreditsPerPeriod
-    ) {
-      return true;
-    }
-
+    ) return true;
     return false;
   };
 
-  // Determine if this plan is upgrade or downgrade from current plan
-  const isUpgrade = hasActiveMembership && membership?.plan 
-    ? isPlanUpgrade(membership.plan, plan) 
-    : false;
-  const isDowngrade = hasActiveMembership && membership?.plan 
-    ? !isPlanUpgrade(membership.plan, plan) && !hasThisPlan
-    : false;
+  const isUpgrade = hasActiveMembership && membership?.plan ? isPlanUpgrade(membership.plan, plan) : false;
+  const isDowngrade = hasActiveMembership && membership?.plan ? !isPlanUpgrade(membership.plan, plan) && !hasThisPlan : false;
 
-  // Get tier color
-  const getTierColor = () => {
-    if (plan.tier === 'uni_one') return 'text-gray-600'; // Silver
-    if (plan.tier === 'uni_plus') return 'text-purple-600'; // Gold
-    if (plan.tier === 'uni_max') return 'text-gray-600'; // Platinum
-    return 'text-gray-600';
-  };
+  const tier = tierMeta(plan.tier);
+  const { drawEntries, monthlyPoints, perks } = extractStats(plan);
 
-  // Get badge style
-  const getBadgeStyle = () => {
-    if (badgeType === 'popular') {
-      return 'bg-purple-600 text-white';
-    }
-    if (badgeType === 'best_value') {
-      return 'bg-yellow-400 text-white';
-    }
-    return 'bg-gray-600 text-white';
-  };
+  /* Card shell — three visual variants: popular (purple gradient), best (white + gold ring), default (white) */
+  const cardCls = isPopular
+    ? 'relative flex h-full flex-col rounded-3xl bg-gradient-to-br from-[#5346d6] via-[#6356e5] to-[#7b6cec] p-7 text-white shadow-[0_30px_80px_-30px_rgba(99,86,229,0.55)] sm:p-8 lg:-mt-4 lg:z-10 lg:scale-[1.03]'
+    : isBest
+      ? 'relative flex h-full flex-col rounded-3xl bg-white p-7 ring-2 ring-[#FFC85D]/50 shadow-[0_10px_28px_-12px_rgba(255,200,93,.25)] sm:p-8'
+      : 'relative flex h-full flex-col rounded-3xl bg-white p-7 ring-1 ring-[#E7E2F4]/60 shadow-[0_10px_28px_-12px_rgba(99,86,229,.20)] sm:p-8';
 
-  // Render feature
-  const renderFeature = (feature: PlanFeature, index: number) => {
-    let displayText = feature.label;
-    
-    if (feature.type === 'grand_draw_entries' && feature.value) {
-      displayText = `${feature.value} ${feature.unit || 'entry'} to Grand Draw every month`;
-    } else if (feature.type === 'free_credits' && feature.value) {
-      displayText = `+${feature.value} free ${feature.unit || 'credits'} / month`;
-    } else if (feature.type === 'early_access' && feature.value) {
-      displayText = `${feature.value}${feature.unit || 'h'} early access to new Bonus Draws`;
-    } else if (feature.description) {
-      displayText = feature.description;
-    } else if (feature.type === 'comparison') {
-      displayText = feature.label;
-    } else if (feature.type === 'text') {
-      displayText = feature.label;
-    } else if (feature.type === 'access') {
-      displayText = feature.description || feature.label;
-    } else if (feature.type === 'support') {
-      displayText = feature.label;
-    }
+  const tierIconBg = isPopular ? 'bg-white/15 ring-1 ring-white/20 backdrop-blur' : 'bg-[#F0EDFB] ring-1 ring-[#E0DAFF]';
+  const tierIconColor = isPopular ? 'text-[#FFE2B0]' : isBest ? 'text-[#C49A2C]' : 'text-[#6356e5]';
+  const tierLabelColor = isPopular ? 'text-white/70' : isBest ? 'text-[#9C5410]' : 'text-[#6356e5]';
+  const planNameColor = isPopular ? 'text-white' : 'text-[#0f1222]';
+  const taglineColor = isPopular ? 'text-white/80' : 'text-[#667085]';
+  /* UniPlus price uses gold-gradient on the purple card surface — matches v4 PlanCard rule. */
+  const priceColor = isPopular ? 'uc-gold-gradient' : 'text-[#0f1222]';
+  const priceUnitColor = isPopular ? 'text-white/75' : 'text-[#667085]';
+  const perkText = isPopular ? 'text-white/95' : 'text-[#0f1222]';
+  const perkIcon = isPopular ? 'text-[#FFE2B0]' : 'text-[#6356e5]';
 
-    return (
-      <div key={index} className="flex items-start text-sm">
-        <svg 
-          className="w-5 h-5 text-purple-600 mr-2 mt-0.5 flex-shrink-0" 
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
+  const statsBg = isPopular
+    ? 'bg-[#0F0830]/30 ring-1 ring-white/10 backdrop-blur'
+    : isBest
+      ? 'bg-[#FFF6E2] ring-1 ring-[#FFC85D]/40'
+      : 'bg-[#F4F1FB] ring-1 ring-[#E0DAFF]';
+  const statIconBg = isPopular ? 'bg-white/15 ring-1 ring-white/20' : 'bg-white ring-1 ring-[#E0DAFF]';
+  const statIconCol = isPopular ? 'text-[#FFE2B0]' : isBest ? 'text-[#C49A2C]' : 'text-[#6356e5]';
+  const statLabel = isPopular ? 'text-white/65' : 'text-[#667085]';
+  const statValue = isPopular ? 'text-white' : 'text-[#0f1222]';
+
+  const ribbonCls = isPopular
+    ? 'bg-white text-[#6356e5]'
+    : isBest
+      ? 'bg-[#FFC85D] text-[#3A2A06]'
+      : 'bg-[#f5f3ff] text-[#6356e5]';
+
+  /* CTA visual — three variants. focus-visible ring color matches surface */
+  const ctaPrimaryCls =
+    'bg-white text-[#6356e5] shadow-[0_12px_28px_-8px_rgba(0,0,0,0.30)] hover:bg-white/95 focus-visible:ring-white focus-visible:ring-offset-[#5346d6]';
+  const ctaBestCls =
+    'bg-[#0f1222] text-white hover:bg-[#1B1F38] focus-visible:ring-[#6356e5] focus-visible:ring-offset-white';
+  const ctaDefaultCls =
+    'border border-[#e7e9f2] bg-white text-[#0f1222] hover:border-[#6356e5] hover:text-[#6356e5] focus-visible:ring-[#6356e5] focus-visible:ring-offset-white';
+
+  const pickCtaCls = isPopular ? ctaPrimaryCls : isBest ? ctaBestCls : ctaDefaultCls;
+
+  /* Disabled CTA visual */
+  const ctaDisabledCls = isPopular
+    ? 'bg-white/30 text-white/70 cursor-not-allowed'
+    : 'bg-gray-200 text-gray-500 cursor-not-allowed';
+
+  const ctaBaseCls =
+    'relative mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-[15px] font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2';
+
+  /* -----------------------------------------------------------------
+     Render the CTA button — preserves every state branch from the
+     original component (landingEnterMode, paymentFailed, paused,
+     cancelled, hasThisPlan, upgrade, downgrade, default).
+  ----------------------------------------------------------------- */
+  const renderCta = () => {
+    if (landingEnterMode && onLandingEnter) {
+      return (
+        <button
+          type="button"
+          onClick={() => onLandingEnter(plan)}
+          disabled={loading}
+          className={`${ctaBaseCls} ${pickCtaCls}`}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-        </svg>
-        <div className="flex-1">
-          <span className="text-gray-700">{displayText}</span>
-          {feature.subFeatures && feature.subFeatures.length > 0 && (
-            <div className="mt-1 ml-7 space-y-1">
-              {feature.subFeatures.map((subFeature, subIndex) => (
-                <div key={subIndex} className="text-gray-600 text-xs">
-                  {subFeature.label}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+          {loading ? 'Loading…' : 'Enter now'}
+        </button>
+      );
+    }
+
+    if (isPaymentFailed && hasThisPlan) {
+      return (
+        <Link href="/dashboard/membership">
+          <button
+            type="button"
+            disabled={loading}
+            className={`${ctaBaseCls} bg-[#EF4444] text-white hover:bg-[#DC2626] focus-visible:ring-[#EF4444] focus-visible:ring-offset-white`}
+          >
+            {loading ? 'Loading…' : 'Fix payment'}
+          </button>
+        </Link>
+      );
+    }
+
+    if (isPaymentFailed && !hasThisPlan) {
+      return (
+        <button type="button" disabled className={`${ctaBaseCls} ${ctaDisabledCls}`}>
+          Fix payment required
+        </button>
+      );
+    }
+
+    if (isPaused && hasThisPlan) {
+      return (
+        <Link href="/dashboard/membership">
+          <button type="button" disabled={loading} className={`${ctaBaseCls} ${pickCtaCls}`}>
+            {loading ? 'Loading…' : 'Resume Membership'}
+          </button>
+        </Link>
+      );
+    }
+
+    if (isPaused && !hasThisPlan) {
+      return (
+        <button type="button" disabled className={`${ctaBaseCls} ${ctaDisabledCls}`}>
+          Resume membership required
+        </button>
+      );
+    }
+
+    if (isCancelled && hasThisPlan) {
+      return (
+        <Link href={`/checkout?planId=${plan.id}&reactivate=true`}>
+          <button type="button" disabled={loading} className={`${ctaBaseCls} ${pickCtaCls}`}>
+            {loading ? 'Loading…' : 'Reactivate'}
+          </button>
+        </Link>
+      );
+    }
+
+    if (isCancelled && !hasThisPlan) {
+      return (
+        <Link href={`/checkout?planId=${plan.id}`}>
+          <button type="button" disabled={loading} className={`${ctaBaseCls} ${ctaDefaultCls}`}>
+            {loading ? 'Loading…' : `Get ${plan.name}`}
+          </button>
+        </Link>
+      );
+    }
+
+    if (hasThisPlan) {
+      return (
+        <button type="button" disabled className={`${ctaBaseCls} ${ctaDisabledCls}`}>
+          {loading ? 'Loading…' : 'Current Plan'}
+        </button>
+      );
+    }
+
+    if (isUpgrade && !isPaymentFailed) {
+      const isProcessing = actionLoading === `upgrade-${plan.id}` || showUpgradeConfirm;
+      if (onUpgradeDowngrade) {
+        return (
+          <button
+            type="button"
+            onClick={() => onUpgradeDowngrade(plan.id)}
+            disabled={loading || actionLoading !== null || isProcessing}
+            className={`${ctaBaseCls} ${isProcessing ? ctaDisabledCls : pickCtaCls}`}
+          >
+            {isProcessing ? 'Processing…' : loading ? 'Loading…' : 'Upgrade'}
+            {!isProcessing && (isPopular || isBest) && <ArrowRight className="h-4 w-4" />}
+          </button>
+        );
+      }
+      return (
+        <Link href={`/checkout?planId=${plan.id}&upgrade=true`}>
+          <button type="button" disabled={loading} className={`${ctaBaseCls} ${pickCtaCls}`}>
+            {loading ? 'Loading…' : 'Upgrade'}
+            {(isPopular || isBest) && <ArrowRight className="h-4 w-4" />}
+          </button>
+        </Link>
+      );
+    }
+
+    if (isDowngrade && !isPaymentFailed) {
+      const isProcessing = actionLoading === `downgrade-${plan.id}` || showDowngradeConfirm;
+      if (onUpgradeDowngrade) {
+        return (
+          <button
+            type="button"
+            onClick={() => onUpgradeDowngrade(plan.id)}
+            disabled={loading || actionLoading !== null || isProcessing}
+            className={`${ctaBaseCls} ${isProcessing ? ctaDisabledCls : pickCtaCls}`}
+          >
+            {isProcessing ? 'Processing…' : loading ? 'Loading…' : 'Downgrade'}
+          </button>
+        );
+      }
+      return (
+        <Link href={`/dashboard/membership?downgrade=${plan.id}`}>
+          <button type="button" disabled={loading} className={`${ctaBaseCls} ${pickCtaCls}`}>
+            {loading ? 'Loading…' : 'Downgrade'}
+          </button>
+        </Link>
+      );
+    }
+
+    /* Default — new purchase. v4 uses plan-specific CTA wording (Get UniOne / Get UniPlus / Get UniMax). */
+    return (
+      <Link href={`/checkout?planId=${plan.id}`}>
+        <button type="button" disabled={loading} className={`${ctaBaseCls} ${pickCtaCls}`}>
+          {loading ? 'Loading…' : `Get ${plan.name}`}
+          {(isPopular || isBest) && <ArrowRight className="h-4 w-4" />}
+        </button>
+      </Link>
     );
   };
 
+  /* -----------------------------------------------------------------
+     JSX — v4 PlanCard layout
+  ----------------------------------------------------------------- */
   return (
-    <div className={`bg-white rounded-xl shadow-lg p-8 relative transition-all hover:shadow-xl h-full flex flex-col ${
-      badgeType === 'popular' ? 'border-2 border-purple-500' : 'border border-gray-200'
-    }`}>
+    <div className={cardCls}>
+      {/* Subtle gold corner glow for BEST VALUE */}
+      {isBest && (
+        <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-[#FFC85D]/18 blur-3xl" />
+      )}
 
-      {/* Header */}
-      <div className="text-left mb-6 flex-shrink-0">
-        <div className="flex gap-2 mb-2">
-          <h3 className={`text-2xl font-bold ${getTierColor()}`}>
-            {plan.name}
-          </h3>
-          {plan.tier === 'uni_one' && (
-            <span className="text-gray-500">(Silver)</span>
-          )}
-          {plan.tier === 'uni_plus' && (
-            <span className="text-purple-600">(Gold)</span>
-          )}
-          {plan.tier === 'uni_max' && (
-            <span className="text-gray-500">(Platinum)</span>
-          )}
-
-          {/* Badge */}
-          {badgeText && (
-            <div className="bag">
-              <span className={`${getBadgeStyle()} text-xs font-bold px-4 py-1 rounded-full`}>
-                {badgeText}
-              </span>
-            </div>
-          )}
-        </div>
-        {plan.description && (
-          <p className="text-sm text-gray-600 mb-4">{plan.description}</p>
-        )}
-        <div className="mb-6">
-          <span className={`text-4xl font-bold ${getTierColor()}`}>
-            A${parseFloat(plan.priceMonthly.toString()).toFixed(2)}
+      {/* Top ribbon — popular / best */}
+      {(isPopular || isBest) && badgeText && (
+        <div className="absolute -top-3 left-1/2 z-10 -translate-x-1/2">
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] shadow-md ${ribbonCls}`}>
+            {badgeText}
           </span>
-          <span className="text-gray-500">/month</span>
         </div>
-        
-        {/* Show current plan badge */}
-        {/* {hasThisPlan && hasActiveMembership && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-sm text-green-800 font-semibold text-center">
-              ✓ Your Current Plan
-            </p>
-            {membership.currentPeriodEnd && (
-              <p className="text-xs text-green-600 text-center mt-1">
-                Next billing: {(() => {
-                  const { formatSydneyDateOnly } = require('@/lib/timezone');
-                  return formatSydneyDateOnly(membership.currentPeriodEnd);
-                })()}
-              </p>
-            )}
-          </div>
-        )} */}
+      )}
 
-        {landingEnterMode && onLandingEnter ? (
-          <button
-            type="button"
-            onClick={() => onLandingEnter(plan)}
-            disabled={loading}
-            className={`w-full py-3 px-6 rounded-full font-bold transition-all ${
-              badgeType === 'popular'
-                ? 'btn-primary'
-                : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
-            }`}
-          >
-            {loading ? 'Loading...' : 'Enter now'}
-          </button>
-        ) : /* Payment Failed - Show Fix Payment button on current plan only */
-        isPaymentFailed && hasThisPlan ? (
-          <Link href="/dashboard/membership">
-            <button 
-              disabled={loading}
-              className="w-full py-3 px-6 rounded-full font-bold transition-all bg-red-600 text-white hover:bg-red-700"
-            >
-              {loading ? 'Loading...' : 'Fix payment'}
-            </button>
-          </Link>
-        ) :
-        /* Payment Failed on other plans - block actions */
-        isPaymentFailed && !hasThisPlan ? (
-          <div>
-            <button 
-              disabled
-              className="w-full py-3 px-6 rounded-full font-bold transition-all bg-gray-300 text-gray-600 cursor-not-allowed"
-            >
-              Fix payment required
-            </button>
-          </div>
-        ) :
-        /* Paused Membership - Show Resume button on current plan only */
-        isPaused && hasThisPlan ? (
-          <Link href="/dashboard/membership">
-            <button 
-              disabled={loading}
-              className="w-full py-3 px-6 rounded-full font-bold transition-all btn-primary"
-            >
-              {loading ? 'Loading...' : 'Resume Membership'}
-            </button>
-          </Link>
-        ) : 
-        /* Paused Membership on other plans - block upgrade/downgrade */
-        isPaused && !hasThisPlan ? (
-          <div>
-            <button 
-              disabled
-              className="w-full py-3 px-6 rounded-full font-bold transition-all bg-gray-300 text-gray-600 cursor-not-allowed"
-            >
-              Resume membership required
-            </button>
-          </div>
-        ) : 
-        /* Cancelled Membership - Only show Reactivate for current plan */
-        isCancelled && hasThisPlan ? (
-          <Link href={`/checkout?planId=${plan.id}&reactivate=true`}>
-            <button 
-              disabled={loading}
-              className="w-full py-3 px-6 rounded-full font-bold transition-all btn-primary"
-            >
-              {loading ? 'Loading...' : 'Reactivate'}
-            </button>
-          </Link>
-        ) :
-        /* Cancelled Membership - Other plans show as new purchase */
-        isCancelled && !hasThisPlan ? (
-          <Link href={`/checkout?planId=${plan.id}`}>
-            <button 
-              disabled={loading}
-              className="w-full py-3 px-6 rounded-full font-bold transition-all bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50"
-            >
-              {loading ? 'Loading...' : 'Get Membership'}
-            </button>
-          </Link>
-        ) :
-        /* Active Membership */
-        hasThisPlan ? (
-          <Link href="#">
-            <button 
-              disabled={true}
-              className="w-full py-3 px-6 rounded-full font-bold transition-all bg-gray-300 text-gray-600 cursor-not-allowed"
-            >
-              {loading ? 'Loading...' : 'Current Plan'}
-            </button>
-          </Link>
-        ) : isUpgrade && !isPaymentFailed ? (
-          onUpgradeDowngrade ? (
-            <button 
-              onClick={() => onUpgradeDowngrade(plan.id)}
-              disabled={loading || actionLoading !== null || actionLoading === `upgrade-${plan.id}` || showUpgradeConfirm}
-              className={`w-full py-3 px-6 rounded-full font-bold transition-all ${
-                actionLoading === `upgrade-${plan.id}` || showUpgradeConfirm
-                  ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                  : badgeType === 'popular' 
-                    ? 'btn-primary' 
-                    : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
-              }`}
-            >
-              {actionLoading === `upgrade-${plan.id}` ? 'Processing...' : loading ? 'Loading...' : 'Upgrade'}
-            </button>
-          ) : (
-            <Link href={`/checkout?planId=${plan.id}&upgrade=true`}>
-              <button 
-                disabled={loading}
-                className={`w-full py-3 px-6 rounded-full font-bold transition-all ${
-                  badgeType === 'popular' 
-                    ? 'btn-primary' 
-                    : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
-                }`}
-              >
-                {loading ? 'Loading...' : 'Upgrade'}
-              </button>
-            </Link>
-          )
-        ) : isDowngrade && !isPaymentFailed ? (
-          onUpgradeDowngrade ? (
-            <button 
-              onClick={() => onUpgradeDowngrade(plan.id)}
-              disabled={loading || actionLoading !== null || actionLoading === `downgrade-${plan.id}` || showDowngradeConfirm}
-              className={`w-full py-3 px-6 rounded-full font-bold transition-all ${
-                actionLoading === `downgrade-${plan.id}` || showDowngradeConfirm
-                  ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                  : badgeType === 'popular' 
-                    ? 'btn-primary' 
-                    : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
-              }`}
-            >
-              {actionLoading === `downgrade-${plan.id}` ? 'Processing...' : loading ? 'Loading...' : 'Downgrade'}
-            </button>
-          ) : (
-            <Link href={`/dashboard/membership?downgrade=${plan.id}`}>
-              <button 
-                disabled={loading}
-                className={`w-full py-3 px-6 rounded-full font-bold transition-all ${
-                  badgeType === 'popular' 
-                    ? 'btn-primary' 
-                    : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
-                }`}
-              >
-                {loading ? 'Loading...' : 'Downgrade'}
-              </button>
-            </Link>
-          )
-        ) : (
-          <Link href={`/checkout?planId=${plan.id}`}>
-            <button 
-              disabled={loading}
-              className={`w-full py-3 px-6 rounded-full font-bold transition-all ${
-                badgeType === 'popular' 
-                  ? 'btn-primary' 
-                  : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
-              }`}
-            >
-              {loading ? 'Loading...' : 'Join Now'}
-            </button>
-          </Link>
-        )}
+      {/* Tier header — icon + label + name */}
+      <div className="relative flex items-center gap-3">
+        <span className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${tierIconBg}`}>
+          <TierIcon name={tier.icon} className={`h-4 w-4 ${tierIconColor}`} />
+        </span>
+        <div>
+          {tier.label && (
+            <p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${tierLabelColor}`}>{tier.label}</p>
+          )}
+          <h3 className={`-mt-0.5 text-[22px] font-extrabold tracking-tight ${planNameColor}`}>{plan.name}</h3>
+        </div>
       </div>
 
-      {/* Features */}
-      <div className="space-y-3 mb-6 flex-1">
-        {features.length > 0 ? (
-          features.map((feature, index) => renderFeature(feature, index))
-        ) : (
-          // Fallback to legacy features
-          <>
-            {plan.grandPrizeEntriesPerPeriod && (
-              <div className="flex items-start text-sm">
-                <svg className="w-5 h-5 text-purple-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-gray-700">
-                  {plan.grandPrizeEntriesPerPeriod} {plan.grandPrizeEntriesPerPeriod > 1 ? 'entries' : 'entry'} to Grand Draw every month
-                </span>
-              </div>
-            )}
-            {plan.freeCreditsPerPeriod && plan.freeCreditsPerPeriod > 0 && (
-              <div className="flex items-start text-sm">
-                <svg className="w-5 h-5 text-purple-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-gray-700">
-                  +{plan.freeCreditsPerPeriod} free credits / month
-                </span>
-              </div>
-            )}
-            <div className="flex items-start text-sm">
-              <svg className="w-5 h-5 text-purple-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="text-gray-700">Cancel anytime</span>
-            </div>
-          </>
-        )}
+      {/* Tagline */}
+      {plan.description && (
+        <p className={`relative mt-3 text-[13.5px] ${taglineColor}`}>{rewriteCreditsToPoints(plan.description)}</p>
+      )}
+
+      {/* Price */}
+      <div className="relative mt-6 flex items-baseline gap-2">
+        <span className={`text-[48px] font-black leading-none tracking-[-0.025em] sm:text-[56px] ${priceColor}`}>
+          ${parseFloat(plan.priceMonthly.toString()).toFixed(2).replace(/\.00$/, '')}
+        </span>
+        <span className={`text-[13px] font-medium ${priceUnitColor}`}>/month</span>
       </div>
+
+      {/* Stats panel — Major Draw entries + Monthly Points (if available) */}
+      {(drawEntries !== null || monthlyPoints !== null) && (
+        <div className={`relative mt-5 rounded-2xl p-3.5 sm:p-4 ${statsBg}`}>
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            {drawEntries !== null && (
+              <div className="flex min-w-0 items-center gap-2">
+                <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${statIconBg}`}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-3.5 w-3.5 ${statIconCol}`} aria-hidden>
+                    <path d="M6 9H4a2 2 0 0 1-2-2V5h4" />
+                    <path d="M18 9h2a2 2 0 0 0 2-2V5h-4" />
+                    <path d="M4 22h16" />
+                    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+                    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+                    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+                  </svg>
+                </span>
+                <div className="min-w-0">
+                  <p className={`text-[9.5px] font-bold uppercase tracking-[0.14em] ${statLabel}`}>Major Draw</p>
+                  <p className={`mt-0.5 whitespace-nowrap text-[13.5px] font-bold leading-tight ${statValue}`}>
+                    {drawEntries}
+                    <span className={`ml-1 text-[11px] font-medium ${statLabel}`}>{drawEntries === 1 ? 'entry' : 'entries'}</span>
+                  </p>
+                </div>
+              </div>
+            )}
+            {monthlyPoints !== null && (
+              <div className="flex min-w-0 items-center gap-2">
+                <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${statIconBg}`}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-3.5 w-3.5 ${statIconCol}`} aria-hidden>
+                    <circle cx="8" cy="8" r="6" />
+                    <path d="M18.09 10.37A6 6 0 1 1 10.34 18" />
+                    <path d="M7 6h1v4" />
+                    <path d="m16.71 13.88.7.71-2.82 2.82" />
+                  </svg>
+                </span>
+                <div className="min-w-0">
+                  <p className={`text-[9.5px] font-bold uppercase tracking-[0.14em] ${statLabel}`}>Monthly</p>
+                  <p className={`mt-0.5 whitespace-nowrap text-[13.5px] font-bold leading-tight ${statValue}`}>
+                    {Number(monthlyPoints).toLocaleString()}
+                    <span className={`ml-1 text-[11px] font-medium ${statLabel}`}>Points</span>
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Divider */}
+      <div className={`relative mt-6 h-px ${isPopular ? 'bg-white/15' : 'bg-[#e7e9f2]'}`} />
+
+      {/* Perks — flex-1 pushes CTA to bottom. **bold** markers render as <strong>. */}
+      {perks.length > 0 && (
+        <ul className="relative mt-5 flex-1 space-y-2.5 text-[13.5px]">
+          {perks.map((perk, i) => (
+            <li key={i} className="flex items-start gap-2">
+              <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
+              <span className={perkText}>{renderPerkText(perk, isPopular)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Always-present perk: Cancel anytime — for product clarity */}
+      {perks.length === 0 && (
+        <ul className="relative mt-5 flex-1 space-y-2.5 text-[13.5px]">
+          {drawEntries !== null && (
+            <li className="flex items-start gap-2">
+              <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
+              <span className={perkText}>{drawEntries} {drawEntries === 1 ? 'entry' : 'entries'} to Major Draws every month</span>
+            </li>
+          )}
+          {monthlyPoints !== null && (
+            <li className="flex items-start gap-2">
+              <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
+              <span className={perkText}>+{Number(monthlyPoints).toLocaleString()} Monthly Points</span>
+            </li>
+          )}
+          <li className="flex items-start gap-2">
+            <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
+            <span className={perkText}>Cancel anytime</span>
+          </li>
+        </ul>
+      )}
+
+      {renderCta()}
     </div>
   );
 }

@@ -13,7 +13,6 @@ export default function NewsletterSection() {
   const [isSubscribed, setIsSubscribed] = useState(false);
 
   useEffect(() => {
-    // Auto-fill email if user is logged in
     if (user?.email) {
       setEmail(user.email);
       checkSubscriptionStatus();
@@ -23,41 +22,36 @@ export default function NewsletterSection() {
 
   const checkSubscriptionStatus = async () => {
     if (!user) return;
-    
     try {
       const res = await api.newsletter.checkSubscription();
       setIsSubscribed(res.data?.subscribed || false);
-    } catch (error) {
-      // Silently fail - user might not be subscribed
+    } catch {
       setIsSubscribed(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!recaptchaChecked) {
       setMessage({ type: 'error', text: 'Please confirm that you understand the reCAPTCHA protection.' });
       return;
     }
-    
-    // If user is logged in, use their email
+
     const emailToSubscribe = user?.email || email;
-    
+
     if (!emailToSubscribe || !emailToSubscribe.includes('@')) {
       setMessage({ type: 'error', text: 'Please enter a valid email address.' });
       return;
     }
-    
+
     setSubmitting(true);
     setMessage(null);
-    
+
     try {
       await api.newsletter.subscribe(emailToSubscribe);
-      setMessage({ type: 'success', text: 'Thank you for subscribing! You\'ll receive updates on bonus draws and winners.' });
-      if (!user) {
-        setEmail('');
-      }
+      setMessage({ type: 'success', text: "Thank you for subscribing! You'll receive updates on Bonus Draws and Winners." });
+      if (!user) setEmail('');
       setRecaptchaChecked(false);
       setIsSubscribed(true);
     } catch (error: any) {
@@ -74,38 +68,50 @@ export default function NewsletterSection() {
   };
 
   return (
-    <section className="py-16 bg-white w-full overflow-x-hidden">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center w-full">
-        <h2 className="text-4xl font-bold text-purple-600 mb-4">
-          Stay in the loop – never miss a draw
+    <section aria-labelledby="newsletter-heading" className="w-full bg-white">
+      <div className="mx-auto max-w-3xl px-5 py-20 text-center sm:px-6 sm:py-24 lg:px-8">
+        {/* Eyebrow */}
+        <span className="inline-flex items-center gap-2 rounded-full border border-[#e7e9f2] bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#6356e5]">
+          <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-[#6356e5]" />
+          Stay updated
+        </span>
+
+        <h2 id="newsletter-heading" className="mt-3 text-[28px] font-extrabold leading-[1.1] tracking-tight text-[#0f1222] sm:text-[32px]">
+          Stay in the loop — never miss a <span className="uc-gold-gradient">Bonus Draw</span>
         </h2>
-        <p className="text-lg text-gray-600 mb-8">
-          Get updates on bonus draws, members-only prizes & winners. We'll only send the good stuff.
+
+        <p className="mx-auto mt-3 max-w-xl text-[14px] text-[#4b5563] sm:text-[15px]">
+          Get updates on Bonus Draws, members-only Rewards, and Winner announcements. We&rsquo;ll only send the good stuff.
         </p>
-        <form onSubmit={handleSubmit} className="flex flex-col max-w-lg mx-auto mb-6">
+
+        <form
+          onSubmit={handleSubmit}
+          aria-label="Subscribe to Bonus Draw Alerts"
+          className="mx-auto mt-7 max-w-lg"
+        >
           {user ? (
-            // Logged in user - show email and checkbox only
-            <div className="space-y-4">
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <p className="text-sm text-purple-800 mb-2">
-                  <strong>Logged in as:</strong> {user.email}
+            <div className="space-y-4 text-left">
+              <div className="rounded-2xl border border-[#E0DAFF] bg-[#FBFAFF] p-4">
+                <p className="text-sm text-[#0f1222]">
+                  <span className="font-semibold">Logged in as:</span> {user.email}
                 </p>
                 {isSubscribed && (
-                  <p className="text-xs text-purple-600">✓ You're already subscribed to our newsletter</p>
+                  <p className="mt-1 text-xs text-[#6356E5]">✓ You&rsquo;re already subscribed to our newsletter</p>
                 )}
               </div>
               <button
                 type="submit"
                 disabled={submitting || !recaptchaChecked || isSubscribed}
-                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white px-8 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="uc-lift-sm inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#6356E5] px-6 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(99,86,229,0.6)] transition-colors hover:bg-[#5346D6] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356e5] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {submitting ? 'Subscribing...' : isSubscribed ? 'Already Subscribed' : 'Get Draw Alerts'}
+                {submitting ? 'Subscribing…' : isSubscribed ? 'Already Subscribed' : 'Get Bonus Draw Alerts'}
               </button>
             </div>
           ) : (
-            // Not logged in - show email input
-            <div className="flex">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+              <label htmlFor="newsletter-email" className="sr-only">Email address</label>
               <input
+                id="newsletter-email"
                 type="email"
                 value={email}
                 onChange={(e) => {
@@ -115,47 +121,53 @@ export default function NewsletterSection() {
                 placeholder="Email address"
                 required
                 disabled={submitting}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
+                autoComplete="email"
+                className="h-12 w-full rounded-full border border-[#E0DAFF] bg-[#FBFAFF] px-5 text-[14px] text-[#0f1222] placeholder-[#a3a8be] shadow-[inset_0_1px_2px_rgba(15,18,34,0.04)] transition-all hover:border-[#c8c5ea] hover:bg-white focus:border-[#6356e5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6356e5]/30 disabled:bg-gray-50 sm:flex-1"
               />
               <button
                 type="submit"
                 disabled={submitting || !recaptchaChecked}
-                className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-8 py-3 rounded-r-lg font-semibold hover:from-purple-700 hover:to-purple-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="uc-lift-sm inline-flex h-12 w-full items-center justify-center rounded-full bg-[#6356E5] px-6 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(99,86,229,0.6)] transition-colors hover:bg-[#5346D6] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356e5] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
-                {submitting ? 'Subscribing...' : 'Get Draw Alerts'}
+                {submitting ? 'Subscribing…' : 'Get Bonus Draw Alerts'}
               </button>
             </div>
           )}
+
           {message && (
-            <div className={`mt-3 text-sm text-center ${
-              message.type === 'success' ? 'text-green-600' : 'text-red-600'
-            }`}>
+            <div className={`mt-3 text-sm ${message.type === 'success' ? 'text-[#10B981]' : 'text-[#EF4444]'}`} role="status" aria-live="polite">
               {message.text}
             </div>
           )}
-        </form>
-        <div className="text-xs text-gray-500 space-y-2">
-          <div className="flex items-center justify-center space-x-2">
-            <input
-              type="checkbox"
-              id="recaptcha"
-              checked={recaptchaChecked}
-              onChange={(e) => setRecaptchaChecked(e.target.checked)}
-              className="mr-1 cursor-pointer"
-              required
-            />
-            <label htmlFor="recaptcha" className="cursor-pointer">
-              Protected by reCAPTCHA. Submissions are rate-limited.
-            </label>
+
+          <div className="mt-4 space-y-2 text-xs text-[#7a8195]">
+            <div className="flex items-center justify-center gap-2">
+              <input
+                type="checkbox"
+                id="recaptcha"
+                checked={recaptchaChecked}
+                onChange={(e) => setRecaptchaChecked(e.target.checked)}
+                className="h-4 w-4 cursor-pointer rounded border-[#e7e9f2] text-[#6356E5] focus:ring-[#6356e5]/40"
+                required
+              />
+              <label htmlFor="recaptcha" className="cursor-pointer">
+                Protected by reCAPTCHA. Submissions are rate-limited.
+              </label>
+            </div>
+            <p>
+              By subscribing, you agree to our{' '}
+              <a href="/terms" className="rounded-md text-[#6356e5] underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356e5] focus-visible:ring-offset-2">
+                Terms
+              </a>{' '}
+              and{' '}
+              <a href="/privacy" className="rounded-md text-[#6356e5] underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356e5] focus-visible:ring-offset-2">
+                Privacy Policy
+              </a>
+              .
+            </p>
           </div>
-          <p>
-            By subscribing, you agree to our{' '}
-            <a href="/terms" className="text-purple-600 hover:underline">Terms</a> and{' '}
-            <a href="/privacy" className="text-purple-600 hover:underline">Privacy Policy</a>.
-          </p>
-        </div>
+        </form>
       </div>
     </section>
   );
 }
-

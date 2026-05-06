@@ -1,19 +1,67 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import Link from 'next/link';
 import ConfirmModal from '@/components/ConfirmModal';
-import { formatDateGB } from '@/lib/timezone';
 import PaymentMethodsPanel from '@/components/PaymentMethodsPanel';
+import LoadingRing from '@/components/LoadingRing';
 import { notifyAndRetryMembershipAfterPaymentUpdate } from '@/lib/membershipPaymentRetry';
+
+/* -----------------------------------------------------------------------
+   Inline icons
+----------------------------------------------------------------------- */
+const Icon = {
+  Check: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  ),
+  ArrowRight: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  ),
+  Alert: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  ),
+  Clock: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+  X: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  ),
+};
+
+/* -----------------------------------------------------------------------
+   Status badge helper
+----------------------------------------------------------------------- */
+const STATUS_PILL: Record<string, { label: string; bg: string; text: string; ring: string }> = {
+  active:         { label: 'Active',         bg: 'bg-[#ECFDF5]', text: 'text-[#10B981]', ring: 'ring-[#A7F3D0]' },
+  paused:         { label: 'Paused',         bg: 'bg-[#FEF3C7]', text: 'text-[#9C5410]', ring: 'ring-[#FFC85D]/40' },
+  canceled:       { label: 'Cancelled',      bg: 'bg-[#F4F1FB]', text: 'text-[#6356E5]', ring: 'ring-[#E0DAFF]' },
+  payment_failed: { label: 'Payment failed', bg: 'bg-[#FEE2E2]', text: 'text-[#B91C1C]', ring: 'ring-[#FCA5A5]' },
+  past_due:       { label: 'Payment due',    bg: 'bg-[#FEE2E2]', text: 'text-[#B91C1C]', ring: 'ring-[#FCA5A5]' },
+};
 
 export default function MembershipPage() {
   const { user, refreshUser } = useAuth();
   const router = useRouter();
+  /* ===== State — preserved 1:1 from original ===== */
   const [membership, setMembership] = useState<any>(null);
   const [plans, setPlans] = useState<any[]>([]);
   const [renewals, setRenewals] = useState<any[]>([]);
@@ -26,55 +74,43 @@ export default function MembershipPage() {
   const [showPauseConfirm, setShowPauseConfirm] = useState(false);
   const [showResumeConfirm, setShowResumeConfirm] = useState(false);
   const [showCancelUpgradeConfirm, setShowCancelUpgradeConfirm] = useState(false);
+  const [showCancelDowngradeConfirm, setShowCancelDowngradeConfirm] = useState(false);
   const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
   const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
   const [selectedDowngradePlanId, setSelectedDowngradePlanId] = useState<string | null>(null);
   const [selectedUpgradePlanId, setSelectedUpgradePlanId] = useState<string | null>(null);
   const [showManagePaymentModal, setShowManagePaymentModal] = useState(false);
   const [hidePaymentMethodsShell, setHidePaymentMethodsShell] = useState(false);
+  const [portalMounted, setPortalMounted] = useState(false);
+  useEffect(() => { setPortalMounted(true); }, []);
 
-  // ✅ Auto-clear actionLoading when membership state updates after upgrade/downgrade
-  // Note: This is a fallback - actionLoading should be cleared in handleConfirmUpgrade/Downgrade
+  /* ===== Auto-clear actionLoading — preserved ===== */
   useEffect(() => {
     if (actionLoading && actionLoading.startsWith('upgrade-')) {
       const planId = actionLoading.replace('upgrade-', '');
-      // If this plan is now the current plan, clear loading state
       if (membership?.planId === planId) {
-        console.log('[useEffect] Upgrade completed - plan is now current, clearing actionLoading');
-        setTimeout(() => {
-          setActionLoading(null);
-        }, 100);
+        setTimeout(() => setActionLoading(null), 100);
       }
     } else if (actionLoading && actionLoading.startsWith('downgrade-')) {
       const planId = actionLoading.replace('downgrade-', '');
-      // If this plan is now pending downgrade, clear loading state
       if (membership?.pendingDowngradePlanId === planId) {
-        console.log('[useEffect] Downgrade completed - plan is now pending, clearing actionLoading');
-        setTimeout(() => {
-          setActionLoading(null);
-        }, 100);
+        setTimeout(() => setActionLoading(null), 100);
       }
     }
   }, [membership, actionLoading]);
 
+  /* ===== Initial load + URL params — preserved ===== */
   useEffect(() => {
     loadData();
-    
-    // Check for downgrade parameter in URL
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const downgradePlanId = urlParams.get('downgrade');
       const paymentUpdated = urlParams.get('paymentUpdated');
-      
       if (downgradePlanId) {
-        // Remove parameter from URL
         window.history.replaceState({}, '', window.location.pathname);
-        // Show downgrade confirm modal
         setSelectedDowngradePlanId(downgradePlanId);
         setShowDowngradeConfirm(true);
       }
-      
-      // Check if user just returned from Stripe billing portal
       if (paymentUpdated === 'true') {
         window.history.replaceState({}, '', window.location.pathname);
         setTimeout(async () => {
@@ -88,6 +124,16 @@ export default function MembershipPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Lock body scroll while billing modal is open
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (showManagePaymentModal && !hidePaymentMethodsShell) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [showManagePaymentModal, hidePaymentMethodsShell]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -95,26 +141,10 @@ export default function MembershipPage() {
         api.membership.getUserMembership().catch(() => ({ data: null })),
         api.membership.getPlans().catch(() => ({ data: [] })),
       ]);
-      
-      console.log('[loadData] Membership response:', membershipRes.data);
-      console.log('[loadData] Plans response:', plansRes.data);
-      
-      // ✅ Force update membership state
-      if (membershipRes.data) {
-        setMembership(membershipRes.data);
-        console.log('[loadData] ✅ Membership state updated, planId:', membershipRes.data.planId);
-      } else {
-        setMembership(null);
-        console.log('[loadData] ⚠️ No membership data');
-      }
-      
+      if (membershipRes.data) setMembership(membershipRes.data);
+      else setMembership(null);
       const plansData = Array.isArray(plansRes.data) ? plansRes.data : [];
       setPlans(plansData);
-      
-      console.log('[loadData] Loaded plans:', plansData);
-      console.log('[loadData] Current membership planId:', membershipRes.data?.planId);
-
-      // Load renewal history only while membership is not canceled (canceled users see no history block)
       if (membershipRes.data && membershipRes.data.status !== 'canceled') {
         loadRenewalHistory();
       } else {
@@ -134,32 +164,15 @@ export default function MembershipPage() {
   const loadRenewalHistory = async (page: number = 1) => {
     try {
       setLoadingRenewals(true);
-      console.log('[Renewal History] Loading page:', page);
       const res = await api.membership.getRenewalHistory(page, 10);
-      console.log('[Renewal History] Full API Response:', res);
-      
-      // Handle both direct response and nested data response
       const responseData = res.data || res;
-      const renewalsData = responseData?.data || responseData || [];
-      const total = responseData?.total || 0;
-      
-      console.log('[Renewal History] Parsed:', {
-        renewalsCount: Array.isArray(renewalsData) ? renewalsData.length : 0,
-        total,
-        page,
-        firstRenewal: Array.isArray(renewalsData) && renewalsData.length > 0 ? renewalsData[0] : null,
-      });
-      
+      const renewalsData = (responseData as any)?.data || responseData || [];
+      const total = (responseData as any)?.total || 0;
       setRenewals(Array.isArray(renewalsData) ? renewalsData : []);
       setRenewalsTotal(total);
       setRenewalsPage(page);
     } catch (error: any) {
       console.error('[Renewal History] Error:', error);
-      console.error('[Renewal History] Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-      });
       setRenewals([]);
       setRenewalsTotal(0);
     } finally {
@@ -167,6 +180,7 @@ export default function MembershipPage() {
     }
   };
 
+  /* ===== Handlers — preserved 1:1 ===== */
   const handlePause = async () => {
     setActionLoading('pause');
     try {
@@ -175,7 +189,7 @@ export default function MembershipPage() {
       await refreshUser();
       setShowPauseConfirm(false);
     } catch (error: any) {
-      showToast(error.response?.data?.message || 'Failed to pause membership', 'error');
+      showToast(error.response?.data?.message || 'Failed to pause Membership', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -189,7 +203,7 @@ export default function MembershipPage() {
       await refreshUser();
       setShowResumeConfirm(false);
     } catch (error: any) {
-      showToast(error.response?.data?.message || 'Failed to resume membership', 'error');
+      showToast(error.response?.data?.message || 'Failed to resume Membership', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -203,7 +217,7 @@ export default function MembershipPage() {
       await refreshUser();
       setShowCancelConfirm(false);
     } catch (error: any) {
-      showToast(error.response?.data?.message || 'Failed to cancel membership', 'error');
+      showToast(error.response?.data?.message || 'Failed to cancel Membership', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -223,49 +237,39 @@ export default function MembershipPage() {
     }
   };
 
+  const handleCancelDowngrade = async () => {
+    setActionLoading('cancelDowngrade');
+    try {
+      await api.membership.cancelDowngrade();
+      await loadData();
+      await refreshUser();
+      setShowCancelDowngradeConfirm(false);
+    } catch (error: any) {
+      showToast(error.response?.data?.message || 'Failed to cancel downgrade', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleUpgrade = async (planId: string) => {
-    // ✅ Block if already processing ANY upgrade/downgrade (not just this plan)
-    if (actionLoading !== null) {
-      console.log('[handleUpgrade] Already processing an action, ignoring');
-      return;
-    }
-
-    // ✅ Block if already processing upgrade/downgrade for this plan
-    if (actionLoading === `upgrade-${planId}` || actionLoading === `downgrade-${planId}`) {
-      console.log('[handleUpgrade] Already processing upgrade/downgrade for this plan, ignoring');
-      return;
-    }
-
+    if (actionLoading !== null) return;
+    if (actionLoading === `upgrade-${planId}` || actionLoading === `downgrade-${planId}`) return;
     const newPlan = plans.find(p => p.id === planId);
     if (!newPlan || !membership?.plan) return;
-
-    // ✅ Block if this is already the current plan
-    if (membership.planId === planId) {
-      console.log('[handleUpgrade] This is already the current plan, ignoring');
-      return;
-    }
-
-    // Check if it's upgrade or downgrade
+    if (membership.planId === planId) return;
     const isUpgrade = isPlanUpgrade(membership.plan, newPlan);
-    
-    // ✅ Block if already has pending upgrade/downgrade
     if (isUpgrade && membership.pendingUpgradePlanId) {
       showToast('You already have a pending upgrade scheduled. Please wait for it to be applied on your next billing date before upgrading again.', 'info');
       return;
     }
-    
     if (!isUpgrade && membership.pendingDowngradePlanId) {
       showToast('You already have a pending downgrade scheduled. Please wait for it to be applied on your next billing date before downgrading again.', 'info');
       return;
     }
-    
-    // Don't set actionLoading here - only set when user confirms. This way Cancel just closes modal without showing "Processing..."
     if (isUpgrade) {
-      // Upgrade: show confirm modal first
       setSelectedUpgradePlanId(planId);
       setShowUpgradeConfirm(true);
     } else {
-      // Downgrade: show confirm modal (no payment needed)
       setSelectedDowngradePlanId(planId);
       setShowDowngradeConfirm(true);
     }
@@ -273,188 +277,80 @@ export default function MembershipPage() {
 
   const handleConfirmUpgrade = async () => {
     if (!selectedUpgradePlanId) return;
-    
-    // ✅ Disable button immediately to prevent double-click
     setShowUpgradeConfirm(false);
     const loadingKey = `upgrade-${selectedUpgradePlanId}`;
     setActionLoading(loadingKey);
-    
     try {
-      console.log('[handleConfirmUpgrade] Starting upgrade for plan:', selectedUpgradePlanId);
-      console.log('[handleConfirmUpgrade] Current membership planId:', membership?.planId);
-      
-      // ✅ Call upgrade API directly (no checkout needed - Stripe handles proration automatically)
       const response = await api.membership.upgrade(selectedUpgradePlanId);
-      console.log('[handleConfirmUpgrade] Upgrade API response:', response);
-      console.log('[handleConfirmUpgrade] Response data:', response?.data);
-      console.log('[handleConfirmUpgrade] Response planId:', response?.data?.planId);
-      console.log('[handleConfirmUpgrade] Response isProcessingChange:', response?.data?.isProcessingChange);
-      console.log('[handleConfirmUpgrade] Expected planId:', selectedUpgradePlanId);
-      console.log('[handleConfirmUpgrade] Response planId matches?', response?.data?.planId === selectedUpgradePlanId);
-      
-      // ✅ Use response data directly if planId matches (faster, more reliable)
       let updatedMembership = response?.data;
-      
-      // ✅ Use response data directly (upgrade is now pending, so planId won't change immediately)
       if (updatedMembership) {
-        console.log('[handleConfirmUpgrade] ✅ Using response data directly');
-        console.log('[handleConfirmUpgrade] Response pendingUpgradePlanId:', updatedMembership.pendingUpgradePlanId);
         setMembership(updatedMembership);
       } else {
-        // ✅ Wait a bit for DB to update (flag should be cleared by now)
         await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // ✅ Force reload membership data to update state
         await loadData();
         await refreshUser();
-        
-        // ✅ Double-check: Fetch membership again to ensure state is updated
         const updatedMembershipRes = await api.membership.getUserMembership().catch(() => ({ data: null }));
         updatedMembership = updatedMembershipRes.data;
       }
-      
-      console.log('[handleConfirmUpgrade] Updated membership after reload:', updatedMembership);
-      console.log('[handleConfirmUpgrade] New planId:', updatedMembership?.planId);
-      console.log('[handleConfirmUpgrade] Selected planId:', selectedUpgradePlanId);
-      console.log('[handleConfirmUpgrade] Is current plan now?', updatedMembership?.planId === selectedUpgradePlanId);
-      console.log('[handleConfirmUpgrade] isProcessingChange:', updatedMembership?.isProcessingChange);
-      
-      // ✅ Log flag status for debugging
-      if (updatedMembership?.isProcessingChange) {
-        console.warn('[handleConfirmUpgrade] ⚠️ WARNING: isProcessingChange is still true after upgrade! This should be false.');
-      }
-      
-      // ✅ Update membership state directly
       if (updatedMembership) {
         setMembership(updatedMembership);
-        console.log('[handleConfirmUpgrade] ✅ Membership state updated directly');
-        console.log('[handleConfirmUpgrade] Final membership planId:', updatedMembership.planId);
-        console.log('[handleConfirmUpgrade] Final membership plan name:', updatedMembership.plan?.name);
-        console.log('[handleConfirmUpgrade] Final membership isProcessingChange:', updatedMembership.isProcessingChange);
-        
-        // ✅ Always clear actionLoading after state update (button will be disabled by isCurrentPlan check)
-        if (updatedMembership.planId === selectedUpgradePlanId) {
-          console.log('[handleConfirmUpgrade] ✅ Plan is now current, upgrade successful');
-        } else {
-          console.log('[handleConfirmUpgrade] ⚠️ WARNING: Plan not current after upgrade! Expected:', selectedUpgradePlanId, 'Got:', updatedMembership.planId);
-        }
-        
-        // Clear actionLoading and show success message
         setActionLoading(null);
         setSelectedUpgradePlanId(null);
         showToast('Upgrade scheduled successfully! Your plan will be upgraded on your next billing date. Stripe will handle proration automatically.', 'success');
       } else {
-        console.error('[handleConfirmUpgrade] ❌ ERROR: Updated membership not found!');
         setActionLoading(null);
         setSelectedUpgradePlanId(null);
-        showToast('Upgrade successful! Your subscription has been updated. Stripe will handle proration automatically.', 'success');
+        showToast('Upgrade successful! Your subscription has been updated.', 'success');
       }
     } catch (error: any) {
-      console.error('[handleConfirmUpgrade] Error:', error);
       setActionLoading(null);
       setSelectedUpgradePlanId(null);
-      showToast(error.response?.data?.message || 'Failed to upgrade membership', 'error');
+      showToast(error.response?.data?.message || 'Failed to upgrade Membership', 'error');
     }
   };
 
   const handleConfirmDowngrade = async () => {
     if (!selectedDowngradePlanId) {
-      setActionLoading(null); // Clear loading if no plan selected
+      setActionLoading(null);
       return;
     }
-    
-    // ✅ Disable button immediately to prevent double-click
     setShowDowngradeConfirm(false);
     const loadingKey = `downgrade-${selectedDowngradePlanId}`;
-    // Note: actionLoading should already be set in handleUpgrade, but ensure it's set here too
-    if (actionLoading !== loadingKey) {
-      setActionLoading(loadingKey);
-    }
-    
+    if (actionLoading !== loadingKey) setActionLoading(loadingKey);
     try {
-      console.log('[handleConfirmDowngrade] Starting downgrade for plan:', selectedDowngradePlanId);
-      console.log('[handleConfirmDowngrade] Current membership planId:', membership?.planId);
-      
-      await api.membership.upgrade(selectedDowngradePlanId); // This will handle downgrade internally
-      
-      // ✅ Force reload membership data to update state
+      await api.membership.upgrade(selectedDowngradePlanId);
       await loadData();
       await refreshUser();
-      
-      // ✅ Double-check: Fetch membership again to ensure state is updated
       const updatedMembershipRes = await api.membership.getUserMembership().catch(() => ({ data: null }));
       const updatedMembership = updatedMembershipRes.data;
-      
-      console.log('[handleConfirmDowngrade] Updated membership after reload:', updatedMembership);
-      console.log('[handleConfirmDowngrade] Pending downgrade planId:', updatedMembership?.pendingDowngradePlanId);
-      console.log('[handleConfirmDowngrade] Selected planId:', selectedDowngradePlanId);
-      console.log('[handleConfirmDowngrade] Is pending downgrade?', updatedMembership?.pendingDowngradePlanId === selectedDowngradePlanId);
-      
-      // ✅ Update membership state directly if loadData didn't update it
       if (updatedMembership) {
         setMembership(updatedMembership);
-        console.log('[handleConfirmDowngrade] ✅ Membership state updated directly');
-        
-        // ✅ Only clear actionLoading if downgrade is now pending (downgrade successful)
         if (updatedMembership.pendingDowngradePlanId === selectedDowngradePlanId) {
-          console.log('[handleConfirmDowngrade] ✅ Downgrade is now pending, clearing actionLoading');
           setActionLoading(null);
-          setSelectedDowngradePlanId(null);
-          showToast('Downgrade scheduled successfully. It will apply on your next billing date.', 'success');
-        } else {
-          // If downgrade is not pending yet, keep actionLoading to prevent double-click
-          console.log('[handleConfirmDowngrade] ⚠️ Downgrade not pending yet, keeping actionLoading');
-          setSelectedDowngradePlanId(null);
-          showToast('Downgrade scheduled successfully. It will apply on your next billing date.', 'success');
         }
+        setSelectedDowngradePlanId(null);
+        showToast('Downgrade scheduled successfully. It will apply on your next billing date.', 'success');
       } else {
-        // Fallback: clear actionLoading even if membership not found
         setActionLoading(null);
         setSelectedDowngradePlanId(null);
         showToast('Downgrade scheduled successfully. It will apply on your next billing date.', 'success');
       }
     } catch (error: any) {
-      console.error('[handleConfirmDowngrade] Error:', error);
       setActionLoading(null);
       setSelectedDowngradePlanId(null);
-      showToast(error.response?.data?.message || 'Failed to downgrade membership', 'error');
+      showToast(error.response?.data?.message || 'Failed to downgrade Membership', 'error');
     }
   };
 
-  // Check if moving from oldPlan to newPlan is an upgrade
   const isPlanUpgrade = (oldPlan: any, newPlan: any): boolean => {
-    // Define tier hierarchy
     const tierOrder: Record<string, number> = {
-      'basic': 1,
-      'premium': 2,
-      'uni_one': 3,
-      'uni_plus': 4,
-      'uni_max': 5,
-      'elite': 6,
+      basic: 1, premium: 2, uni_one: 3, uni_plus: 4, uni_max: 5, elite: 6,
     };
-
     const oldTierOrder = tierOrder[oldPlan.tier] || 0;
     const newTierOrder = tierOrder[newPlan.tier] || 0;
-
-    // If tier is higher, it's an upgrade
-    if (newTierOrder > oldTierOrder) {
-      return true;
-    }
-
-    // If same tier but higher price, it's an upgrade
-    if (newTierOrder === oldTierOrder && newPlan.priceMonthly > oldPlan.priceMonthly) {
-      return true;
-    }
-
-    // If same tier and price but more credits, it's an upgrade
-    if (
-      newTierOrder === oldTierOrder &&
-      newPlan.priceMonthly === oldPlan.priceMonthly &&
-      newPlan.freeCreditsPerPeriod > oldPlan.freeCreditsPerPeriod
-    ) {
-      return true;
-    }
-
+    if (newTierOrder > oldTierOrder) return true;
+    if (newTierOrder === oldTierOrder && newPlan.priceMonthly > oldPlan.priceMonthly) return true;
+    if (newTierOrder === oldTierOrder && newPlan.priceMonthly === oldPlan.priceMonthly && newPlan.freeCreditsPerPeriod > oldPlan.freeCreditsPerPeriod) return true;
     return false;
   };
 
@@ -462,635 +358,780 @@ export default function MembershipPage() {
     setShowManagePaymentModal(false);
     setHidePaymentMethodsShell(false);
   };
-
   const handleOpenManagePayment = () => {
     setHidePaymentMethodsShell(false);
     setShowManagePaymentModal(true);
   };
-
   const handlePaymentMethodsChanged = async () => {
     await loadData();
     await refreshUser();
     await notifyAndRetryMembershipAfterPaymentUpdate({ quietIfMembershipHealthy: false });
     await loadData();
     const m = await api.membership.getUserMembership().catch(() => ({ data: null }));
-    if (
-      m.data?.status &&
-      m.data.status !== 'payment_failed' &&
-      m.data.status !== 'past_due'
-    ) {
+    if (m.data?.status && m.data.status !== 'payment_failed' && m.data.status !== 'past_due') {
       closeManagePaymentModal();
     }
   };
 
-
-  const getPlanTierName = (tier?: string) => {
-    const tierMap: Record<string, string> = {
-      'UNI_ONE': 'Silver',
-      'UNI_PLUS': 'Gold',
-      'UNI_MAX': 'Platinum',
-      'TEST': 'Basic',
-    };
-    return tierMap[tier || ''] || '';
-  };
-
-  const getPlanDisplayName = (plan: any) => {
-    // Just return the plan name without tier in parentheses
-    return plan?.name || 'Unknown';
-  };
-
-  const formatDate = (date: string | Date) => {
-    const { formatSydneyDateOnly } = require('@/lib/timezone');
-    return formatSydneyDateOnly(date);
-  };
-
+  /* ===== Format helpers ===== */
   const formatMembershipDate = (date: string | Date) => {
     const { formatSydneyDateOnly } = require('@/lib/timezone');
     return formatSydneyDateOnly(date);
   };
-
-  const formatDateWithTime = (dateString: string) => {
-    const { formatSydneyDate } = require('@/lib/timezone');
-    return formatSydneyDate(dateString);
+  const formatCurrency = (amount: number | string) => {
+    const n = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return `A$${(Number(n) || 0).toFixed(2)}`;
   };
-
-  const formatCurrency = (amount: number | string, currency: string = 'AUD') => {
-    // Always use A$ prefix for AUD to ensure consistent display
-    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    if (currency === 'AUD' || !currency) {
-      return `A$${numAmount.toFixed(2)}`;
-    }
-    return new Intl.NumberFormat('en-AU', { style: 'currency', currency }).format(numAmount);
-  };
-
-  const availablePlans = plans.filter((p) => p.id !== membership?.planId);
 
   if (loading) {
+    /* Skeleton screens — placeholder cards mirror the final layout so user
+       gets instant structural orientation. */
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-        </div>
+      <div className="space-y-5 sm:space-y-6">
+        <header>
+          <h1 className="text-[24px] font-extrabold tracking-tight text-[#0F1222] sm:text-[28px]">Membership</h1>
+        </header>
+
+        {/* Status hero skeleton */}
+        <article className="overflow-hidden rounded-3xl border border-[#E0DAFF] bg-white p-5 shadow-[0_18px_50px_-30px_rgba(99,86,229,0.20)] sm:p-7">
+          <div className="flex items-start justify-between gap-3 sm:gap-4">
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="h-5 w-20 animate-pulse rounded-full bg-[#F4F1FB]" />
+              <div className="h-8 w-56 max-w-full animate-pulse rounded-lg bg-[#F4F1FB]" />
+            </div>
+            <div className="h-7 w-28 animate-pulse rounded-md bg-[#F4F1FB]" />
+          </div>
+          <div className="mt-3 space-y-1.5">
+            <div className="h-4 w-48 animate-pulse rounded bg-[#F4F1FB]" />
+            <div className="h-4 w-40 animate-pulse rounded bg-[#F4F1FB]" />
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2.5 sm:gap-3">
+            <div className="h-20 animate-pulse rounded-2xl bg-[#F4F1FB]" />
+            <div className="h-20 animate-pulse rounded-2xl bg-[#F4F1FB]" />
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-[#EFEDF5] pt-4 sm:gap-3">
+            <div className="h-10 w-36 animate-pulse rounded-full bg-[#F4F1FB]" />
+            <div className="h-10 w-40 animate-pulse rounded-full bg-[#F4F1FB]" />
+            <div className="h-10 w-32 animate-pulse rounded-full bg-[#F4F1FB]" />
+          </div>
+        </article>
+
+        {/* Benefits card skeleton */}
+        <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 sm:p-7">
+          <div className="space-y-2">
+            <div className="h-4 w-44 animate-pulse rounded bg-[#F4F1FB]" />
+            <div className="h-5 w-24 animate-pulse rounded bg-[#F4F1FB]" />
+          </div>
+          <ul className="mt-3 space-y-2">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <li key={i} className="flex items-center gap-2">
+                <div className="h-3.5 w-3.5 shrink-0 animate-pulse rounded bg-[#F4F1FB]" />
+                <div className="h-4 w-56 max-w-full animate-pulse rounded bg-[#F4F1FB]" />
+              </li>
+            ))}
+          </ul>
+        </article>
+
+        {/* Available plans skeleton */}
+        <section>
+          <div className="mb-4 h-6 w-44 animate-pulse rounded bg-[#F4F1FB]" />
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+            {[0, 1].map((i) => (
+              <article key={i} className="rounded-3xl border border-[#E7E9F2] bg-white p-5 sm:p-6">
+                <div className="space-y-2">
+                  <div className="h-4 w-20 animate-pulse rounded bg-[#F4F1FB]" />
+                  <div className="h-6 w-32 animate-pulse rounded-md bg-[#F4F1FB]" />
+                  <div className="h-5 w-28 animate-pulse rounded bg-[#F4F1FB]" />
+                </div>
+                <div className="mt-4 space-y-1.5">
+                  <div className="h-4 w-40 animate-pulse rounded bg-[#F4F1FB]" />
+                  <div className="h-4 w-44 animate-pulse rounded bg-[#F4F1FB]" />
+                </div>
+                <div className="mt-5 h-11 w-full animate-pulse rounded-full bg-[#F4F1FB]" />
+              </article>
+            ))}
+          </div>
+        </section>
       </div>
     );
   }
 
-  return (
-    <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Membership Plan</h1>
+  /* ===== Derived display ===== */
+  const status = (membership?.status || '').toLowerCase();
+  const isPaymentDue = status === 'payment_failed' || status === 'past_due';
+  const isPaused = !!membership?.isPaused;
+  const isCanceled = status === 'canceled';
+  const isScheduledCancel = !!membership?.cancelAtPeriodEnd && status !== 'canceled' && membership?.currentPeriodEnd && new Date(membership.currentPeriodEnd) > new Date();
+  const cancelAccessUntil = isCanceled && membership?.currentPeriodEnd && new Date(membership.currentPeriodEnd) > new Date();
+  const noActiveMembership = !membership || (isCanceled && (!membership?.currentPeriodEnd || new Date(membership.currentPeriodEnd) <= new Date()));
 
-      {/* Past Due Warning */}
-      {(membership?.status === 'payment_failed' || membership?.status === 'past_due') && (
-        <div className="mb-6 p-4 bg-red-50 border-2 border-red-400 rounded-lg">
-          <div className="flex items-start">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3 flex-1">
-              <h3 className="text-sm font-bold text-red-800 mb-2">Payment failed</h3>
-              <p className="mt-1 text-sm text-red-700 mb-4">
-                We couldn't process your membership payment. Please update your payment method to keep your membership active.
+  const planDisplayKind = isPaused ? 'paused' : isPaymentDue ? (status === 'past_due' ? 'past_due' : 'payment_failed') : 'active';
+  const statusPill = STATUS_PILL[planDisplayKind] || STATUS_PILL.active;
+
+  const planName = membership?.plan?.name || 'Membership';
+  const planPrice = parseFloat(membership?.plan?.priceMonthly || '0');
+  const monthlyPoints = Number(membership?.plan?.freeCreditsPerPeriod || 0);
+  const majorDrawEntries = Number(membership?.plan?.grandPrizeEntriesPerPeriod || 0);
+
+  const availablePlans = plans.filter((p) => p.id !== membership?.planId);
+  const renewalsTotalPages = Math.max(1, Math.ceil((renewalsTotal || 0) / 10));
+
+  /* =====================================================================
+     JSX
+  ===================================================================== */
+  return (
+    <div className="space-y-5 sm:space-y-6">
+      {/* ============================================================
+          PAGE HEADER — simple H1, no eyebrow (sidebar active state is breadcrumb)
+      ============================================================ */}
+      <header>
+        <h1 className="text-[24px] font-extrabold tracking-tight text-[#0F1222] sm:text-[28px]">Membership</h1>
+      </header>
+
+      {/* ============================================================
+          PAYMENT DUE WARNING (preserved)
+      ============================================================ */}
+      {isPaymentDue && (
+        <article className="overflow-hidden rounded-2xl border border-[#FCA5A5] bg-[#FEF2F2] p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#B91C1C] ring-1 ring-[#FCA5A5]">
+              <Icon.Alert className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13.5px] font-extrabold tracking-tight text-[#7F1D1D] sm:text-[14px]">Payment failed</p>
+              <p className="mt-0.5 text-[12.5px] leading-relaxed text-[#7F1D1D]/90">
+                We couldn't process your Membership payment. Please update your payment method to keep your benefits active.
               </p>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleOpenManagePayment}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition text-sm"
-                >
-                  Update payment
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleOpenManagePayment}
+                className="mt-3 inline-flex h-10 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#EF4444] to-[#F97316] px-4 text-[12.5px] font-bold text-white shadow-[0_10px_24px_-12px_rgba(239,68,68,0.55)] transition-all hover:opacity-95"
+              >
+                Update Payment Method
+                <Icon.ArrowRight className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
-        </div>
+        </article>
       )}
 
-      {/* Current Plan */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Current Plan</h2>
-        
-        {/* Scheduled to cancel (cancelAtPeriodEnd = true, still active) — synced from Stripe Dashboard */}
-        {membership && membership.status !== 'canceled' && membership.cancelAtPeriodEnd && membership.currentPeriodEnd && new Date(membership.currentPeriodEnd) > new Date() ? (
-          <div>
-            <div className="mb-4 p-4 bg-orange-50 border border-orange-300 rounded-lg">
-              <div className="flex items-start space-x-3">
-                <svg className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div className="flex-1">
-                  <p className="text-orange-800 font-semibold">
-                    Cancellation scheduled — access until {formatMembershipDate(membership.currentPeriodEnd)}
-                  </p>
-                  <p className="text-orange-700 text-sm mt-1">
-                    Your membership will remain active until the end of your current billing period. You won't be charged again.
-                  </p>
-                </div>
-              </div>
-            </div>
-            {/* Fall through to show the normal active plan card below */}
+      {/* ============================================================
+          NO ACTIVE MEMBERSHIP
+      ============================================================ */}
+      {noActiveMembership ? (
+        <article className="overflow-hidden rounded-3xl border border-[#E0DAFF] bg-white px-5 py-7 text-center shadow-[0_18px_50px_-30px_rgba(99,86,229,0.25)] sm:px-7 sm:py-9">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">Membership</p>
+          <h2 className="mt-1 text-[22px] font-extrabold tracking-tight text-[#0F1222] sm:text-[26px]">No active Membership</h2>
+          <p className="mt-2 text-[13.5px] leading-relaxed text-[#4B5563]">
+            Join UNICASH to unlock Monthly Points, Major Draw entries, Fuel Rewards, and member-only Bonus Draws.
+          </p>
+          <Link
+            href="/#membership-plans"
+            className="mt-5 inline-flex h-11 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[13.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.55)] transition-all hover:from-[#5346D6] hover:to-[#7867EC]"
+          >
+            View Membership plans
+            <Icon.ArrowRight className="h-4 w-4" />
+          </Link>
+        </article>
+      ) : cancelAccessUntil ? (
+        /* ============================================================
+            CANCELLED — still in billing period
+        ============================================================ */
+        <article className="overflow-hidden rounded-3xl border border-[#FCA5A5] bg-white shadow-[0_18px_50px_-30px_rgba(185,28,28,0.18)]">
+          <div className="bg-[#FEF2F2] px-5 py-4 sm:px-7 sm:py-5">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#B91C1C] ring-1 ring-[#FCA5A5]">
+              <Icon.Alert className="h-3 w-3" />
+              Cancelled
+            </span>
+            <p className="mt-2 text-[13.5px] font-bold text-[#7F1D1D]">
+              Access until {formatMembershipDate(membership.currentPeriodEnd)}
+            </p>
           </div>
-        ) : null}
-
-        {/* Cancelled - Still in billing period */}
-        {membership && membership.status === 'canceled' && membership.currentPeriodEnd && new Date(membership.currentPeriodEnd) > new Date() ? (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <div className="flex items-start">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  Plan: {getPlanDisplayName(membership.plan)} {membership.plan?.priceMonthly && `- ${formatCurrency(membership.plan.priceMonthly)}/month`}
-                </h3>
-                <p className="text-red-700 font-medium mb-3">
-                  Status: Cancelled – access until {formatMembershipDate(membership.currentPeriodEnd)}
-                </p>
-                <p className="text-gray-700 mb-2">
-                  Your UNICASH membership has been cancelled. You won't be charged again, 
-                  and you'll keep dashboard access until {formatMembershipDate(membership.currentPeriodEnd)}.
-                </p>
-                <p className="text-sm text-gray-600 italic mb-4">
-                  All of your entries have been removed. To enter future draws, 
-                  you'll need to start a new membership.
-                </p>
-                <button
-                  onClick={() => router.push('/#membership-plans')}
-                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold"
-                >
-                  Start a new membership
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : 
-        /* Cancelled and billing period ended - No active membership */
-        (!membership || (membership.status === 'canceled' && (!membership.currentPeriodEnd || new Date(membership.currentPeriodEnd) <= new Date()))) ? (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Status: No active membership
-            </h3>
-            <p className="text-gray-700 mb-4">
-              You don't have an active UNICASH membership. Join today to start 
-              collecting credits and entering draws.
+          <div className="px-5 py-5 sm:px-7 sm:py-6">
+            <h2 className="text-[20px] font-extrabold tracking-tight text-[#0F1222] sm:text-[22px]">{planName}</h2>
+            <p className="mt-2 text-[13px] leading-relaxed text-[#4B5563]">
+              Your UNICASH Membership has been cancelled. You won't be charged again, and you keep dashboard access until {formatMembershipDate(membership.currentPeriodEnd)}.
+            </p>
+            <p className="mt-2 text-[12.5px] italic text-[#667085]">
+              All of your entries have been removed. To enter future Bonus Draws, you'll need to start a new Membership.
             </p>
             <button
+              type="button"
               onClick={() => router.push('/#membership-plans')}
-              className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold"
+              className="mt-4 inline-flex h-11 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[13.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.55)] transition-all hover:from-[#5346D6] hover:to-[#7867EC]"
             >
-              View membership plans
+              Reactivate Membership
+              <Icon.ArrowRight className="h-4 w-4" />
             </button>
           </div>
-        ) :
-        /* Active or Paused Membership */
-        membership ? (
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center space-x-3 mb-2">
-                <div>
-                  <h3 className="text-2xl font-bold text-purple-600">
-                    {getPlanDisplayName(membership.plan)}
-                  </h3>
-                  {membership.plan?.priceMonthly && (
-                    <p className="text-lg text-gray-600 mt-1">
-                      {formatCurrency(membership.plan.priceMonthly)}/month
-                    </p>
-                  )}
-                </div>
-                {(membership.status === 'payment_failed' || membership.status === 'past_due') && (
-                  <span className="px-3 py-1 bg-red-600 text-white rounded-full text-xs font-semibold">
-                    PAYMENT FAILED
-                  </span>
-                )}
-                {membership.isPaused && (
-                  <span className="px-3 py-1 bg-orange-500 text-white rounded-full text-xs font-semibold">
-                    PAUSED
-                  </span>
-                )}
-              </div>
-              <p className="text-gray-600 mb-2">
-                {membership.plan?.featuresConfig?.features?.[0]?.value 
-                  ? `${membership.plan.featuresConfig.features[0].value} ${membership.plan.featuresConfig.features[0].label || 'Verified Entries'}/month`
-                  : membership.plan?.grandPrizeEntriesPerPeriod 
-                    ? `${membership.plan.grandPrizeEntriesPerPeriod} Verified Entries/month`
-                    : 'N/A'
-                }
-              </p>
-              
-              {/* Show pause date if membership is paused */}
-              {membership.isPaused && membership.pausedAt && (
-                <div className="mb-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                  <p className="text-sm text-orange-800">
-                    <span className="font-semibold">Paused on:</span> {formatMembershipDate(membership.pausedAt)}
-                    {membership.pauseExpiresAt && (
-                      <>
-                        <br />
-                        <span className="font-semibold">Expires on:</span> {formatMembershipDate(membership.pauseExpiresAt)}
-                      </>
-                    )}
+        </article>
+      ) : (
+        /* ============================================================
+            CURRENT PLAN CARD — Active / Paused / Scheduled-cancel
+        ============================================================ */
+        <article className="overflow-hidden rounded-3xl border border-[#E0DAFF] bg-white shadow-[0_18px_50px_-30px_rgba(99,86,229,0.20)]">
+          {/* Scheduled-cancel banner */}
+          {isScheduledCancel && (
+            <div className="border-b border-[#FFC85D]/30 bg-[#FFF6DA] px-5 py-3 sm:px-7">
+              <div className="flex items-start gap-2">
+                <Icon.Alert className="mt-0.5 h-4 w-4 shrink-0 text-[#9C5410]" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[12.5px] font-bold text-[#7C2D12] sm:text-[13px]">
+                    Cancellation scheduled — access until {formatMembershipDate(membership.currentPeriodEnd)}
+                  </p>
+                  <p className="mt-0.5 text-[11.5px] leading-relaxed text-[#9C5410]">
+                    Your Membership stays active until the end of your current billing period. You won't be charged again.
                   </p>
                 </div>
-              )}
-              
-              <p className="text-sm text-gray-500 mb-4">
-                Plan changes will apply on your next billing date. You can pause or cancel anytime.
-              </p>
-              
-              {/* Actions based on state */}
-              <div className="flex items-center space-x-4">
-               
-                {membership.isPaused ? (
-                  <button
-                    onClick={() => setShowResumeConfirm(true)}
-                    disabled={actionLoading !== null}
-                    className="text-purple-600 hover:text-purple-700 font-semibold disabled:opacity-50"
-                  >
-                    Resume Now
-                  </button>
-                ) : (
-                  <>
-                    {/* Show Pause button if membership is active and not paused, not processing change */}
-                    {/* Note: Allow pause even if cancelAtPeriodEnd is true, as user may want to pause before cancellation takes effect */}
-                    {(() => {
-                      // Show pause if active, not paused, not processing, and not payment failed/past due
-                      const canShowPause = membership.status === 'active' && 
-                        !membership.isPaused &&
-                        !membership.isProcessingChange &&
-                        membership.status !== 'payment_failed' &&
-                        membership.status !== 'past_due';
-                      
-                      return canShowPause ? (
-                        <button
-                          onClick={() => setShowPauseConfirm(true)}
-                          disabled={actionLoading !== null}
-                          className="text-gray-700 hover:text-gray-900 font-semibold disabled:opacity-50"
-                        >
-                          Pause
-                        </button>
-                      ) : null;
-                    })()}
-                    {/* Show Cancel button only if not already canceled AND not already scheduled to cancel */}
-                    {membership.status !== 'canceled' && !membership.cancelAtPeriodEnd && (
-                      <button
-                        onClick={() => setShowCancelConfirm(true)}
-                        disabled={actionLoading !== null}
-                        className="text-red-600 hover:text-red-700 font-semibold disabled:opacity-50"
-                      >
-                        Cancel Membership
-                      </button>
-                    )}
-                  </>
-                )}
-                {membership.pendingUpgradePlanId && (
-                  <button
-                    onClick={() => setShowCancelUpgradeConfirm(true)}
-                    disabled={actionLoading !== null}
-                    className="text-orange-600 hover:text-orange-700 font-semibold disabled:opacity-50"
-                  >
-                    Cancel Upgrade
-                  </button>
-                )}
               </div>
             </div>
-            <div className="text-right">
-              {/* Hide "Next billing" when paused, canceled, or cancelAtPeriodEnd */}
-              {membership.currentPeriodEnd && 
-               !membership.isPaused && 
-               membership.status !== 'canceled' &&
-               !membership.cancelAtPeriodEnd && (
-                <p className="text-sm text-gray-600">Next billing: {formatMembershipDate(membership.currentPeriodEnd)}</p>
-              )}
-              {/* Show "Access until" when cancelAtPeriodEnd */}
-              {membership.currentPeriodEnd &&
-               !membership.isPaused &&
-               membership.cancelAtPeriodEnd && (
-                <p className="text-sm text-orange-600 font-medium">Access until: {formatMembershipDate(membership.currentPeriodEnd)}</p>
-              )}
-            </div>
-          </div>
-        ) : null}
-      </div>
+          )}
 
-      {/* Available Plans */}
-      {/* Chỉ hiển thị Available Plans khi đang có membership active (không paused, không canceled).
-          Khi user đã "No active membership" hoặc mới chưa mua, họ sẽ mua lại ở trang chủ. */}
-      {plans.length > 0 && membership && !membership.isPaused && membership.status !== 'canceled' && (
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Available Plans</h2>
-          {availablePlans.length === 0 && membership && (
-            <p className="text-gray-600 mb-4">You are already subscribed to all available plans.</p>
-          )}
-          
-          {/* Payment Failed - Show Fix Payment Message */}
-          {(membership?.status === 'payment_failed' || membership?.status === 'past_due') && (
-            <div className="mb-6 p-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg">
-              <div className="flex items-start">
-                <svg className="w-5 h-5 text-yellow-600 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                <div className="flex-1">
-                  <p className="text-sm text-yellow-800 font-semibold mb-1">Payment Required</p>
-                  <p className="text-sm text-yellow-700">
-                    Please fix your payment method before upgrading or downgrading your membership plan.
-                  </p>
+          {/* Pending upgrade banner — shown when next renewal will switch plan UP.
+              Cancel action lives on the pending plan card in Available Plans below. */}
+          {!isScheduledCancel && membership?.pendingUpgradePlanId && (() => {
+            const pendingPlan = plans.find((p) => p.id === membership.pendingUpgradePlanId);
+            const pendingName = pendingPlan?.name || 'a higher plan';
+            const pendingPoints = Number(pendingPlan?.freeCreditsPerPeriod || 0);
+            return (
+              <div className="border-b border-[#E0DAFF] bg-[#F4F1FB] px-5 py-3 sm:px-7">
+                <div className="flex items-start gap-2">
+                  <Icon.Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#6356E5]" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12.5px] font-bold text-[#0F1222] sm:text-[13px]">
+                      Scheduled upgrade — activates {membership.currentPeriodEnd ? formatMembershipDate(membership.currentPeriodEnd) : 'on next renewal'}
+                    </p>
+                    <p className="mt-0.5 text-[11.5px] leading-relaxed text-[#6356E5]">
+                      Your plan will upgrade to <span className="font-bold">{pendingName}</span>
+                      {pendingPoints > 0 && <> — Points reset to {pendingPoints.toLocaleString()}/mo at activation</>}.
+                      Cancel anytime from the {pendingName} card below.
+                    </p>
+                  </div>
                 </div>
               </div>
+            );
+          })()}
+
+          {/* Pending downgrade banner — same lavender style as upgrade for consistency.
+              Lavender = "scheduled plan change" (continuing with new plan).
+              Gold is reserved for cancellation/ending states only. */}
+          {!isScheduledCancel && !membership?.pendingUpgradePlanId && membership?.pendingDowngradePlanId && (() => {
+            const pendingPlan = plans.find((p) => p.id === membership.pendingDowngradePlanId);
+            const pendingName = pendingPlan?.name || 'a lower plan';
+            const pendingPoints = Number(pendingPlan?.freeCreditsPerPeriod || 0);
+            return (
+              <div className="border-b border-[#E0DAFF] bg-[#F4F1FB] px-5 py-3 sm:px-7">
+                <div className="flex items-start gap-2">
+                  <Icon.Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#6356E5]" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12.5px] font-bold text-[#0F1222] sm:text-[13px]">
+                      Scheduled downgrade — activates {membership.currentPeriodEnd ? formatMembershipDate(membership.currentPeriodEnd) : 'on next renewal'}
+                    </p>
+                    <p className="mt-0.5 text-[11.5px] leading-relaxed text-[#6356E5]">
+                      Your plan will downgrade to <span className="font-bold">{pendingName}</span>
+                      {pendingPoints > 0 && <> — Points reset to {pendingPoints.toLocaleString()}/mo at activation</>}.
+                      Cancel anytime from the {pendingName} card below.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Top: status pill + plan + price */}
+          <div className="flex items-start justify-between gap-3 px-5 pt-5 sm:gap-4 sm:px-7 sm:pt-7">
+            <div className="min-w-0 flex-1">
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.14em] ring-1 ${statusPill.bg} ${statusPill.text} ${statusPill.ring}`}>
+                {statusPill.label}
+              </span>
+              <h2 className="mt-2 truncate text-[24px] font-extrabold tracking-tight text-[#0F1222] sm:text-[28px]">
+                {planName} <span className="text-[#667085]">Membership</span>
+              </h2>
+            </div>
+            {planPrice > 0 && (
+              <p className="shrink-0 whitespace-nowrap text-right">
+                <span className="text-[26px] font-extrabold leading-none tracking-tight text-[#6356E5] tabular-nums sm:text-[32px]">
+                  {formatCurrency(planPrice)}
+                </span>
+                <span className="ml-1.5 text-[12px] font-medium text-[#667085]">/ month</span>
+              </p>
+            )}
+          </div>
+
+          {/* Renewal/billing line */}
+          <div className="mt-3 px-5 text-[12.5px] text-[#667085] sm:px-7">
+            {membership?.currentPeriodEnd && !isPaused && !isScheduledCancel && (
+              <p>Next renewal: <span className="font-semibold text-[#0F1222]">{formatMembershipDate(membership.currentPeriodEnd)}</span></p>
+            )}
+            {isPaused && membership?.pausedAt && (
+              <p>
+                Paused since: <span className="font-semibold text-[#0F1222]">{formatMembershipDate(membership.pausedAt)}</span>
+                {membership.pauseExpiresAt && (
+                  <> · Resumes: <span className="font-semibold text-[#0F1222]">{formatMembershipDate(membership.pauseExpiresAt)}</span></>
+                )}
+              </p>
+            )}
+            {membership?.createdAt && (
+              <p className="mt-0.5">Member since: <span className="font-semibold text-[#0F1222]">{formatMembershipDate(membership.createdAt)}</span></p>
+            )}
+          </div>
+
+          {/* Per-month stats */}
+          {(monthlyPoints > 0 || majorDrawEntries > 0) && (
+            <div className="mt-4 grid grid-cols-2 gap-2.5 px-5 sm:gap-3 sm:px-7">
+              {monthlyPoints > 0 && (
+                <div className="rounded-2xl bg-[#F4F1FB] p-3.5 ring-1 ring-[#E0DAFF] sm:p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#667085] sm:text-[10.5px] sm:tracking-[0.14em]">Monthly Points</p>
+                  <p className="mt-1 text-[20px] font-extrabold leading-none tracking-tight text-[#0F1222] tabular-nums sm:text-[22px]">
+                    {monthlyPoints.toLocaleString()}
+                  </p>
+                </div>
+              )}
+              {majorDrawEntries > 0 && (
+                <div className="rounded-2xl bg-[#FFF6DA] p-3.5 ring-1 ring-[#FFC85D]/40 sm:p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#9C5410] sm:text-[10.5px] sm:tracking-[0.14em]">
+                    <span className="sm:hidden">Major Draw</span>
+                    <span className="hidden sm:inline">Major Draw entries</span>
+                  </p>
+                  <p className="mt-1 text-[20px] font-extrabold leading-none tracking-tight text-[#0F1222] tabular-nums sm:text-[22px]">
+                    {majorDrawEntries}<span className="ml-1 text-[12px] font-medium text-[#667085]">/ month</span>
+                  </p>
+                </div>
+              )}
             </div>
           )}
-          
-          <div className="grid md:grid-cols-2 gap-6">
+
+          {/* Pause/Cancel/Resume actions */}
+          <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-[#EFEDF5] px-5 pb-5 pt-4 sm:gap-3 sm:px-7 sm:pb-7">
+            {isPaused ? (
+              <button
+                type="button"
+                onClick={() => setShowResumeConfirm(true)}
+                disabled={actionLoading !== null}
+                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-4 text-[12.5px] font-bold text-white shadow-[0_10px_24px_-12px_rgba(99,86,229,0.55)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] disabled:opacity-50"
+              >
+                Resume Now
+              </button>
+            ) : (
+              <>
+                {membership.status === 'active' && !isPaused && !membership.isProcessingChange && !isPaymentDue && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPauseConfirm(true)}
+                    disabled={actionLoading !== null}
+                    className="inline-flex h-10 items-center rounded-full border border-[#E0DAFF] bg-white px-4 text-[12.5px] font-bold text-[#0F1222] transition-colors hover:border-[#6356E5] hover:text-[#6356E5] disabled:opacity-50"
+                  >
+                    Pause Membership
+                  </button>
+                )}
+                {!isCanceled && !membership.cancelAtPeriodEnd && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCancelConfirm(true)}
+                    disabled={actionLoading !== null}
+                    className="inline-flex h-10 items-center rounded-full border border-[#FCA5A5] bg-white px-4 text-[12.5px] font-bold text-[#B91C1C] transition-colors hover:bg-[#FEE2E2] disabled:opacity-50"
+                  >
+                    Cancel Membership
+                  </button>
+                )}
+              </>
+            )}
+            {/* Cancel scheduled upgrade/downgrade buttons removed from action row —
+                pending state is signalled via the inline banner at the top of this card,
+                and the actual Cancel button lives on the pending plan in Available Plans below.
+                This keeps the action row focused on current-state controls. */}
+            <button
+              type="button"
+              onClick={handleOpenManagePayment}
+              className="inline-flex h-10 items-center rounded-full border border-[#E0DAFF] bg-white px-4 text-[12.5px] font-bold text-[#0F1222] transition-colors hover:border-[#6356E5] hover:text-[#6356E5]"
+            >
+              Manage Billing
+            </button>
+          </div>
+        </article>
+      )}
+
+      {/* ============================================================
+          INCLUDED BENEFITS (existing plan only)
+      ============================================================ */}
+      {membership && !isCanceled && !isPaused && (monthlyPoints > 0 || majorDrawEntries > 0) && (
+        <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-7">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">Included with your Membership</p>
+          <h2 className="mt-1 text-[18px] font-extrabold tracking-tight text-[#0F1222] sm:text-[20px]">Benefits</h2>
+          <ul className="mt-3 space-y-2 text-[13.5px] leading-relaxed text-[#4B5563]">
+            {monthlyPoints > 0 && (
+              <li className="flex items-start gap-2">
+                <Icon.Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#10B981]" />
+                <span>{monthlyPoints.toLocaleString()} Monthly Points</span>
+              </li>
+            )}
+            {majorDrawEntries > 0 && (
+              <li className="flex items-start gap-2">
+                <Icon.Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#10B981]" />
+                <span>{majorDrawEntries} Major Draw {majorDrawEntries === 1 ? 'entry' : 'entries'} monthly</span>
+              </li>
+            )}
+            <li className="flex items-start gap-2">
+              <Icon.Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#10B981]" />
+              <span>Access to member-only Bonus Draws</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Icon.Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#10B981]" />
+              <span>Fuel Rewards from eligible fuel receipts</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Icon.Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#10B981]" />
+              <span>Redeem Gift Cards from 2,000 Points</span>
+            </li>
+          </ul>
+        </article>
+      )}
+
+      {/* ============================================================
+          AVAILABLE PLANS (upgrade/downgrade) — only for active Members
+      ============================================================ */}
+      {plans.length > 0 && membership && !isPaused && !isCanceled && (
+        <section>
+          {/* Outside-card eyebrow dropped — H2 alone is enough orientation, matches Entries rhythm */}
+          <h2 className="mb-4 text-[20px] font-extrabold tracking-tight text-[#0F1222] sm:text-[22px]">Available plans</h2>
+
+          {availablePlans.length === 0 && (
+            <p className="text-[13px] text-[#667085]">You're already on the highest tier.</p>
+          )}
+
+          {isPaymentDue && (
+            <div className="mb-4 rounded-2xl border border-[#FFC85D] bg-[#FFF6DA] p-3.5">
+              <p className="text-[12.5px] leading-relaxed text-[#9C5410]">
+                <strong>Payment required.</strong> Please fix your payment method before changing plans.
+              </p>
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
             {availablePlans.map((plan) => {
               const isUpgrade = membership?.plan ? isPlanUpgrade(membership.plan, plan) : false;
-              const isDowngrade = membership?.plan ? !isPlanUpgrade(membership.plan, plan) && membership.planId !== plan.id : false;
-              const isPaymentFailed = membership?.status === 'payment_failed' || membership?.status === 'past_due';
               const hasPendingDowngrade = membership?.pendingDowngradePlanId === plan.id;
-              const hasPendingUpgrade = membership?.pendingUpgradePlanId === plan.id; // ✅ Check if THIS plan has pending upgrade
+              const hasPendingUpgrade = membership?.pendingUpgradePlanId === plan.id;
               const hasPendingUpgradeOther = membership?.pendingUpgradePlanId && membership?.pendingUpgradePlanId !== plan.id;
               const hasPendingDowngradeOther = membership?.pendingDowngradePlanId && membership?.pendingDowngradePlanId !== plan.id;
-              const isCurrentPlan = membership?.planId === plan.id;
-              const isProcessingChange = membership?.isProcessingChange || false; // ✅ Check DB lock flag
-              
-              // Debug log
-              if (isProcessingChange) {
-                console.log(`[MembershipCard] ⚠️ Membership isProcessingChange=true, blocking actions for plan ${plan.name}`);
-              }
-              
-              // ✅ Block upgrade if already has pending upgrade (to this plan or another plan)
+              const isProcessingChange = membership?.isProcessingChange || false;
               const canUpgrade = !isUpgrade || (!hasPendingUpgrade && !hasPendingUpgradeOther);
-              // ✅ Block downgrade if already has pending downgrade
-              const canDowngrade = !isDowngrade || !hasPendingDowngradeOther;
-              // ✅ Block if membership is processing a change (DB lock)
-              const canPerformAction = canUpgrade && canDowngrade && !isProcessingChange;
-              
+              const canDowngrade = isUpgrade || !hasPendingDowngradeOther;
+              const canPerformAction = canUpgrade && canDowngrade && !isProcessingChange && !isPaymentDue;
+              const planPlanPrice = plan?.priceMonthly ? formatCurrency(plan.priceMonthly) : '—';
+              const planPlanPoints = Number(plan?.freeCreditsPerPeriod || 0);
+              const planMajorDraw = Number(plan?.grandPrizeEntriesPerPeriod || 0);
+
               return (
-                <div key={plan.id} className="bg-white rounded-2xl shadow-lg p-6 relative">
+                <article
+                  key={plan.id}
+                  className={`relative overflow-hidden rounded-3xl border bg-white p-5 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-6 ${
+                    isUpgrade ? 'border-[#E0DAFF]' : 'border-[#E7E9F2]'
+                  }`}
+                >
                   {plan.badgeText && (
-                    <div className={`absolute top-4 right-4 px-3 py-1 rounded text-xs font-semibold ${
-                      plan.badgeType === 'popular' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'
-                    }`}>
+                    <span
+                      className={`absolute right-4 top-4 inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ring-1 ${
+                        plan.badgeType === 'popular'
+                          ? 'bg-[#F4F1FB] text-[#6356E5] ring-[#E0DAFF]'
+                          : 'bg-[#FFF6DA] text-[#9C5410] ring-[#FFC85D]/40'
+                      }`}
+                    >
                       {plan.badgeText}
-                    </div>
-                  )}
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">
-                    {plan.name}
-                  </h3>
-                  <p className="text-3xl font-bold text-gray-900 mb-4">
-                    {formatCurrency(plan.priceMonthly || 0)}/month
-                  </p>
-                  
-                  {/* Pending Upgrade Status */}
-                  {hasPendingUpgrade && (
-                    <div className="mb-4 p-3 rounded-lg bg-blue-50 border border-blue-200">
-                      <p className="text-sm text-blue-800">
-                        <strong>⏳ Pending Upgrade:</strong> This plan will be activated on your next billing date ({membership?.currentPeriodEnd ? formatMembershipDate(membership.currentPeriodEnd) : 'next renewal'}). Credits will reset to {plan.freeCreditsPerPeriod} credits/month.
-                      </p>
-                    </div>
-                  )}
-                  
-                  {/* Pending Downgrade Status */}
-                  {hasPendingDowngrade && (
-                    <div className="mb-4 p-3 rounded-lg bg-yellow-50 border border-yellow-200">
-                      <p className="text-sm text-yellow-800">
-                        <strong>⏳ Pending Downgrade:</strong> This plan will be activated on your next billing date ({membership?.currentPeriodEnd ? formatMembershipDate(membership.currentPeriodEnd) : 'next renewal'}). Credits will reset to {plan.freeCreditsPerPeriod} credits/month.
-                      </p>
-                    </div>
-                  )}
-                  
-                  {/* Block message if already has pending upgrade/downgrade */}
-                  {!canPerformAction && !hasPendingUpgrade && !hasPendingDowngrade && (
-                    <div className="mb-4 p-3 rounded-lg bg-orange-50 border border-orange-200">
-                      <p className="text-sm text-orange-800">
-                        {isProcessingChange ? (
-                          <><strong>⏳ Processing Change:</strong> An upgrade or downgrade is currently in progress. Please wait for it to complete.</>
-                        ) : hasPendingUpgradeOther ? (
-                          <><strong>⚠️ Pending Upgrade:</strong> You already have a pending upgrade scheduled. Please wait for it to be applied on your next billing date before upgrading again.</>
-                        ) : hasPendingDowngradeOther ? (
-                          <><strong>⚠️ Pending Downgrade:</strong> You already have a pending downgrade scheduled. Please wait for it to be applied on your next billing date before downgrading again.</>
-                        ) : null}
-                      </p>
-                    </div>
-                  )}
-                  
-                  {/* Upgrade/Downgrade Info */}
-                  {!hasPendingDowngrade && !isCurrentPlan && (
-                    <div className={`mb-4 p-3 rounded-lg ${
-                      isUpgrade ? 'bg-blue-50 border border-blue-200' : 'bg-yellow-50 border border-yellow-200'
-                    }`}>
-                      {isUpgrade ? (
-                        <p className="text-sm text-blue-800">
-                          <strong>Upgrade:</strong> Plan will change immediately. Credits will reset to {plan.freeCreditsPerPeriod} credits/month on your next billing date.
-                        </p>
-                      ) : (
-                        <p className="text-sm text-yellow-800">
-                          <strong>Downgrade:</strong> Plan will change on your next billing date ({membership?.currentPeriodEnd ? formatMembershipDate(membership.currentPeriodEnd) : 'next renewal'}). Credits will reset to {plan.freeCreditsPerPeriod} credits/month.
-                        </p>
-                      )}
-                    </div>
+                    </span>
                   )}
 
-                  <div className="space-y-2 mb-6">
-                    {plan.featuresConfig?.features && Array.isArray(plan.featuresConfig.features) && plan.featuresConfig.features.map((feature: any, idx: number) => (
-                      <p key={idx} className="text-gray-600">
-                        {feature.value !== undefined && feature.value !== null && feature.value !== '' && (
-                          <span className="font-semibold">{feature.value} </span>
-                        )}
-                        {feature.label}
-                        {feature.unit && ` ${feature.unit}`}
-                        {feature.description && (
-                          <span className="text-gray-500 text-sm"> - {feature.description}</span>
-                        )}
-                        {feature.subFeatures && Array.isArray(feature.subFeatures) && feature.subFeatures.length > 0 && (
-                          <span className="text-purple-600 font-semibold">
-                            {' '}{feature.subFeatures.map((sf: any) => sf.label).join(', ')}
-                          </span>
-                        )}
-                      </p>
-                    ))}
-                    {(!plan.featuresConfig?.features || !Array.isArray(plan.featuresConfig.features) || plan.featuresConfig.features.length === 0) && (
-                      <p className="text-gray-600">
-                        {plan.freeCreditsPerPeriod || 0} credits/month
-                      </p>
-                    )}
-                  </div>
-                  
-                  {/* Payment Failed - Show Fix Payment Button */}
-                  {isPaymentFailed ? (
+                  <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#6356E5]">
+                    {isUpgrade ? 'Upgrade' : 'Downgrade'}
+                  </p>
+                  <h3 className="mt-1 text-[20px] font-extrabold tracking-tight text-[#0F1222] sm:text-[22px]">{plan.name}</h3>
+                  <p className="mt-1 text-[16px] font-extrabold tracking-tight text-[#0F1222]">
+                    {planPlanPrice}<span className="ml-1 text-[12px] font-medium text-[#667085]">/ month</span>
+                  </p>
+
+                  {/* Pending state info removed from plan card body — kept clean.
+                      Pending banner lives at top of Current Plan card; explanation
+                      for disabled CTA shows as subtle helper text below the button. */}
+
+                  {/* Plan stats */}
+                  {(planPlanPoints > 0 || planMajorDraw > 0) && (
+                    <ul className="mt-4 space-y-1.5 text-[13px] leading-relaxed text-[#4B5563]">
+                      {planPlanPoints > 0 && (
+                        <li className="flex items-start gap-2">
+                          <Icon.Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#10B981]" />
+                          <span>{planPlanPoints.toLocaleString()} Monthly Points</span>
+                        </li>
+                      )}
+                      {planMajorDraw > 0 && (
+                        <li className="flex items-start gap-2">
+                          <Icon.Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#10B981]" />
+                          <span>{planMajorDraw} Major Draw {planMajorDraw === 1 ? 'entry' : 'entries'} monthly</span>
+                        </li>
+                      )}
+                    </ul>
+                  )}
+
+                  {/* CTA — when pending, replace dead-end "Pending" with active Cancel button.
+                      Cross-plan warning shows below CTA if a different pending change exists. */}
+                  {hasPendingUpgrade ? (
                     <button
                       type="button"
-                      onClick={handleOpenManagePayment}
-                      className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition"
+                      onClick={() => setShowCancelUpgradeConfirm(true)}
+                      disabled={actionLoading !== null}
+                      className="mt-5 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full border border-[#FCA5A5] bg-white px-5 text-[13.5px] font-bold text-[#B91C1C] transition-colors hover:bg-[#FEF2F2] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Fix payment
+                      {actionLoading === 'cancelUpgrade' ? 'Cancelling…' : 'Cancel scheduled upgrade'}
                     </button>
-                  ) : isCurrentPlan ? (
+                  ) : hasPendingDowngrade ? (
                     <button
-                      disabled={true}
-                      className="w-full bg-gray-300 text-gray-600 font-bold py-3 px-6 rounded-lg cursor-not-allowed"
+                      type="button"
+                      onClick={() => setShowCancelDowngradeConfirm(true)}
+                      disabled={actionLoading !== null}
+                      className="mt-5 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full border border-[#FCA5A5] bg-white px-5 text-[13.5px] font-bold text-[#B91C1C] transition-colors hover:bg-[#FEF2F2] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Current Plan
+                      {actionLoading === 'cancelDowngrade' ? 'Cancelling…' : 'Cancel scheduled downgrade'}
                     </button>
                   ) : (
                     <button
+                      type="button"
                       onClick={() => handleUpgrade(plan.id)}
-                      disabled={
-                        actionLoading !== null ||
-                        actionLoading === `upgrade-${plan.id}` ||
-                        actionLoading === `downgrade-${plan.id}` ||
-                        (showUpgradeConfirm && selectedUpgradePlanId === plan.id) ||
-                        (showDowngradeConfirm && selectedDowngradePlanId === plan.id) ||
-                        !canPerformAction ||
-                        isCurrentPlan ||
-                        isProcessingChange
-                      }
-                      className={`w-full font-bold py-3 px-6 rounded-lg transition ${
-                        !canPerformAction || isCurrentPlan || actionLoading === `upgrade-${plan.id}` || actionLoading === `downgrade-${plan.id}` || (showUpgradeConfirm && selectedUpgradePlanId === plan.id) || (showDowngradeConfirm && selectedDowngradePlanId === plan.id)
-                          ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                          : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700'
-                      } disabled:opacity-50`}
+                      disabled={!canPerformAction || actionLoading !== null}
+                      className={`mt-5 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full px-5 text-[13.5px] font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                        isUpgrade
+                          ? 'bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-white shadow-[0_10px_24px_-12px_rgba(99,86,229,0.55)] hover:from-[#5346D6] hover:to-[#7867EC]'
+                          : 'border border-[#E0DAFF] bg-white text-[#0F1222] hover:border-[#6356E5] hover:text-[#6356E5]'
+                      }`}
                     >
                       {actionLoading === `upgrade-${plan.id}` || actionLoading === `downgrade-${plan.id}`
-                        ? 'Processing...'
-                        : isProcessingChange
-                          ? 'Processing Change...'
-                          : !canPerformAction || isCurrentPlan
-                            ? (isCurrentPlan ? 'Current Plan' : hasPendingUpgrade ? 'Pending Upgrade' : hasPendingUpgradeOther ? 'Pending Upgrade' : hasPendingDowngradeOther ? 'Pending Downgrade' : `Get ${plan.name}`)
-                            : isUpgrade
-                              ? `Upgrade - Get ${plan.name}`
-                              : isDowngrade
-                                ? `Downgrade - Get ${plan.name}`
-                                : `Get ${plan.name}`
-                      }
+                        ? 'Processing…'
+                        : isUpgrade
+                          ? `Upgrade to ${plan.name}`
+                          : `Downgrade to ${plan.name}`}
                     </button>
                   )}
-                </div>
+
+                  {/* Helper text below CTA — informational gray tone.
+                      Two cases:
+                      - CTA enabled + pending elsewhere → warns it will replace
+                      - CTA disabled (processing/payment/pending elsewhere) → explains why */}
+                  {!hasPendingUpgrade && !hasPendingDowngrade && (
+                    <>
+                      {canPerformAction && (hasPendingUpgradeOther || hasPendingDowngradeOther) && (
+                        <p className="mt-2 text-center text-[11.5px] leading-relaxed text-[#667085]">
+                          <strong className="font-semibold text-[#0F1222]">Note —</strong> this will replace your scheduled {hasPendingUpgradeOther ? 'upgrade' : 'downgrade'}.
+                        </p>
+                      )}
+                      {!canPerformAction && (
+                        <p className="mt-2 text-center text-[11.5px] leading-relaxed text-[#667085]">
+                          {isProcessingChange ? (
+                            'Processing your previous request — please wait.'
+                          ) : isPaymentDue ? (
+                            'Update your payment method first to change plans.'
+                          ) : hasPendingUpgradeOther ? (
+                            'Cancel your scheduled upgrade above to switch to this plan.'
+                          ) : hasPendingDowngradeOther ? (
+                            'Cancel your scheduled downgrade above to switch to this plan.'
+                          ) : null}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </article>
               );
             })}
           </div>
-        </div>
+        </section>
       )}
 
+      {/* ============================================================
+          RENEWAL HISTORY (preserved, mobile cards + desktop table)
+      ============================================================ */}
+      {membership && !isCanceled && (
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              {/* Outside-card eyebrow dropped — H2 alone is enough */}
+              <h2 className="text-[20px] font-extrabold tracking-tight text-[#0F1222] sm:text-[22px]">Past renewals</h2>
+            </div>
+          </div>
 
-      {/* Confirmation Modals */}
+          {loadingRenewals ? (
+            <div className="flex justify-center rounded-2xl border border-[#E7E9F2] bg-white py-10">
+              <LoadingRing label="Loading history" />
+            </div>
+          ) : renewals.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[#E0DAFF] bg-[#FBFAFF] px-4 py-6 text-center">
+              <p className="text-[13px] font-extrabold tracking-tight text-[#0F1222]">No renewals yet</p>
+              <p className="mt-1 text-[12px] leading-relaxed text-[#4B5563]">
+                Your Membership renewals will appear here.
+              </p>
+            </div>
+          ) : (
+            <article className="overflow-hidden rounded-2xl border border-[#E7E9F2] bg-white">
+              <ul className="divide-y divide-[#EFEDF5]">
+                {renewals.map((r: any, i: number) => (
+                  <li key={r.id || i} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F4F1FB] text-[#6356E5] ring-1 ring-[#E0DAFF]">
+                      <Icon.Clock className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-extrabold tracking-tight text-[#0F1222]">{r.planName || 'Membership renewal'}</p>
+                      <p className="mt-0.5 text-[11.5px] text-[#667085]">
+                        {r.createdAt ? formatMembershipDate(r.createdAt) : '—'}
+                      </p>
+                    </div>
+                    {r.amount != null && (
+                      <p className="shrink-0 whitespace-nowrap text-right text-[13px] font-extrabold text-[#0F1222] tabular-nums">
+                        {formatCurrency(r.amount)}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+
+              {renewalsTotalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-[#EFEDF5] bg-[#FBFAFF] px-4 py-2.5 text-[12px] text-[#667085] sm:px-5">
+                  <span>Page {renewalsPage} of {renewalsTotalPages}</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={renewalsPage <= 1 || loadingRenewals}
+                      onClick={() => loadRenewalHistory(Math.max(1, renewalsPage - 1))}
+                      className="inline-flex h-8 items-center rounded-full border border-[#E0DAFF] bg-white px-3 text-[11.5px] font-bold text-[#0F1222] disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      type="button"
+                      disabled={renewalsPage >= renewalsTotalPages || loadingRenewals}
+                      onClick={() => loadRenewalHistory(Math.min(renewalsTotalPages, renewalsPage + 1))}
+                      className="inline-flex h-8 items-center rounded-full border border-[#E0DAFF] bg-white px-3 text-[11.5px] font-bold text-[#0F1222] disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </article>
+          )}
+        </section>
+      )}
+
+      {/* ============================================================
+          CONFIRM MODALS — preserved
+      ============================================================ */}
       <ConfirmModal
         isOpen={showCancelConfirm}
         onClose={() => setShowCancelConfirm(false)}
         onConfirm={handleCancel}
-        title="Cancel your membership?"
-        message="Are you sure you want to cancel your UNICASH membership? All of your entries will be deleted immediately, and you will lose access to all active draws."
-        confirmText={actionLoading === 'cancel' ? 'Cancelling...' : 'Cancel membership'}
-        cancelText="Keep my membership"
+        title="Cancel Membership"
+        message="Are you sure you want to cancel your Membership? You'll keep access until the end of your current billing period, and you won't be charged again."
+        confirmText="Cancel Membership"
+        cancelText="Keep Membership"
         type="danger"
         confirmDisabled={actionLoading === 'cancel'}
       />
-
       <ConfirmModal
         isOpen={showPauseConfirm}
         onClose={() => setShowPauseConfirm(false)}
         onConfirm={handlePause}
-        title="Pause your membership?"
-        message={`You're pausing your membership for 30 days.
-No charges and no entries will be issued during this period.
-You can resume anytime. Your membership will automatically reactivate after 30 days with all your data saved.`}
-        confirmText={actionLoading === 'pause' ? 'Pausing...' : 'Pause membership'}
-        cancelText="Keep my membership active"
+        title="Pause Membership"
+        message="Pause your Membership? You can resume anytime. While paused, your Monthly Points and Major Draw entries are not issued."
+        confirmText="Pause Membership"
+        cancelText="Keep Active"
         type="warning"
         confirmDisabled={actionLoading === 'pause'}
       />
-
       <ConfirmModal
         isOpen={showResumeConfirm}
         onClose={() => setShowResumeConfirm(false)}
         onConfirm={handleResume}
-        title="Resume your membership?"
-        message="Billing will restart from your next renewal, and you'll start receiving monthly credits and member perks again."
-        confirmText="Resume membership"
-        cancelText="Keep it paused"
+        title="Resume Membership"
+        message="Resume your Membership now? You'll start receiving Monthly Points and Major Draw entries again."
+        confirmText="Resume Now"
+        cancelText="Keep Paused"
         type="info"
+        confirmDisabled={actionLoading === 'resume'}
       />
-
       <ConfirmModal
         isOpen={showCancelUpgradeConfirm}
         onClose={() => setShowCancelUpgradeConfirm(false)}
         onConfirm={handleCancelUpgrade}
-        title="Cancel Upgrade"
-        message="Are you sure you want to cancel your pending upgrade?"
+        title="Cancel scheduled upgrade"
+        message="Cancel the scheduled upgrade? Your current plan will continue as-is."
         confirmText="Cancel Upgrade"
-        cancelText="Keep Upgrade"
+        cancelText="Keep Scheduled"
         type="warning"
+        confirmDisabled={actionLoading === 'cancelUpgrade'}
       />
-
-      {/* Upgrade Confirmation Modal */}
-      {selectedUpgradePlanId && (
-        <ConfirmModal
-          isOpen={showUpgradeConfirm}
-          onClose={() => {
-            setShowUpgradeConfirm(false);
-            setSelectedUpgradePlanId(null);
-            if (actionLoading === `upgrade-${selectedUpgradePlanId}`) setActionLoading(null);
-          }}
-          onConfirm={handleConfirmUpgrade}
-          title={`You're upgrading to ${plans.find(p => p.id === selectedUpgradePlanId)?.name || 'this plan'}${plans.find(p => p.id === selectedUpgradePlanId)?.tier === 'uni_plus' ? ' (Gold)' : plans.find(p => p.id === selectedUpgradePlanId)?.tier === 'uni_max' ? ' (Platinum)' : plans.find(p => p.id === selectedUpgradePlanId)?.tier === 'uni_one' ? ' (Silver)' : ''}.`}
-          message={
-            membership?.currentPeriodEnd
-              ? `This change will take effect on your next billing date (${formatMembershipDate(membership.currentPeriodEnd)}). No payment will be charged today.`
-              : 'This change will take effect on your next billing date. No payment will be charged today.'
-          }
-          confirmText="Confirm Upgrade"
-          cancelText="Cancel"
-          type="info"
-        />
-      )}
-
-      {/* Downgrade Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showCancelDowngradeConfirm}
+        onClose={() => setShowCancelDowngradeConfirm(false)}
+        onConfirm={handleCancelDowngrade}
+        title="Cancel scheduled downgrade"
+        message="Cancel the scheduled downgrade? Your current plan will continue as-is — no Points reset."
+        confirmText="Cancel Downgrade"
+        cancelText="Keep Scheduled"
+        type="warning"
+        confirmDisabled={actionLoading === 'cancelDowngrade'}
+      />
+      <ConfirmModal
+        isOpen={showUpgradeConfirm}
+        onClose={() => { setShowUpgradeConfirm(false); setSelectedUpgradePlanId(null); }}
+        onConfirm={handleConfirmUpgrade}
+        title="Confirm upgrade"
+        message="Your plan will upgrade on your next billing date. Monthly Points reset to the new plan's allocation at activation."
+        confirmText="Confirm Upgrade"
+        cancelText="Cancel"
+        type="info"
+        confirmDisabled={actionLoading?.startsWith('upgrade-') || false}
+      />
       <ConfirmModal
         isOpen={showDowngradeConfirm}
-        onClose={() => {
-          setShowDowngradeConfirm(false);
-          setSelectedDowngradePlanId(null);
-          if (selectedDowngradePlanId && actionLoading === `downgrade-${selectedDowngradePlanId}`) setActionLoading(null);
-        }}
+        onClose={() => { setShowDowngradeConfirm(false); setSelectedDowngradePlanId(null); }}
         onConfirm={handleConfirmDowngrade}
-        title={`You're downgrading to ${plans.find(p => p.id === selectedDowngradePlanId)?.name || 'this plan'}${plans.find(p => p.id === selectedDowngradePlanId)?.tier === 'uni_plus' ? ' (Gold)' : plans.find(p => p.id === selectedDowngradePlanId)?.tier === 'uni_max' ? ' (Platinum)' : plans.find(p => p.id === selectedDowngradePlanId)?.tier === 'uni_one' ? ' (Silver)' : ''}.`}
-          message={
-            membership?.currentPeriodEnd
-              ? `This change will take effect on your next billing date (${formatMembershipDate(membership.currentPeriodEnd)}). No payment will be charged today.`
-              : 'This change will take effect on your next billing date. No payment will be charged today.'
-          }
+        title="Confirm downgrade"
+        message="Your plan will downgrade on your next billing date. Monthly Points reset to the new plan's allocation at activation."
         confirmText="Confirm Downgrade"
         cancelText="Cancel"
         type="warning"
+        confirmDisabled={actionLoading?.startsWith('downgrade-') || false}
       />
 
-      {showManagePaymentModal && (
+      {/* ============================================================
+          MANAGE PAYMENT MODAL — v4 wrapper around PaymentMethodsPanel
+      ============================================================ */}
+      {portalMounted && showManagePaymentModal && createPortal(
         <div
-          className={`fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 ${
-            hidePaymentMethodsShell ? 'invisible pointer-events-none' : ''
-          }`}
-          onClick={closeManagePaymentModal}
-          role="presentation"
-          aria-hidden={hidePaymentMethodsShell}
+          className={`fixed inset-0 z-[100] flex items-end justify-center sm:items-center ${hidePaymentMethodsShell ? 'pointer-events-none opacity-0' : ''}`}
+          aria-modal="true"
+          role="dialog"
+          aria-label="Manage payment method"
         >
           <div
-            className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="membership-manage-payment-title"
-          >
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-gray-100 bg-white px-6 py-4 rounded-t-2xl">
-              <h2 id="membership-manage-payment-title" className="text-xl font-bold text-gray-900">
-                Payment methods
-              </h2>
+            aria-hidden
+            className="absolute inset-0 bg-[#0F1222]/45 backdrop-blur-[2px]"
+            onClick={closeManagePaymentModal}
+          />
+          <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-t-3xl border border-[#E7E9F2] bg-white shadow-[0_30px_80px_-30px_rgba(15,18,34,0.45)] sm:mx-4 sm:rounded-3xl">
+            <div className="flex items-start justify-between gap-3 border-b border-[#EFEDF5] px-5 py-4 sm:px-6 sm:py-5">
+              <div className="min-w-0">
+                <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">Billing</p>
+                <h3 className="mt-0.5 text-[18px] font-extrabold tracking-tight text-[#0F1222] sm:text-[20px]">Manage payment method</h3>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-[#4B5563]">
+                  Securely update or add a card. Changes are processed via Stripe.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={closeManagePaymentModal}
-                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
                 aria-label="Close"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#667085] transition-colors hover:bg-[#F4F1FB] hover:text-[#0F1222]"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <Icon.X className="h-4 w-4" />
               </button>
             </div>
-            <div className="px-6 pb-6 pt-2">
+            <div className="max-h-[75vh] overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
               <PaymentMethodsPanel
                 title=""
                 wrapperClassName="space-y-4"
@@ -1099,9 +1140,9 @@ You can resume anytime. Your membership will automatically reactivate after 30 d
               />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
 }
-

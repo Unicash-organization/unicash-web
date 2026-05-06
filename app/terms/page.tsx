@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
+import LoadingRing from '@/components/LoadingRing';
 
 export default function TermsPage() {
   const [content, setContent] = useState<string>('');
@@ -29,7 +30,7 @@ export default function TermsPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12">
             <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+              <LoadingRing label="Loading terms" />
             </div>
           </div>
         </div>

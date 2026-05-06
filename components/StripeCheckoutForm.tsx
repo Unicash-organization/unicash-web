@@ -285,8 +285,24 @@ function CheckoutForm({
       const confirmResponse = await api.payments.confirmPayment(paymentId);
       await navigateAfterConfirm(confirmResponse);
     } catch (err: any) {
+      // Enhanced error logging — surfaces actual Stripe / backend / network error
+      // instead of generic "An error occurred during payment" message.
       console.error('Payment error:', err);
-      setError(err.response?.data?.message || 'An error occurred during payment');
+      console.error('Payment error response:', err?.response);
+      console.error('Payment error response data:', err?.response?.data);
+      console.error('Payment error message:', err?.message);
+      console.error('Payment error code:', err?.code);
+      console.error('Payment error type:', err?.type);
+
+      // Build the user-facing message — try response.data.message first (backend),
+      // then err.message (Stripe / native), then fallback.
+      const userMessage =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'An error occurred during payment. Please try again or refresh the page.';
+
+      setError(userMessage);
     } finally {
       setLoading(false);
     }
@@ -328,7 +344,7 @@ function CheckoutForm({
               <button
                 type="button"
                 onClick={handleApplePayClick}
-                className="flex items-center justify-center gap-2 bg-black text-white font-medium py-3 px-4 rounded-lg hover:bg-gray-800 transition"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-black px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#1a1a1a] focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
@@ -340,7 +356,7 @@ function CheckoutForm({
               <button
                 type="button"
                 onClick={handleGooglePayClick}
-                className="flex items-center justify-center gap-2 bg-black text-white font-medium py-3 px-4 rounded-lg hover:bg-gray-800 transition"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-black px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#1a1a1a] focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
               >
                 <svg className="w-6 h-6" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -354,44 +370,80 @@ function CheckoutForm({
           </div>
         )}
 
-        {/* Credit/Debit Card Option */}
-        <div
+        {/* Credit/Debit Card Option — v4 themed */}
+        <button
+          type="button"
           onClick={() => setSelectedPaymentMethod('card')}
-          className={`p-4 border-2 rounded-lg cursor-pointer transition mb-4 ${
+          aria-pressed={selectedPaymentMethod === 'card'}
+          className={`group mb-4 flex w-full items-center gap-3 rounded-2xl border-2 p-4 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2 ${
             selectedPaymentMethod === 'card'
-              ? 'border-purple-500 bg-purple-50'
-              : 'border-gray-200 hover:border-gray-300'
+              ? 'border-[#6356E5] bg-gradient-to-br from-[#F4F1FB] to-[#FBFAFF] shadow-[0_8px_24px_-12px_rgba(99,86,229,0.35)]'
+              : 'border-[#E0DAFF] bg-[#FBFAFF] hover:border-[#c8c5ea] hover:bg-white'
           }`}
         >
-          <div className="flex items-center gap-3">
-            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+          <span
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors ${
+              selectedPaymentMethod === 'card'
+                ? 'bg-white text-[#6356E5] ring-1 ring-[#E0DAFF] shadow-[0_2px_8px_-3px_rgba(99,86,229,0.2)]'
+                : 'bg-white text-[#667085] ring-1 ring-[#E7E9F2]'
+            }`}
+            aria-hidden
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <rect width="20" height="14" x="2" y="5" rx="2" />
+              <line x1="2" y1="10" x2="22" y2="10" />
             </svg>
-            <div>
-              <p className="font-semibold text-gray-900">Credit/ Debit Card</p>
-              <p className="text-xs text-gray-500">Visa, Master Card, Amex</p>
-            </div>
-          </div>
-        </div>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className={`block text-[14.5px] font-extrabold tracking-tight ${
+              selectedPaymentMethod === 'card' ? 'text-[#0f1222]' : 'text-[#0f1222]'
+            }`}>
+              Credit / Debit Card
+            </span>
+            <span className="mt-0.5 block text-[12px] text-[#667085]">Visa, Mastercard, Amex</span>
+          </span>
+          {selectedPaymentMethod === 'card' && (
+            <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#6356E5] text-white shadow-[0_4px_12px_-4px_rgba(99,86,229,0.5)]">
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </span>
+          )}
+        </button>
 
-        {/* Payment Element for Card Details */}
+        {/* Payment Element for Card Details — full-width so its left + right edges
+            align cleanly with the Credit/Debit Card box above and the Pay button below.
+            Stripe handles its own internal field layout responsively. */}
         {selectedPaymentMethod === 'card' && (
-          <div className="mb-4">
-            <PaymentElement 
+          <div className="mb-4 w-full">
+            <PaymentElement
               key={user?.email || 'guest'} // Force re-render when user changes
               options={{
-                layout: 'tabs',
-                fields: {
-                  billingDetails: {
-                    email: 'auto', // Always collect email (will be pre-filled if user is logged in)
-                  },
+                /* Accordion layout — when Klarna/etc. are restricted server-side via
+                   payment_method_types: ['card'], this renders Card form directly without tabs.
+                   paymentMethodOrder prioritizes Card so it's always the active/expanded item. */
+                layout: {
+                  type: 'accordion',
+                  defaultCollapsed: false,
+                  radios: false,
+                  spacedAccordionItems: false,
                 },
+                paymentMethodOrder: ['card'],
+                /* Use Stripe's default fields handling — DON'T opt out of address.
+                   Opting out (`address: 'never'`) forces us to pass country + postal_code
+                   manually in confirmParams, which is fragile.
+                   With default behavior, Stripe shows the minimal card form (number + expiry
+                   + CVC) for AU cards and doesn't render a country field — same UX as Apple,
+                   Stripe Dashboard, etc. */
                 defaultValues: {
                   billingDetails: {
                     email: user?.email || undefined,
-                    name: user?.firstName && user?.lastName 
-                      ? `${user.firstName} ${user.lastName}` 
+                    name: user?.firstName && user?.lastName
+                      ? `${user.firstName} ${user.lastName}`
                       : user?.firstName || user?.lastName || undefined,
+                    address: {
+                      country: 'AU', // pre-fill if Stripe asks for country (it usually doesn't for AU cards)
+                    },
                   },
                 },
               }}
@@ -422,9 +474,22 @@ function CheckoutForm({
       <button
         type="submit"
         disabled={!stripe || loading || (!savedPaymentMethod && selectedPaymentMethod !== 'card')}
-        className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-4 rounded-lg hover:from-purple-700 hover:to-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        className="uc-lift-sm relative flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-[15px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356e5] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {loading ? 'Processing...' : buttonText}
+        {loading ? (
+          <>
+            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none" aria-hidden />
+            Processing…
+          </>
+        ) : (
+          <>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            {buttonText}
+          </>
+        )}
       </button>
 
       <PaymentTrustStrip />
@@ -455,16 +520,99 @@ export default function StripeCheckoutFormWrapper({
 }: StripeCheckoutFormWrapperProps) {
   const options: StripeElementsOptions = {
     clientSecret,
+    /* Appearance synced with UNICASH Design System v4 — pure styling, no logic change.
+       Variables drive Stripe's defaults; Rules override per-element to match the v4
+       input look (rounded-2xl, lavender bg, brand-purple focus ring). */
     appearance: {
       theme: 'stripe',
       variables: {
-        colorPrimary: '#9333ea',
-        colorBackground: '#ffffff',
-        colorText: '#1f2937',
-        colorDanger: '#ef4444',
-        fontFamily: 'system-ui, sans-serif',
+        colorPrimary: '#6356E5',         // brand purple
+        colorBackground: '#FBFAFF',      // soft lavender input bg (matches v4 inputs)
+        colorText: '#0F1222',            // main text
+        colorTextSecondary: '#4B5563',
+        colorTextPlaceholder: '#A3A8BE',
+        colorDanger: '#EF4444',
+        colorSuccess: '#10B981',
+        colorWarning: '#F59E0B',
+        fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+        fontWeightNormal: '500',
+        fontWeightMedium: '600',
+        fontWeightBold: '700',
+        fontSizeBase: '14px',
         spacingUnit: '4px',
-        borderRadius: '8px',
+        borderRadius: '14px',           // closer to v4 rounded-2xl (16px)
+        focusBoxShadow: '0 0 0 2px rgba(99, 86, 229, 0.30)',
+        focusOutline: 'none',
+      },
+      rules: {
+        // Input fields — match v4 inputs (lavender bg, brand-tinted border, premium focus)
+        '.Input': {
+          border: '1px solid #E0DAFF',
+          boxShadow: 'inset 0 1px 2px rgba(15, 18, 34, 0.04)',
+          padding: '12px 14px',
+          fontSize: '14px',
+          color: '#0F1222',
+        },
+        '.Input:hover': {
+          borderColor: '#C8C5EA',
+          backgroundColor: '#FFFFFF',
+        },
+        '.Input:focus': {
+          borderColor: '#6356E5',
+          backgroundColor: '#FFFFFF',
+          boxShadow: '0 0 0 2px rgba(99, 86, 229, 0.30)',
+        },
+        '.Input--invalid': {
+          borderColor: '#FCA5A5',
+          color: '#991B1B',
+          boxShadow: '0 0 0 2px rgba(239, 68, 68, 0.20)',
+        },
+        // Field labels above inputs
+        '.Label': {
+          fontSize: '12.5px',
+          fontWeight: '600',
+          color: '#0F1222',
+          marginBottom: '6px',
+        },
+        // Section headings inside PaymentElement (e.g. "Payment", "Card")
+        '.PaymentMethodMessaging': {
+          fontSize: '12.5px',
+          color: '#667085',
+        },
+        // Tab option pills (Card / Klarna / etc.) — v4 themed
+        '.Tab': {
+          border: '1px solid #E7E9F2',
+          borderRadius: '14px',
+          padding: '10px 12px',
+          backgroundColor: '#FFFFFF',
+          transition: 'border-color 0.15s ease, background-color 0.15s ease',
+        },
+        '.Tab:hover': {
+          borderColor: '#C8C5EA',
+          backgroundColor: '#FBFAFF',
+        },
+        '.Tab--selected': {
+          borderColor: '#6356E5',
+          backgroundColor: '#F4F1FB',
+          boxShadow: '0 0 0 1px #6356E5',
+        },
+        '.TabLabel': {
+          fontSize: '13px',
+          fontWeight: '600',
+        },
+        '.TabIcon--selected': {
+          fill: '#6356E5',
+        },
+        // Error messages
+        '.Error': {
+          fontSize: '12px',
+          color: '#991B1B',
+          marginTop: '6px',
+        },
+        // Section dividers
+        '.Block': {
+          backgroundColor: 'transparent',
+        },
       },
     },
     // Note: paymentMethodTypes can only be used with 'mode', not with 'clientSecret'

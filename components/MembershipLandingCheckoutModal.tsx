@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import api from '@/lib/api';
 import StripeCheckoutForm from '@/components/StripeCheckoutForm';
@@ -24,12 +25,44 @@ type Props = {
   subtitle?: string;
 };
 
+/* -----------------------------------------------------------------------
+   Inline v4 icons
+----------------------------------------------------------------------- */
+const CloseIcon = ({ className = '' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <path d="M18 6 6 18M6 6l12 12" />
+  </svg>
+);
+const CheckIcon = ({ className = '' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+const AlertIcon = ({ className = '' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 8v4M12 16h.01" />
+  </svg>
+);
+const ArrowRight = ({ className = '' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);
+const SpinnerIcon = ({ className = '' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" aria-hidden>
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" fill="none" />
+    <path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none" />
+  </svg>
+);
+
 export default function MembershipLandingCheckoutModal({
   isOpen,
   onClose,
   plan,
   subtitle = 'Membership',
 }: Props) {
+  /* ===== Logic preserved exactly ===== */
   const { user } = useAuth();
   const [step, setStep] = useState<1 | 2>(1);
   const [firstName, setFirstName] = useState('');
@@ -55,6 +88,11 @@ export default function MembershipLandingCheckoutModal({
     }[]
   >([]);
   const [payWithSavedId, setPayWithSavedId] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) {
@@ -108,7 +146,7 @@ export default function MembershipLandingCheckoutModal({
       });
   }, [isOpen, user?.id]);
 
-  if (!isOpen || !plan) {
+  if (!isOpen || !plan || !mounted) {
     return null;
   }
 
@@ -116,13 +154,8 @@ export default function MembershipLandingCheckoutModal({
 
   const validateInfo = (): boolean => {
     const newErrors: Record<string, string> = {};
-
-    if (!firstName.trim()) {
-      newErrors.firstName = 'First name is required';
-    }
-    if (!lastName.trim()) {
-      newErrors.lastName = 'Last name is required';
-    }
+    if (!firstName.trim()) newErrors.firstName = 'First name is required';
+    if (!lastName.trim()) newErrors.lastName = 'Last name is required';
     if (!email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -136,12 +169,9 @@ export default function MembershipLandingCheckoutModal({
         newErrors.phone = 'Please enter a valid mobile number (04XX XXX XXX)';
       }
     }
-
     setFieldErrors(newErrors);
     const ok = Object.keys(newErrors).length === 0;
-    if (!ok) {
-      setFormError(null);
-    }
+    if (!ok) setFormError(null);
     return ok;
   };
 
@@ -201,65 +231,102 @@ export default function MembershipLandingCheckoutModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        aria-label="Close"
-        onClick={onClose}
-      />
-      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl bg-white border border-gray-200">
-        <div className="relative bg-gradient-to-r from-purple-700 to-indigo-800 text-white px-4 pt-10 pb-4 rounded-t-2xl">
+  /* ===== v4 input class helper ===== */
+  const inputCls = (hasError: boolean) =>
+    `w-full rounded-2xl border px-4 py-3.5 text-[14.5px] text-[#0F1222] placeholder:text-[#A3A8BE] transition focus:outline-none focus:ring-2 focus:ring-offset-0 ${
+      hasError
+        ? 'border-[#FCA5A5] bg-[#FEF2F2] focus:border-[#EF4444] focus:ring-[#EF4444]/30'
+        : 'border-[#E0DAFF] bg-[#FBFAFF] hover:bg-white focus:border-[#6356E5] focus:bg-white focus:ring-[#6356E5]/30'
+    }`;
+
+  return createPortal(
+    <div
+      className="uc-mlc-backdrop fixed inset-0 z-[100] flex items-end justify-center bg-[#0F1222]/55 backdrop-blur-sm sm:items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mlc-title"
+      onClick={onClose}
+    >
+      <div
+        className="uc-mlc-modal relative flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-[0_30px_80px_-30px_rgba(15,18,34,0.55)] sm:max-h-[90vh] sm:rounded-3xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Mobile drag handle */}
+        <div className="flex shrink-0 justify-center pt-2.5 sm:hidden">
+          <div className="h-1.5 w-12 rounded-full bg-[#E0DAFF]" />
+        </div>
+
+        {/* Hero band — purple gradient with plan name + price */}
+        <div className="relative shrink-0 overflow-hidden bg-gradient-to-br from-[#5346d6] via-[#6356e5] to-[#7b6cec] px-6 pb-5 pt-7 text-center sm:px-7 sm:pb-6 sm:pt-8">
+          <div aria-hidden className="pointer-events-none absolute -top-12 left-1/2 h-44 w-44 -translate-x-1/2 rounded-full bg-[#FFE2B0]/15 blur-2xl" />
+          <div aria-hidden className="pointer-events-none absolute -bottom-12 right-[-10%] h-36 w-36 rounded-full bg-[#8B7BFF]/30 blur-2xl" />
+
+          {/* Close (X) */}
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/20 hover:bg-black/30 flex items-center justify-center text-white text-lg"
             aria-label="Close"
+            className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white/85 backdrop-blur transition-colors hover:bg-white/25 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
           >
-            ×
+            <CloseIcon className="h-4 w-4" />
           </button>
-          <p className="text-center text-xs uppercase tracking-widest opacity-90 mb-1">UniCash</p>
-          <h2 className="text-center text-lg sm:text-xl font-bold leading-tight px-2">
+
+          <p className="relative text-[10px] font-bold uppercase tracking-[0.18em] text-[#FFE2B0]">
+            UNICASH Membership
+          </p>
+          <h2 id="mlc-title" className="relative mt-1 text-[20px] font-extrabold leading-[1.15] tracking-tight text-white sm:text-[22px]">
             {plan.name}
           </h2>
-          <p className="text-center text-sm text-white/90 mt-1">
-            ${priceNum.toFixed(2)} AUD / month
+          <p className="relative mt-1.5 text-[14px] font-bold text-white">
+            ${priceNum.toFixed(2)}<span className="ml-1 text-[12px] font-medium text-white/75">AUD / month</span>
           </p>
-          <p className="text-center text-[11px] text-white/70 mt-1 line-clamp-2">{subtitle}</p>
+          {subtitle && (
+            <p className="relative mt-1 text-[11px] text-white/65 line-clamp-2">{subtitle}</p>
+          )}
+        </div>
 
-          <div className="flex gap-2 mt-4" role="tablist" aria-label="Checkout steps">
+        {/* Step indicator */}
+        <div className="shrink-0 border-b border-[#E7E9F2] bg-white px-5 py-3 sm:px-6">
+          <div className="flex items-center gap-2" role="tablist" aria-label="Checkout steps">
             <button
               type="button"
               role="tab"
               aria-selected={step === 1}
               onClick={goToStep1}
-              className={`flex-1 text-center text-[10px] font-bold py-2 rounded-lg border transition cursor-pointer ${
-                step === 1 ? 'bg-white text-purple-900 border-white' : 'border-white/40 text-white/90 hover:bg-white/10'
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition ${
+                step === 1
+                  ? 'bg-[#F4F1FB] text-[#6356E5] ring-1 ring-[#E0DAFF]'
+                  : step === 2
+                    ? 'bg-[#ECFDF5] text-[#10B981] ring-1 ring-[#A7F3D0]'
+                    : 'bg-white text-[#667085] ring-1 ring-[#E7E9F2]'
               }`}
             >
-              1 YOUR DETAILS
+              {step === 2 ? <CheckIcon className="h-3 w-3" /> : <span>1</span>}
+              Your details
             </button>
+            <span aria-hidden className="h-px w-3 bg-[#E0DAFF]" />
             <button
               type="button"
               role="tab"
               aria-selected={step === 2}
               disabled={!clientSecret || !paymentId}
               onClick={goToStep2}
-              className={`flex-1 text-center text-[10px] font-bold py-2 rounded-lg border transition ${
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition ${
                 !clientSecret || !paymentId
-                  ? 'border-white/25 text-white/50 cursor-not-allowed'
+                  ? 'bg-white text-[#A3A8BE] ring-1 ring-[#E7E9F2] cursor-not-allowed'
                   : step === 2
-                    ? 'bg-white text-purple-900 border-white cursor-pointer'
-                    : 'border-white/40 text-white/90 hover:bg-white/10 cursor-pointer'
+                    ? 'bg-[#F4F1FB] text-[#6356E5] ring-1 ring-[#E0DAFF]'
+                    : 'bg-white text-[#667085] ring-1 ring-[#E7E9F2] hover:text-[#6356E5]'
               }`}
             >
-              2 PAYMENT
+              <span>2</span>
+              Payment
             </button>
           </div>
         </div>
 
-        <div className="p-4 sm:p-6 bg-gray-50">
+        {/* Body — scrollable */}
+        <div className="flex-1 overflow-y-auto bg-[#FBFAFF] px-5 py-5 sm:px-6 sm:py-6">
           {step === 1 && (
             <div className="space-y-3">
               <div>
@@ -273,12 +340,13 @@ export default function MembershipLandingCheckoutModal({
                       setFieldErrors((prev) => ({ ...prev, firstName: '' }));
                     }
                   }}
-                  className={`w-full rounded-xl border px-4 py-3 text-gray-900 placeholder:text-gray-400 bg-white ${
-                    fieldErrors.firstName ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
-                  }`}
+                  className={inputCls(!!fieldErrors.firstName)}
                 />
                 {fieldErrors.firstName && (
-                  <p className="text-red-600 text-sm mt-1">{fieldErrors.firstName}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-[12px] font-semibold text-[#EF4444]">
+                    <AlertIcon className="h-3.5 w-3.5 shrink-0" />
+                    {fieldErrors.firstName}
+                  </p>
                 )}
               </div>
               <div>
@@ -292,12 +360,13 @@ export default function MembershipLandingCheckoutModal({
                       setFieldErrors((prev) => ({ ...prev, lastName: '' }));
                     }
                   }}
-                  className={`w-full rounded-xl border px-4 py-3 text-gray-900 placeholder:text-gray-400 bg-white ${
-                    fieldErrors.lastName ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
-                  }`}
+                  className={inputCls(!!fieldErrors.lastName)}
                 />
                 {fieldErrors.lastName && (
-                  <p className="text-red-600 text-sm mt-1">{fieldErrors.lastName}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-[12px] font-semibold text-[#EF4444]">
+                    <AlertIcon className="h-3.5 w-3.5 shrink-0" />
+                    {fieldErrors.lastName}
+                  </p>
                 )}
               </div>
               <div>
@@ -313,12 +382,13 @@ export default function MembershipLandingCheckoutModal({
                       setFieldErrors((prev) => ({ ...prev, phone: '' }));
                     }
                   }}
-                  className={`w-full rounded-xl border px-4 py-3 text-gray-900 placeholder:text-gray-400 bg-white ${
-                    fieldErrors.phone ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
-                  }`}
+                  className={inputCls(!!fieldErrors.phone)}
                 />
                 {fieldErrors.phone && (
-                  <p className="text-red-600 text-sm mt-1">{fieldErrors.phone}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-[12px] font-semibold text-[#EF4444]">
+                    <AlertIcon className="h-3.5 w-3.5 shrink-0" />
+                    {fieldErrors.phone}
+                  </p>
                 )}
               </div>
               <div>
@@ -332,88 +402,130 @@ export default function MembershipLandingCheckoutModal({
                       setFieldErrors((prev) => ({ ...prev, email: '' }));
                     }
                   }}
-                  className={`w-full rounded-xl border px-4 py-3 text-gray-900 placeholder:text-gray-400 bg-white ${
-                    fieldErrors.email ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
-                  }`}
+                  className={inputCls(!!fieldErrors.email)}
                 />
                 {fieldErrors.email && (
-                  <p className="text-red-600 text-sm mt-1">{fieldErrors.email}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-[12px] font-semibold text-[#EF4444]">
+                    <AlertIcon className="h-3.5 w-3.5 shrink-0" />
+                    {fieldErrors.email}
+                  </p>
                 )}
               </div>
+
               {formError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 space-y-2">
-                  <p>{formError}</p>
-                  {formError.includes('already registered') && (
-                    <Link href="/login" className="text-purple-700 font-semibold underline block">
-                      Go to login
-                    </Link>
-                  )}
+                <div className="rounded-2xl bg-[#FEF2F2] p-3.5 ring-1 ring-[#FCA5A5]/60">
+                  <div className="flex items-start gap-2">
+                    <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-[#EF4444]" />
+                    <div className="text-[13px] text-[#991B1B]">
+                      <p>{formError}</p>
+                      {formError.includes('already registered') && (
+                        <Link href="/login" className="mt-1 inline-block font-bold text-[#6356E5] underline">
+                          Go to login
+                        </Link>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
+
               <button
                 type="button"
                 disabled={loadingIntent}
                 onClick={handleContinueToPay}
-                className="w-full rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 uppercase tracking-wide disabled:opacity-50"
+                className="mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[14.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loadingIntent ? 'Please wait…' : 'Continue to payment'}
+                {loadingIntent ? (
+                  <>
+                    <SpinnerIcon className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+                    Please wait…
+                  </>
+                ) : (
+                  <>
+                    Continue to payment
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
               </button>
             </div>
           )}
 
           {step === 2 && clientSecret && paymentId && (
             <div className="space-y-4">
-              <div className="flex justify-between text-sm text-gray-700 border-b border-gray-200 pb-3">
-                <span className="font-semibold">{plan.name}</span>
-                <span className="font-bold">${Number(amountAud).toFixed(2)} AUD</span>
+              {/* Plan summary */}
+              <div className="flex items-center justify-between rounded-2xl border border-[#E0DAFF] bg-white px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">Plan</p>
+                  <p className="-mt-0.5 truncate text-[14px] font-extrabold tracking-tight text-[#0F1222]">
+                    {plan.name}
+                  </p>
+                </div>
+                <p className="shrink-0 text-[16px] font-extrabold tracking-tight text-[#6356E5]">
+                  ${Number(amountAud).toFixed(2)}<span className="ml-1 text-[11px] font-semibold text-[#667085]">AUD</span>
+                </p>
               </div>
+
               {savedCards.length > 0 && (
-                <div className="mb-2">
-                  <h3 className="text-sm font-semibold text-gray-800 mb-2">Payment method</h3>
+                <div>
+                  <h3 className="mb-2 text-[12.5px] font-extrabold tracking-tight text-[#0F1222]">Payment method</h3>
                   <div className="space-y-2">
                     {savedCards.map((card) => (
                       <label
                         key={card.id}
-                        className={`flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer transition ${
+                        className={`flex cursor-pointer items-center gap-3 rounded-2xl border-2 p-3 transition ${
                           payWithSavedId === card.id
-                            ? 'border-purple-500 bg-purple-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-[#6356E5] bg-[#F4F1FB]'
+                            : 'border-[#E7E9F2] bg-white hover:border-[#c8c5ea]'
                         }`}
                       >
+                        <span
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                            payWithSavedId === card.id ? 'border-[#6356E5] bg-[#6356E5]' : 'border-[#cfc8e8] bg-white'
+                          }`}
+                        >
+                          {payWithSavedId === card.id && <CheckIcon className="h-3 w-3 text-white" />}
+                        </span>
                         <input
                           type="radio"
                           name="membershipLandingPayWithCard"
                           checked={payWithSavedId === card.id}
                           onChange={() => setPayWithSavedId(card.id)}
-                          className="text-purple-600 focus:ring-purple-500"
+                          className="sr-only"
                         />
-                        <span className="font-medium text-gray-900 text-sm">
+                        <span className="text-[13.5px] font-semibold text-[#0F1222]">
                           {card.brand.toUpperCase()} •••• {card.last4}
                           {card.isDefault && (
-                            <span className="ml-2 text-xs text-purple-700 font-normal">(Default)</span>
+                            <span className="ml-2 text-[11px] font-medium text-[#6356E5]">Default</span>
                           )}
                         </span>
                       </label>
                     ))}
                     <label
-                      className={`flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer transition ${
+                      className={`flex cursor-pointer items-center gap-3 rounded-2xl border-2 p-3 transition ${
                         payWithSavedId === null
-                          ? 'border-purple-500 bg-purple-50'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-[#6356E5] bg-[#F4F1FB]'
+                          : 'border-[#E7E9F2] bg-white hover:border-[#c8c5ea]'
                       }`}
                     >
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                          payWithSavedId === null ? 'border-[#6356E5] bg-[#6356E5]' : 'border-[#cfc8e8] bg-white'
+                        }`}
+                      >
+                        {payWithSavedId === null && <CheckIcon className="h-3 w-3 text-white" />}
+                      </span>
                       <input
                         type="radio"
                         name="membershipLandingPayWithCard"
                         checked={payWithSavedId === null}
                         onChange={() => setPayWithSavedId(null)}
-                        className="text-purple-600 focus:ring-purple-500"
+                        className="sr-only"
                       />
-                      <span className="font-medium text-gray-900 text-sm">Use a new card</span>
+                      <span className="text-[13.5px] font-semibold text-[#0F1222]">Use a new card</span>
                     </label>
                   </div>
                 </div>
               )}
+
               <StripeCheckoutForm
                 key={`${user?.id || 'guest'}-${paymentId}-${payWithSavedId ?? 'new'}`}
                 clientSecret={clientSecret}
@@ -433,7 +545,33 @@ export default function MembershipLandingCheckoutModal({
             </div>
           )}
         </div>
+
+        {/* Animations */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          @keyframes uc-mlc-slide-up {
+            from { transform: translateY(100%); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+          }
+          @keyframes uc-mlc-scale-in {
+            from { transform: scale(0.96); opacity: 0; }
+            to   { transform: scale(1);    opacity: 1; }
+          }
+          @keyframes uc-mlc-fade-in {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+          }
+          .uc-mlc-modal    { animation: uc-mlc-slide-up 320ms cubic-bezier(0.32, 0.72, 0, 1); }
+          .uc-mlc-backdrop { animation: uc-mlc-fade-in 220ms ease-out; }
+          @media (min-width: 640px) {
+            .uc-mlc-modal  { animation: uc-mlc-scale-in 240ms cubic-bezier(0.32, 0.72, 0, 1); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .uc-mlc-modal,
+            .uc-mlc-backdrop { animation: none !important; }
+          }
+        ` }} />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

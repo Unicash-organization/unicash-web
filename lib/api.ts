@@ -124,6 +124,7 @@ export const api = {
     resume: () => apiClient.post('/membership/me/resume'),
     cancel: () => apiClient.post('/membership/me/cancel'),
     cancelUpgrade: () => apiClient.post('/membership/me/cancel-upgrade'),
+    cancelDowngrade: () => apiClient.post('/membership/me/cancel-downgrade'),
     upgrade: (newPlanId: string) => apiClient.post('/membership/me/upgrade', { newPlanId }),
   },
 

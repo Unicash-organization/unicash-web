@@ -1,15 +1,128 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { showToast } from '@/lib/toast';
 import Link from 'next/link';
-import { formatTimeRemaining } from '@/lib/utils';
-import MembershipRequiredModal from '@/components/MembershipRequiredModal';
-import PaymentMethodsPanel from '@/components/PaymentMethodsPanel';
 import { notifyAndRetryMembershipAfterPaymentUpdate } from '@/lib/membershipPaymentRetry';
+import LoadingRing from '@/components/LoadingRing';
+import PaymentMethodsPanel from '@/components/PaymentMethodsPanel';
+
+/* -----------------------------------------------------------------------
+   Inline icons — minimal v4 set
+----------------------------------------------------------------------- */
+const Icon = {
+  ArrowRight: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  ),
+  Trophy: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M6 9H4a2 2 0 0 1-2-2V5h4M18 9h2a2 2 0 0 0 2-2V5h-4M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+    </svg>
+  ),
+  Coins: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M18.09 10.37A6 6 0 1 1 10.34 18M7 6h1v4M16.71 13.88l.7.71-2.82 2.82" />
+    </svg>
+  ),
+  Crown: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21 6l-2 9H5L3 6l4.094 3.163a1 1 0 0 0 1.516-.293Z" />
+      <path d="M5 21h14" />
+    </svg>
+  ),
+  Receipt: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z" />
+      <path d="M14 8H8M16 12H8M13 16H8" />
+    </svg>
+  ),
+  Gift: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <rect x="3" y="8" width="18" height="4" rx="1" />
+      <path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" />
+    </svg>
+  ),
+  Bolt: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="m13 2-3 8h6l-3 12-2-8H4l9-12Z" />
+    </svg>
+  ),
+  Camera: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+      <circle cx="12" cy="13" r="3" />
+    </svg>
+  ),
+  Lock: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  ),
+  Alert: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  ),
+  Pause: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <rect x="6" y="4" width="4" height="16" />
+      <rect x="14" y="4" width="4" height="16" />
+    </svg>
+  ),
+  Check: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  ),
+  Refresh: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </svg>
+  ),
+};
+
+/* -----------------------------------------------------------------------
+   Membership status → display config
+----------------------------------------------------------------------- */
+type MemberStatusKind = 'active' | 'paused' | 'canceled' | 'past_due' | 'none';
+
+function resolveMemberStatus(membership: any): MemberStatusKind {
+  if (!membership) return 'none';
+  const s = (membership.status || '').toLowerCase();
+  if (s === 'paused' || membership.isPaused) return 'paused';
+  if (s === 'payment_failed' || s === 'past_due') return 'past_due';
+  if (s === 'canceled' || s === 'cancelled') return 'canceled';
+  if (s === 'active') return 'active';
+  return 'none';
+}
+
+const STATUS_DISPLAY: Record<MemberStatusKind, { label: string; tone: 'success' | 'warning' | 'error' | 'neutral'; pillBg: string; pillText: string; ring: string; icon: React.FC<{ className?: string }> }> = {
+  active:    { label: 'Active',    tone: 'success', pillBg: 'bg-[#ECFDF5]', pillText: 'text-[#10B981]', ring: 'ring-[#A7F3D0]', icon: Icon.Check },
+  paused:    { label: 'Paused',    tone: 'warning', pillBg: 'bg-[#FEF3C7]', pillText: 'text-[#9C5410]', ring: 'ring-[#FFC85D]/40', icon: Icon.Pause },
+  canceled:  { label: 'Cancelled', tone: 'neutral', pillBg: 'bg-[#F4F1FB]', pillText: 'text-[#6356E5]', ring: 'ring-[#E0DAFF]', icon: Icon.Refresh },
+  past_due:  { label: 'Payment due', tone: 'error', pillBg: 'bg-[#FEE2E2]', pillText: 'text-[#B91C1C]', ring: 'ring-[#FCA5A5]', icon: Icon.Alert },
+  none:      { label: 'No Membership', tone: 'neutral', pillBg: 'bg-[#F4F1FB]', pillText: 'text-[#6356E5]', ring: 'ring-[#E0DAFF]', icon: Icon.Crown },
+};
+
+/* -----------------------------------------------------------------------
+   V4 plan name display fallback (when backend doesn't return plan.name)
+----------------------------------------------------------------------- */
+const V4_PLAN_BY_PRICE: Record<string, string> = {
+  '19.99': 'UniOne',
+  '49.99': 'UniPlus',
+  '99.99': 'UniMax',
+};
 
 export default function DashboardPage() {
   const { user, loading: authLoading, refreshUser } = useAuth();
@@ -19,27 +132,28 @@ export default function DashboardPage() {
   const [creditLedger, setCreditLedger] = useState<any[]>([]);
   const [activeDraws, setActiveDraws] = useState<any[]>([]);
   const [activeEntriesTab, setActiveEntriesTab] = useState<'mini' | 'major'>('mini');
-  const [activeEntriesPage, setActiveEntriesPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [showMembershipModal, setShowMembershipModal] = useState(false);
-  const [showManagePaymentModal, setShowManagePaymentModal] = useState(false);
-  /** When add/update card opens, hide this shell so only the portaled Stripe modal is visible. */
-  const [hidePaymentMethodsShell, setHidePaymentMethodsShell] = useState(false);
 
+  /* Stripe billing modal state — preserved from original dashboard.
+     `showManagePaymentModal` controls the v4 wrapper; `hidePaymentMethodsShell`
+     hides the wrapper while the inner Stripe Elements (Add/Update Card)
+     modal is open, to avoid two stacked modals. */
+  const [showManagePaymentModal, setShowManagePaymentModal] = useState(false);
+  const [hidePaymentMethodsShell, setHidePaymentMethodsShell] = useState(false);
+  const [portalMounted, setPortalMounted] = useState(false);
+  useEffect(() => { setPortalMounted(true); }, []);
+
+  /* ===== Data fetching — preserved from original ===== */
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/');
       return;
     }
-
     if (user) {
       loadData();
-      
-      // Check if user just returned from Stripe billing portal
       if (typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
         const paymentUpdated = urlParams.get('paymentUpdated');
-        
         if (paymentUpdated === 'true') {
           window.history.replaceState({}, '', window.location.pathname);
           setTimeout(async () => {
@@ -61,9 +175,7 @@ export default function DashboardPage() {
         api.payments.getPaymentsByUserId(user?.id || '').catch(() => ({ data: [] })),
         api.entries.getMyEntryCountsByDraw().catch(() => ({ data: [] })),
         api.users.getCreditLedger().catch(() => ({ data: [] })),
-        api.draws
-          .getAll({ userId: user?.id, includeMajor: true, includeFuture: true })
-          .catch(() => ({ data: [] })), // Include Major Draws and future draws for dashboard
+        api.draws.getAll({ userId: user?.id, includeMajor: true, includeFuture: true }).catch(() => ({ data: [] })),
       ]);
 
       let currentMembership = membershipRes.data;
@@ -72,44 +184,27 @@ export default function DashboardPage() {
       setCreditLedger(ledgerRes.data || []);
 
       const countsList = (entryCountsRes.data || []) as { drawId: string; count: number }[];
-      const countByDraw = new Map<string, number>(
-        countsList.map((c) => [c.drawId, c.count]),
-      );
-
-      // Find all draws (Mini & Major) where user has entries (current, past, or future)
+      const countByDraw = new Map<string, number>(countsList.map((c) => [c.drawId, c.count]));
       const userEntryDrawIds = new Set(countsList.map((c) => c.drawId));
-      const drawsWithEntries =
-        drawsRes.data?.filter((d: any) => userEntryDrawIds.has(d.id)) || [];
-
+      const drawsWithEntries = drawsRes.data?.filter((d: any) => userEntryDrawIds.has(d.id)) || [];
       const drawsWithUserEntries = drawsWithEntries.map((draw: any) => ({
         ...draw,
         userEntries: countByDraw.get(draw.id) ?? 0,
       }));
-
-      // Sort by closedAt (newest first) for display
       drawsWithUserEntries.sort((a: any, b: any) => {
         const aTime = a.closedAt ? new Date(a.closedAt).getTime() : 0;
         const bTime = b.closedAt ? new Date(b.closedAt).getTime() : 0;
         return bTime - aTime;
       });
-
       setActiveDraws(drawsWithUserEntries);
 
-      // Auto-heal membership status if Stripe has already recovered payment
-      if (
-        currentMembership &&
-        (currentMembership.status === 'payment_failed' ||
-          currentMembership.status === 'past_due')
-      ) {
+      // Auto-heal payment failed membership — preserved
+      if (currentMembership && (currentMembership.status === 'payment_failed' || currentMembership.status === 'past_due')) {
         try {
           const retryResult = await api.payments.retryFailedInvoice();
           if (retryResult.data?.success) {
-            const refreshedMembership = await api.membership
-              .getUserMembership()
-              .catch(() => ({ data: null }));
-            if (refreshedMembership.data) {
-              setMembership(refreshedMembership.data);
-            }
+            const refreshedMembership = await api.membership.getUserMembership().catch(() => ({ data: null }));
+            if (refreshedMembership.data) setMembership(refreshedMembership.data);
           }
         } catch (err) {
           console.error('Auto retry invoice on dashboard load failed:', err);
@@ -122,677 +217,674 @@ export default function DashboardPage() {
     }
   };
 
-  if (authLoading || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
-  const getUserDisplayName = () => {
-    if (user?.firstName || user?.lastName) {
-      return `${user.firstName || ''} ${user.lastName || ''}`.trim();
-    }
-    return user?.email?.split('@')[0] || 'User';
-  };
-
-  const getPlanTierName = (tier?: string) => {
-    const tierMap: Record<string, string> = {
-      'UNI_ONE': 'Silver',
-      'UNI_PLUS': 'Gold',
-      'UNI_MAX': 'Platinum',
-      'TEST': 'Basic',
-    };
-    return tierMap[tier?.toUpperCase() || ''] || '';
-  };
-
-  const getPlanDisplayName = (plan: any) => {
-    // Just return the plan name without tier in parentheses
-    return plan?.name || 'Unknown';
-  };
-
+  /* ===== Stripe billing modal handlers — preserved logic ===== */
   const closeManagePaymentModal = () => {
     setShowManagePaymentModal(false);
     setHidePaymentMethodsShell(false);
   };
-
   const handleOpenManagePayment = () => {
     setHidePaymentMethodsShell(false);
     setShowManagePaymentModal(true);
   };
-
   const handlePaymentMethodsChanged = async () => {
     await loadData();
     await notifyAndRetryMembershipAfterPaymentUpdate({ quietIfMembershipHealthy: false });
     await loadData();
     const m = await api.membership.getUserMembership().catch(() => ({ data: null }));
-    if (
-      m.data?.status &&
-      m.data.status !== 'payment_failed' &&
-      m.data.status !== 'past_due'
-    ) {
+    if (m.data?.status && m.data.status !== 'payment_failed' && m.data.status !== 'past_due') {
       closeManagePaymentModal();
     }
   };
 
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (showManagePaymentModal && !hidePaymentMethodsShell) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [showManagePaymentModal, hidePaymentMethodsShell]);
+
+  /* ===== Memoised lists — MUST be declared before any early return so
+     React hook ordering stays consistent across renders. ===== */
+  const recentLedger = useMemo(() => {
+    return (creditLedger || [])
+      .filter((l: any) => l.metadata?.action !== 'admin_force_sync')
+      .slice(0, 5);
+  }, [creditLedger]);
+
+  const recentPayments = useMemo(() => (payments || []).slice(0, 3), [payments]);
+
+  /* ===== Format helpers ===== */
   const formatDate = (date: string | Date) => {
     const { formatSydneyDateOnly } = require('@/lib/timezone');
     return formatSydneyDateOnly(date);
   };
-
-  const formatMembershipDate = (date: string | Date) => {
-    const { formatSydneyDateOnly } = require('@/lib/timezone');
-    return formatSydneyDateOnly(date);
-  };
-
-  const formatDateTime = (date: string | Date) => {
-    const { formatDateTime: formatDT } = require('@/lib/timezone');
-    return formatDT(date);
-  };
-
-  const formatClosedAtLikeAdmin = (date: string | Date) => {
+  const formatDateTimeSydney = (date: string | Date) => {
     const { formatSydneyDateTime24h } = require('@/lib/timezone');
     return formatSydneyDateTime24h(date);
   };
-
-  const formatCurrency = (amount: number | string, currency: string = 'AUD') => {
-    // Always use A$ prefix for AUD to ensure consistent display
-    const numAmount = typeof amount === 'string' ? parseFloat(amount) || 0 : amount;
-    if (currency === 'AUD' || !currency) {
-      return `A$${numAmount.toFixed(2)}`;
-    }
-    return new Intl.NumberFormat('en-AU', { 
-      style: 'currency', 
-      currency: currency || 'AUD' 
-    }).format(numAmount);
+  const formatAUD = (amount: number | string) => {
+    const n = typeof amount === 'string' ? parseFloat(amount) || 0 : amount;
+    return `A$${n.toFixed(2)}`;
   };
 
-  const formatPurchaseItem = (payment: any) => {
-    if (payment.paymentType === 'membership') {
-      return `${payment.metadata?.planName || 'Membership'} ${payment.metadata?.isRenewal ? 'Renewal' : ''}`.trim();
-    }
-    if (payment.metadata?.majorDrawLanding === true) {
-      const snap = payment.metadata?.packageSnapshot || {};
-      const n =
-        payment.creditsGranted ??
-        snap.entryCount ??
-        payment.metadata?.entryCount ??
-        0;
-      const entryWord = n === 1 ? 'entry' : 'entries';
-      return `One-time package (${n} ${entryWord})`;
-    }
-    return `Boost Pack ${payment.metadata?.packName || ''} (${payment.creditsGranted || 0} credits)`;
-  };
+  if (authLoading || loading) {
+    /* Skeleton screens — placeholder cards mirror the final layout so user
+       gets instant structural orientation. Each grey div animates with
+       Tailwind's animate-pulse (opacity 0.5 ↔ 1) for a subtle shimmer.
+       Pure visual placeholder; no logic, no API change. */
+    return (
+      <div className="space-y-5 sm:space-y-6">
+        <header>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6356E5] sm:hidden">Welcome back</p>
+          <h1 className="mt-1 text-[24px] font-extrabold tracking-tight text-[#0F1222] sm:mt-0 sm:text-[28px]">
+            <span className="sm:hidden">Loading…</span>
+            <span className="hidden sm:inline">Dashboard</span>
+          </h1>
+        </header>
 
-  const formatPurchaseItemPromoLine = (payment: any) => {
-    if (payment.paymentType === 'membership') {
-      return `${payment.metadata?.planName || 'Membership'}`;
-    }
-    if (payment.metadata?.majorDrawLanding === true) {
-      return formatPurchaseItem(payment);
-    }
-    return `Boost Pack ${payment.metadata?.packName || ''}`;
-  };
-
-  return (
-    <div>
-      {/* Header */}
-      <div className="mb-8 flex items-start justify-between">
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Hi {getUserDisplayName()}</h1>
-          {membership && (
-            <div className="flex items-center space-x-4 mb-2">
-              <p className="text-gray-600">
-                You're on {getPlanDisplayName(membership.plan)} ({getPlanTierName(membership.plan?.tier)})
-              </p>
-              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                (membership.status === 'past_due' || membership.status === 'payment_failed')
-                  ? 'bg-red-600 text-white' 
-                  : 'bg-purple-600 text-white'
-              }`}>
-                {(membership.status === 'past_due' || membership.status === 'payment_failed') 
-                  ? 'PAYMENT FAILED' 
-                  : getPlanTierName(membership.plan?.tier).toUpperCase()}
-              </span>
+        {/* Status hero skeleton */}
+        <article className="overflow-hidden rounded-3xl border border-[#E0DAFF] bg-white p-5 shadow-[0_18px_50px_-30px_rgba(99,86,229,0.20)] sm:p-7">
+          <div className="flex items-start justify-between gap-3 sm:gap-4">
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="h-5 w-24 animate-pulse rounded-full bg-[#F4F1FB]" />
+              <div className="h-8 w-56 max-w-full animate-pulse rounded-lg bg-[#F4F1FB]" />
             </div>
-          )}
-          {/* Account Locked Warning */}
-          {user?.isLocked && (
-            <div className="mb-6 p-4 bg-red-50 border-2 border-red-400 rounded-lg">
-              <div className="flex items-start">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3 flex-1">
-                  <h3 className="text-sm font-bold text-red-800">Account Locked</h3>
-                  <p className="mt-1 text-sm text-red-700">
-                    Your account has been locked due to a payment dispute (chargeback). 
-                    {user.lockReason === 'chargeback_dispute' && ' Any credits or entries associated with the disputed payment have been revoked.'}
-                  </p>
-                  <p className="mt-2 text-xs text-red-600">
-                    {user.lockedAt && (() => {
-                      const { formatSydneyDateOnly } = require('@/lib/timezone');
-                      return `Locked on: ${formatSydneyDateOnly(user.lockedAt)}`;
-                    })()}
-                  </p>
-                  <Link href="/contact" className="mt-3 inline-block">
-                    <button className="text-sm font-semibold text-red-800 hover:text-red-900 underline">
-                      Contact Support to Resolve
-                    </button>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {(membership?.status === 'payment_failed' || membership?.status === 'past_due') && (
-            <div className="mb-4 p-4 bg-red-50 border-2 border-red-400 rounded-lg">
-              <div className="flex items-start">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3 flex-1">
-                  <h3 className="text-sm font-bold text-red-800 mb-2">Payment failed</h3>
-                  <p className="mt-1 text-sm text-red-700 mb-4">
-                    We couldn't process your membership payment. Please update your payment method to keep your membership active.
-                  </p>
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={handleOpenManagePayment}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition text-sm"
-                    >
-                      Update payment
-                    </button>
-                    
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          {membership?.currentPeriodEnd && (
-            <p className="text-sm text-gray-600">
-              Next billing: {formatMembershipDate(membership.currentPeriodEnd)} · Active since: {formatDate(membership.createdAt)}
-            </p>
-          )}
-        </div>
-        {/* Badge Placeholder */}
-        <div className="w-32 h-32 bg-gray-200 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
-          <span className="text-gray-400 text-sm font-medium">BADGE</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Membership Plan Card */}
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Membership Plan</h2>
-          {membership ? (
-            <div>
-              <h3 className="text-2xl font-bold mb-2" style={{ background: 'linear-gradient(180deg, #9186FF 0%, #6356E5 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                {getPlanDisplayName(membership.plan)} ({getPlanTierName(membership.plan?.tier)})
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Includes: {Array.isArray(membership.plan?.featuresConfig) && membership.plan.featuresConfig[0]?.value 
-                  ? `${membership.plan.featuresConfig[0].value} Verified Entries/ month`
-                  : 'N/A'
-                }
-                {Array.isArray(membership.plan?.featuresConfig) && membership.plan.featuresConfig[1]?.value && (
-                  <span> +{membership.plan.featuresConfig[1].value} Credits</span>
-                )}
-              </p>
-              {membership.currentPeriodEnd && (
-                <p className="text-sm text-gray-600 mb-4">Next billing: {formatMembershipDate(membership.currentPeriodEnd)}</p>
-              )}
-              <div className="flex justify-end">
-                <Link href="/dashboard/membership">
-                  <span className="font-semibold cursor-pointer hover:opacity-80 transition" style={{ background: 'linear-gradient(180deg, #9186FF 0%, #6356E5 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                    Manage Plan →
-                  </span>
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <p className="text-gray-600 mb-4">No active membership</p>
-              <button
-                onClick={() => router.push('/#membership-plans')}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold py-2 px-6 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition"
-              >
-                Subscribe Now
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Credit Balance Card */}
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Credit Balance</h2>
-          <div className="space-y-3 mb-6">
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-gray-700 font-semibold">Boost:</span>
-                <span className="text-gray-900 font-bold">{user.boostCredits || 0}</span>
-              </div>
-              <p className="text-xs text-gray-500">Never expire</p>
-            </div>
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-gray-700 font-semibold">Membership:</span>
-                <span className="text-gray-900 font-bold">{user.membershipCredits || 0}</span>
-              </div>
-              <p className="text-xs text-gray-500">Renew monthly</p>
-            </div>
-            <div className="pt-3 border-t border-gray-200">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-gray-900 font-bold">Total:</span>
-                <span className="font-bold text-xl" style={{ background: 'linear-gradient(180deg, #9186FF 0%, #6356E5 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                  {(user.membershipCredits || 0) + (user.boostCredits || 0)}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500">Never expire</p>
-            </div>
+            <div className="h-7 w-28 animate-pulse rounded-md bg-[#F4F1FB]" />
           </div>
+          <div className="mt-3 h-4 w-40 animate-pulse rounded bg-[#F4F1FB]" />
+          <div className="mt-4 grid grid-cols-2 gap-2.5 sm:gap-3">
+            <div className="h-20 animate-pulse rounded-2xl bg-[#F4F1FB]" />
+            <div className="h-20 animate-pulse rounded-2xl bg-[#F4F1FB]" />
+          </div>
+          <div className="mt-5 h-11 w-48 animate-pulse rounded-full bg-[#F4F1FB]" />
+        </article>
+
+        {/* Points balance skeleton */}
+        <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 sm:p-7">
           <div className="space-y-2">
-            <Link href="/giveaways">
-              <button className="bg-purple-600 border-2 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition">
-                Use Credit
-              </button>
-            </Link>
-            <button
-              onClick={() => {
-                // // Check if user has active membership
-                // const hasActiveMembership = membership?.status === 'active' && 
-                //   membership?.currentPeriodEnd && 
-                //   new Date(membership.currentPeriodEnd) > new Date();
-                
-                // if (!hasActiveMembership) {
-                //   setShowMembershipModal(true);
-                // } else {
-                  router.push('/boost-packs');
-                // }
-              }}
-              className="ml-4 border-2 font-semibold py-2 px-4 rounded-lg hover:opacity-80 transition" 
-              style={{ borderColor: '#9186FF', background: 'linear-gradient(180deg, #9186FF 0%, #6356E5 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}
-            >
-              Buy Boost Pack
-            </button>
+            <div className="h-4 w-32 animate-pulse rounded bg-[#F4F1FB]" />
+            <div className="h-12 w-40 animate-pulse rounded-lg bg-[#F4F1FB]" />
+            <div className="h-4 w-72 max-w-full animate-pulse rounded bg-[#F4F1FB]" />
           </div>
-        </div>
-      </div>
+          <div className="mt-4 grid grid-cols-2 gap-2.5 sm:gap-3">
+            <div className="h-16 animate-pulse rounded-2xl bg-[#F4F1FB]" />
+            <div className="h-16 animate-pulse rounded-2xl bg-[#F4F1FB]" />
+          </div>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:gap-3">
+            <div className="h-11 w-full animate-pulse rounded-full bg-[#F4F1FB] sm:w-44" />
+            <div className="h-11 w-full animate-pulse rounded-full bg-[#F4F1FB] sm:w-40" />
+          </div>
+        </article>
 
-      {/* Active Entries (Mini & Major) */}
-      {activeDraws.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">Your Active Entries</h2>
-            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveEntriesTab('mini');
-                  setActiveEntriesPage(1);
-                }}
-                className={`px-3 py-1 text-xs font-medium rounded-md ${
-                  activeEntriesTab === 'mini'
-                    ? 'bg-white text-gray-900 shadow'
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
+        {/* Quick actions skeleton */}
+        <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 sm:p-6">
+          <div className="h-4 w-28 animate-pulse rounded bg-[#F4F1FB]" />
+          <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-24 animate-pulse rounded-2xl bg-[#F4F1FB]" />
+            ))}
+          </div>
+        </article>
+
+        {/* Active entries preview skeleton */}
+        <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 sm:p-6">
+          <div className="space-y-2">
+            <div className="h-4 w-24 animate-pulse rounded bg-[#F4F1FB]" />
+            <div className="h-5 w-32 animate-pulse rounded bg-[#F4F1FB]" />
+          </div>
+          <div className="mt-3 h-9 w-48 animate-pulse rounded-full bg-[#F4F1FB]" />
+          <div className="mt-4 space-y-2.5">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-16 animate-pulse rounded-2xl bg-[#F4F1FB]" />
+            ))}
+          </div>
+        </article>
+
+        {/* Recent activity skeleton */}
+        <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 sm:p-6">
+          <div className="space-y-2">
+            <div className="h-4 w-28 animate-pulse rounded bg-[#F4F1FB]" />
+            <div className="h-5 w-44 animate-pulse rounded bg-[#F4F1FB]" />
+          </div>
+          <ul className="mt-4 divide-y divide-[#EFEDF5]">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <li key={i} className="flex items-center gap-3 py-2.5">
+                <div className="h-9 w-9 shrink-0 animate-pulse rounded-xl bg-[#F4F1FB]" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <div className="h-4 w-40 max-w-full animate-pulse rounded bg-[#F4F1FB]" />
+                  <div className="h-3 w-24 animate-pulse rounded bg-[#F4F1FB]" />
+                </div>
+                <div className="h-4 w-16 animate-pulse rounded bg-[#F4F1FB]" />
+              </li>
+            ))}
+          </ul>
+        </article>
+      </div>
+    );
+  }
+  if (!user) return null;
+
+  /* ===== Derived display values ===== */
+  const firstName = user.firstName || user.email?.split('@')[0] || 'Member';
+  const memberStatus = resolveMemberStatus(membership);
+  const statusCfg = STATUS_DISPLAY[memberStatus];
+  const StatusIcon = statusCfg.icon;
+
+  const planPriceMonthly = parseFloat(membership?.plan?.priceMonthly || '0');
+  const planName = membership?.plan?.name || V4_PLAN_BY_PRICE[planPriceMonthly.toFixed(2)] || (membership ? 'Membership' : '');
+  const monthlyPoints = Number(membership?.plan?.freeCreditsPerPeriod || 0);
+  const majorDrawEntries = Number(membership?.plan?.grandPrizeEntriesPerPeriod || 0);
+
+  const boostPoints = Number(user.boostCredits) || 0;
+  const memberPoints = Number(user.membershipCredits) || 0;
+  const totalPoints = boostPoints + memberPoints;
+
+  const miniDrawEntries = activeDraws.filter((d) => d.drawType === 'mini');
+  const majorDrawEntriesList = activeDraws.filter((d) => d.drawType === 'major');
+  const visibleEntries = activeEntriesTab === 'mini' ? miniDrawEntries.slice(0, 3) : majorDrawEntriesList.slice(0, 3);
+
+  /* ===== Status hero CTA per state ===== */
+  type HeroCta =
+    | { label: string; href: string; tone?: 'urgent' }
+    | { label: string; onClick: () => void; tone: 'urgent' };
+  const heroCta: HeroCta = (() => {
+    if (memberStatus === 'past_due')  return { label: 'Update Payment Method', onClick: handleOpenManagePayment, tone: 'urgent' };
+    if (memberStatus === 'canceled')  return { label: 'Reactivate Membership', href: '/dashboard/membership' };
+    if (memberStatus === 'paused')    return { label: 'Resume Membership', href: '/dashboard/membership' };
+    if (memberStatus === 'none')      return { label: 'Join UNICASH', href: '/#membership-plans' };
+    return { label: 'Manage Membership', href: '/dashboard/membership' };
+  })();
+
+  /* ===== Quick actions ===== */
+  const quickActions = [
+    { label: 'View Bonus Draws', href: '/giveaways',     Icon: Icon.Trophy, tone: 'purple' as const },
+    { label: 'Scan Receipt',     href: '/scan-receipts', Icon: Icon.Camera, tone: 'green' as const },
+    { label: 'Buy Point Booster',href: '/boost-packs',   Icon: Icon.Bolt,   tone: 'gold' as const },
+    { label: 'Redeem Gift Cards',href: '/gift-cards',    Icon: Icon.Gift,   tone: 'lavender' as const },
+  ];
+
+  const toneStyles: Record<string, { iconBg: string; iconText: string }> = {
+    purple:   { iconBg: 'bg-[#F4F1FB] ring-[#E0DAFF]',    iconText: 'text-[#6356E5]' },
+    green:    { iconBg: 'bg-[#ECFDF5] ring-[#A7F3D0]',    iconText: 'text-[#10B981]' },
+    gold:     { iconBg: 'bg-[#FFF6DA] ring-[#FFC85D]/40', iconText: 'text-[#C49A2C]' },
+    lavender: { iconBg: 'bg-[#FBFAFF] ring-[#E0DAFF]',    iconText: 'text-[#6356E5]' },
+  };
+
+  /* =====================================================================
+     JSX
+  ===================================================================== */
+  return (
+    <div className="space-y-5 sm:space-y-6">
+      {/* ============================================================
+          PAGE HEADER — single <header> matching the structure used on
+          all other dashboard pages (Entries, Membership, etc.) so the
+          DOM rhythm is identical and the sidebar/H1 align consistently.
+          Content adapts to viewport: mobile shows greeting, desktop
+          shows "Dashboard".
+      ============================================================ */}
+      <header>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6356E5] sm:hidden">
+          Welcome back
+        </p>
+        <h1 className="mt-1 text-[24px] font-extrabold tracking-tight text-[#0F1222] sm:mt-0 sm:text-[28px]">
+          <span className="sm:hidden">Hi {firstName}</span>
+          <span className="hidden sm:inline">Dashboard</span>
+        </h1>
+      </header>
+
+      {/* ============================================================
+          ACCOUNT-LOCKED WARNING (preserved logic)
+      ============================================================ */}
+      {user.isLocked && (
+        <article className="overflow-hidden rounded-2xl border border-[#FCA5A5] bg-[#FEF2F2] p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#B91C1C] ring-1 ring-[#FCA5A5]">
+              <Icon.Lock className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13.5px] font-extrabold tracking-tight text-[#7F1D1D] sm:text-[14px]">Account locked</p>
+              <p className="mt-0.5 text-[12.5px] leading-relaxed text-[#7F1D1D]/90">
+                Your account has been locked due to a payment dispute.
+                {user.lockReason === 'chargeback_dispute' && ' Any Points or entries from the disputed payment have been revoked.'}
+              </p>
+              {user.lockedAt && (
+                <p className="mt-1 text-[11px] text-[#B91C1C]/80">Locked on: {formatDate(user.lockedAt)}</p>
+              )}
+              <Link
+                href="/contact"
+                className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-bold text-[#B91C1C] underline-offset-2 hover:underline"
               >
-                Mini Draw
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveEntriesTab('major');
-                  setActiveEntriesPage(1);
-                }}
-                className={`ml-1 px-3 py-1 text-xs font-medium rounded-md ${
-                  activeEntriesTab === 'major'
-                    ? 'bg-white text-gray-900 shadow'
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                Major Draw
-              </button>
+                Contact UNICASH Support →
+              </Link>
             </div>
           </div>
-          {(() => {
-            const pageSize = 5;
-            const filtered = activeDraws.filter((draw: any) =>
-              activeEntriesTab === 'mini'
-                ? draw.drawType === 'mini'
-                : draw.drawType === 'major',
-            );
-            const total = filtered.length;
-            if (total === 0) {
-              return (
-                <p className="text-sm text-gray-500">
-                  You don&apos;t have any {activeEntriesTab === 'mini' ? 'Mini' : 'Major'} Draw entries yet.
-                </p>
-              );
-            }
-            const totalPages = Math.max(1, Math.ceil(total / pageSize));
-            const currentPage = Math.min(activeEntriesPage, totalPages);
-            const start = (currentPage - 1) * pageSize;
-            const end = Math.min(start + pageSize, total);
-            const pageItems = filtered.slice(start, end);
-
-            return (
-              <>
-                <div className="space-y-4">
-                  {pageItems.map((draw: any) => {
-              const primaryImage = Array.isArray(draw.images) && draw.images.length > 0
-                ? draw.images.find((img: any) => img.isPrimary) || draw.images[0]
-                : null;
-              const imageUrl = primaryImage?.url || primaryImage?.src || null;
-              const now = new Date();
-              const closedAtDate = draw.closedAt ? new Date(draw.closedAt) : null;
-              const isPast = closedAtDate ? closedAtDate < now : false;
-              
-              return (
-                <div key={draw.id} className="flex items-center space-x-6 p-4 border border-gray-200 rounded-lg hover:border-purple-300 transition">
-                  <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-gradient-to-br from-orange-400 to-orange-500">
-                    {imageUrl ? (
-                      <img src={imageUrl} alt={draw.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-white text-4xl">
-                        🎁
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">{draw.title || 'Major Reward Draw'}</h3>
-                    <div className="mb-2">
-                      <div className="flex justify-between text-sm text-gray-600 mb-1">
-                        <span>
-                          {draw.cap === -1 || draw.cap == null
-                            ? `${draw.entrants ?? 0} entrants`
-                            : `${draw.entrants ?? 0}/${draw.cap} entrants`}
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-purple-600 h-2 rounded-full transition-all"
-                          style={{
-                            width:
-                              draw.cap === -1 || draw.cap == null || !draw.cap
-                                ? '100%'
-                                : `${Math.min(((draw.entrants || 0) / draw.cap) * 100, 100)}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <span>
-                        {isPast
-                          ? 'Ended'
-                          : `Time left: ${formatTimeRemaining(draw.closedAt)}`}
-                      </span>
-                      <span>Drawn: {formatClosedAtLikeAdmin(draw.closedAt)}</span>
-                    </div>
-                  </div>
-                  <div className="flex-shrink-0">
-                    <div className="bg-purple-600 text-white px-6 py-3 rounded-lg text-center">
-                      <p className="text-sm font-medium">You have</p>
-                      <p className="text-2xl font-bold">{draw.userEntries || 0}</p>
-                      <p className="text-sm font-medium">entries</p>
-                    </div>
-                  </div>
-                </div>
-              );
-                  })}
-                </div>
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-4 text-xs text-gray-600">
-                    <span>
-                      Showing {start + 1}–{end} of {total} draws
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setActiveEntriesPage((p) => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                        className="px-2 py-1 border border-gray-300 rounded disabled:opacity-50"
-                      >
-                        Previous
-                      </button>
-                      <span>
-                        Page {currentPage} of {totalPages}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setActiveEntriesPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
-                        className="px-2 py-1 border border-gray-300 rounded disabled:opacity-50"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
-            );
-          })()}
-        </div>
+        </article>
       )}
 
-      {/* Credits Activity */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Credits Activity</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Event</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Credits</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Balance After</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {creditLedger.filter((ledger: any) =>
-                ledger.metadata?.action !== 'admin_force_sync'
-              ).slice(0, 10).map((ledger: any) => (
-                <tr key={ledger.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatDate(ledger.createdAt)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`text-sm font-medium ${
-                      ledger.transactionType === 'grant' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {ledger.transactionType === 'grant' ? 'Earned' : 'Spent'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {ledger.description || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`text-sm font-semibold ${
-                      ledger.amount > 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {ledger.amount > 0 ? '+' : ''}{ledger.amount}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {ledger.balanceAfter}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-medium text-green-600">
-                      Success
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Purchase History */}
-      <div className="bg-white rounded-2xl shadow-lg p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Purchase History</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount (AUD)</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Promo Code</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {payments.map((payment: any) => (
-                <tr key={payment.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatDate(payment.createdAt)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatPurchaseItem(payment)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {payment.discountAmount && payment.discountAmount > 0 ? (
-                      <div>
-                        <div className="text-gray-400 line-through text-xs">
-                          {formatCurrency(
-                            payment.metadata?.originalAmount 
-                              ? parseFloat(payment.metadata.originalAmount.toString())
-                              : (parseFloat(payment.amount.toString()) + parseFloat(payment.discountAmount.toString())),
-                            payment.currency
-                          )}
-                        </div>
-                        <div className="font-semibold text-gray-900">
-                          {formatCurrency(parseFloat(payment.amount.toString()), payment.currency)}
-                        </div>
-                        <div className="text-xs text-green-600">
-                          Saved: {formatCurrency(parseFloat(payment.discountAmount.toString()), payment.currency)}
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="font-semibold text-gray-900">
-                        {formatCurrency(parseFloat(payment.amount.toString()), payment.currency)}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {payment.promoCode ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                        {payment.promoCode}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <button
-                      onClick={() => {
-                        const details = [
-                          `Payment ID: ${payment.id}`,
-                          `Status: ${payment.status}`,
-                          payment.promoCode
-                            ? `Promo Code: ${payment.promoCode} | Discount: ${formatCurrency(parseFloat(payment.discountAmount?.toString() || '0'), payment.currency)}`
-                            : '',
-                        ]
-                          .filter(Boolean)
-                          .join('\n');
-                        showToast(details || 'Payment details', 'info');
-                      }}
-                      className="text-purple-600 hover:text-purple-800 font-medium"
-                    >
-                      View Details
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Promo Code Usage Summary */}
-      {payments.some((p: any) => p.promoCode) && (
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Promo Code Usage</h2>
-          <div className="space-y-3">
-            {payments
-              .filter((p: any) => p.promoCode && p.status === 'succeeded')
-              .map((payment: any) => (
-                <div key={payment.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-purple-300 transition">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
-                        {payment.promoCode}
-                      </span>
-                      <span className="text-sm text-gray-600">
-                        Used on {formatDate(payment.createdAt)}
-                      </span>
-                    </div>
-                    <div className="mt-2 text-sm text-gray-500">
-                      {formatPurchaseItemPromoLine(payment)}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-green-600">
-                      -{formatCurrency(parseFloat(payment.discountAmount?.toString() || '0'), payment.currency)}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Payment #{payment.id.slice(0, 8)}
-                    </div>
-                  </div>
-                </div>
-              ))}
+      {/* ============================================================
+          STATUS HERO CARD — Membership state + plan + price + renewal
+      ============================================================ */}
+      <article className="overflow-hidden rounded-3xl border border-[#E0DAFF] bg-white shadow-[0_18px_50px_-30px_rgba(99,86,229,0.25)]">
+        {memberStatus === 'none' ? (
+          // No active Membership
+          <div className="px-5 py-6 sm:px-7 sm:py-7">
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">Membership</p>
+            <h2 className="mt-1 text-[20px] font-extrabold tracking-tight text-[#0F1222] sm:text-[22px]">No active Membership yet</h2>
+            <p className="mt-2 text-[13.5px] leading-relaxed text-[#4B5563]">
+              Join UNICASH to unlock Monthly Points, Major Draw entries, and member-only Bonus Draws.
+            </p>
+            <Link
+              href="/#membership-plans"
+              className="mt-4 inline-flex h-11 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[13.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC]"
+            >
+              Join UNICASH
+              <Icon.ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
-        </div>
-      )}
+        ) : (
+          <>
+            {/* Top: status pill + plan name + price */}
+            <div className="flex items-start justify-between gap-3 px-5 pt-5 sm:gap-4 sm:px-7 sm:pt-7">
+              <div className="min-w-0 flex-1">
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.14em] ring-1 ${statusCfg.pillBg} ${statusCfg.pillText} ${statusCfg.ring}`}>
+                  <StatusIcon className="h-3 w-3" />
+                  {statusCfg.label}
+                </span>
+                <h2 className="mt-2 truncate text-[22px] font-extrabold tracking-tight text-[#0F1222] sm:text-[26px]">
+                  {planName} <span className="text-[#667085]">Membership</span>
+                </h2>
+              </div>
+              {planPriceMonthly > 0 && (
+                <p className="shrink-0 whitespace-nowrap text-right">
+                  <span className="text-[26px] font-extrabold leading-none tracking-tight text-[#6356E5] tabular-nums sm:text-[32px]">
+                    {formatAUD(planPriceMonthly)}
+                  </span>
+                  <span className="ml-1.5 text-[12px] font-medium text-[#667085]">/ month</span>
+                </p>
+              )}
+            </div>
 
-      {showManagePaymentModal && (
-        <div
-          className={`fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 transition-[visibility] ${
-            hidePaymentMethodsShell ? 'invisible pointer-events-none' : ''
-          }`}
-          onClick={closeManagePaymentModal}
-          role="presentation"
-          aria-hidden={hidePaymentMethodsShell}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="manage-payment-title"
+            {/* Renewal/scheduled change line */}
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 px-5 text-[12.5px] text-[#667085] sm:px-7">
+              {membership?.cancelAtPeriodEnd && memberStatus === 'active' && (
+                <span className="inline-flex items-center gap-1 text-[#B45309]">
+                  <Icon.Alert className="h-3 w-3" />
+                  Cancels on {formatDate(membership.currentPeriodEnd)}
+                </span>
+              )}
+              {!membership?.cancelAtPeriodEnd && membership?.currentPeriodEnd && memberStatus === 'active' && (
+                <span>Next renewal: <span className="font-semibold text-[#0F1222]">{formatDate(membership.currentPeriodEnd)}</span></span>
+              )}
+              {memberStatus === 'paused' && membership?.pauseExpiresAt && (
+                <span>Resumes: <span className="font-semibold text-[#0F1222]">{formatDate(membership.pauseExpiresAt)}</span></span>
+              )}
+              {memberStatus === 'past_due' && (
+                <span className="text-[#B91C1C]">Update payment to keep benefits active.</span>
+              )}
+              {memberStatus === 'canceled' && (
+                <span>You can reactivate anytime.</span>
+              )}
+            </div>
+
+            {/* Per-month stats (chips) */}
+            {(monthlyPoints > 0 || majorDrawEntries > 0) && (
+              <div className="mt-4 grid grid-cols-2 gap-2.5 px-5 sm:gap-3 sm:px-7">
+                <div className="rounded-2xl bg-[#F4F1FB] p-3.5 ring-1 ring-[#E0DAFF] sm:p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#667085] sm:text-[10.5px] sm:tracking-[0.14em]">Monthly Points</p>
+                  <p className="mt-1 text-[20px] font-extrabold leading-none tracking-tight text-[#0F1222] tabular-nums sm:text-[22px]">
+                    {monthlyPoints.toLocaleString()}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-[#FFF6DA] p-3.5 ring-1 ring-[#FFC85D]/40 sm:p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#9C5410] sm:text-[10.5px] sm:tracking-[0.14em]">
+                    <span className="sm:hidden">Major Draw</span>
+                    <span className="hidden sm:inline">Major Draw entries</span>
+                  </p>
+                  <p className="mt-1 text-[20px] font-extrabold leading-none tracking-tight text-[#0F1222] tabular-nums sm:text-[22px]">
+                    {majorDrawEntries}<span className="ml-1 text-[12px] font-medium text-[#667085]">/ month</span>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* CTA */}
+            <div className="mt-5 px-5 pb-5 sm:px-7 sm:pb-7">
+              {'href' in heroCta ? (
+                <Link
+                  href={heroCta.href}
+                  className={`inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full px-5 text-[13.5px] font-bold text-white transition-all sm:w-auto ${
+                    heroCta.tone === 'urgent'
+                      ? 'bg-gradient-to-r from-[#EF4444] to-[#F97316] shadow-[0_14px_30px_-12px_rgba(239,68,68,0.55)] hover:opacity-95'
+                      : 'bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] shadow-[0_14px_30px_-12px_rgba(99,86,229,0.55)] hover:from-[#5346D6] hover:to-[#7867EC]'
+                  }`}
+                >
+                  {heroCta.label}
+                  <Icon.ArrowRight className="h-4 w-4" />
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={heroCta.onClick}
+                  className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-[#EF4444] to-[#F97316] px-5 text-[13.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(239,68,68,0.55)] transition-all hover:opacity-95 sm:w-auto"
+                >
+                  {heroCta.label}
+                  <Icon.ArrowRight className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </article>
+
+      {/* ============================================================
+          POINTS BALANCE CARD
+      ============================================================ */}
+      <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-7">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">Available Points</p>
+            <p className="mt-1 bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] bg-clip-text text-[40px] font-extrabold leading-none tracking-tight text-transparent tabular-nums sm:text-[52px]">
+              {totalPoints.toLocaleString()}
+            </p>
+            <p className="mt-2 text-[12.5px] leading-relaxed text-[#4B5563]">
+              Use Points for member-only Bonus Draws or to Redeem Gift Cards from 2,000 Points.
+            </p>
+          </div>
+          <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#F4F1FB] to-[#FBFAFF] text-[#6356E5] ring-1 ring-[#E0DAFF] sm:inline-flex">
+            <Icon.Coins className="h-5 w-5" />
+          </span>
+        </div>
+
+        {/* Breakdown */}
+        {(memberPoints > 0 || boostPoints > 0) && (
+          <div className="mt-4 grid grid-cols-2 gap-2.5 sm:gap-3">
+            <div className="rounded-2xl bg-[#FBFAFF] p-3 ring-1 ring-[#E0DAFF]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#667085]">Membership Points</p>
+              <p className="mt-0.5 text-[18px] font-extrabold leading-none tracking-tight text-[#0F1222] tabular-nums sm:text-[20px]">
+                {memberPoints.toLocaleString()}
+              </p>
+              <p className="mt-1 text-[10.5px] text-[#667085]">Renew monthly</p>
+            </div>
+            <div className="rounded-2xl bg-[#F4F1FB] p-3 ring-1 ring-[#E0DAFF]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#667085]">Booster Points</p>
+              <p className="mt-0.5 text-[18px] font-extrabold leading-none tracking-tight text-[#0F1222] tabular-nums sm:text-[20px]">
+                {boostPoints.toLocaleString()}
+              </p>
+              <p className="mt-1 text-[10.5px] text-[#667085]">Never expire</p>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:gap-3">
+          <Link
+            href="/giveaways"
+            className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[13.5px] font-bold text-white shadow-[0_10px_24px_-12px_rgba(99,86,229,0.55)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] sm:w-auto"
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-gray-100 bg-white px-6 py-4 rounded-t-2xl">
-              <h2 id="manage-payment-title" className="text-xl font-bold text-gray-900">
-                Payment methods
-              </h2>
+            View Bonus Draws
+            <Icon.ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/boost-packs"
+            className="inline-flex h-11 w-full items-center justify-center rounded-full border border-[#E0DAFF] bg-white px-5 text-[13.5px] font-bold text-[#0F1222] transition-colors hover:border-[#6356E5] hover:text-[#6356E5] sm:w-auto"
+          >
+            Buy Point Booster
+          </Link>
+        </div>
+      </article>
+
+      {/* ============================================================
+          QUICK ACTIONS — wrapped card to match Entries-page rhythm
+          (no outside-card eyebrows; eyebrow lives inside the card)
+      ============================================================ */}
+      <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-6">
+        <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">Quick actions</p>
+        <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
+          {quickActions.map(({ label, href, Icon: ActionIcon, tone }) => {
+            const t = toneStyles[tone];
+            return (
+              <Link
+                key={label}
+                href={href}
+                className="group flex flex-col items-start gap-2.5 rounded-2xl border border-[#E7E9F2] bg-white p-3.5 transition-all hover:-translate-y-0.5 hover:border-[#C9C0F2] hover:shadow-[0_8px_24px_-12px_rgba(99,86,229,0.20)] sm:p-4"
+              >
+                <span className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ring-1 ${t.iconBg}`}>
+                  <ActionIcon className={`h-4 w-4 ${t.iconText}`} />
+                </span>
+                <span className="text-[12.5px] font-extrabold tracking-tight text-[#0F1222] sm:text-[13px]">{label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </article>
+
+      {/* ============================================================
+          ACTIVE ENTRIES PREVIEW
+      ============================================================ */}
+      <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">My Entries</p>
+            <h2 className="mt-1 text-[18px] font-extrabold tracking-tight text-[#0F1222] sm:text-[20px]">Active draws</h2>
+          </div>
+          <Link
+            href="/dashboard/entries"
+            className="hidden whitespace-nowrap text-[12.5px] font-bold text-[#6356E5] hover:text-[#5346D6] sm:inline-flex sm:items-center sm:gap-1"
+          >
+            View all
+            <Icon.ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        {/* Tabs */}
+        <div className="mt-3 inline-flex rounded-full bg-[#F4F1FB] p-0.5 ring-1 ring-[#E0DAFF]">
+          {(['mini', 'major'] as const).map((tab) => {
+            const active = activeEntriesTab === tab;
+            const count = tab === 'mini' ? miniDrawEntries.length : majorDrawEntriesList.length;
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveEntriesTab(tab)}
+                aria-pressed={active}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-bold transition-colors ${
+                  active ? 'bg-white text-[#0F1222] shadow-[0_1px_2px_rgba(15,18,34,.06)]' : 'text-[#667085] hover:text-[#0F1222]'
+                }`}
+              >
+                {tab === 'mini' ? 'Bonus Draws' : 'Major Draws'}
+                <span className={`inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums ${active ? 'bg-[#F4F1FB] text-[#6356E5]' : 'bg-white text-[#667085]'}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* List */}
+        {visibleEntries.length === 0 ? (
+          <div className="mt-4 rounded-2xl border border-dashed border-[#E0DAFF] bg-[#FBFAFF] px-4 py-6 text-center">
+            <p className="text-[13px] font-extrabold tracking-tight text-[#0F1222]">
+              {activeEntriesTab === 'mini' ? 'No active Bonus Draw entries yet' : 'No Major Draw entries yet'}
+            </p>
+            <p className="mt-1 text-[12px] leading-relaxed text-[#4B5563]">
+              {activeEntriesTab === 'mini'
+                ? 'Use your Points to access member-only Bonus Draws.'
+                : 'Major Draw entries are included with your Membership each month.'}
+            </p>
+            <Link
+              href={activeEntriesTab === 'mini' ? '/giveaways' : '/major-reward'}
+              className="mt-3 inline-flex h-9 items-center gap-1 rounded-full border border-[#E0DAFF] bg-white px-4 text-[12px] font-bold text-[#6356E5] hover:border-[#6356E5]"
+            >
+              {activeEntriesTab === 'mini' ? 'View Bonus Draws' : 'View Major Draw'}
+              <Icon.ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        ) : (
+          <ul className="mt-4 space-y-2.5">
+            {visibleEntries.map((draw: any) => {
+              const closed = draw.closedAt ? new Date(draw.closedAt) < new Date() : false;
+              return (
+                <li key={draw.id}>
+                  <Link
+                    href={`/giveaways/${draw.id}`}
+                    className="group flex items-center gap-3 rounded-2xl border border-[#E7E9F2] bg-white p-3 transition-all hover:border-[#C9C0F2] hover:shadow-[0_8px_24px_-12px_rgba(99,86,229,0.20)]"
+                  >
+                    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F4F1FB] text-[#6356E5] ring-1 ring-[#E0DAFF]">
+                      <Icon.Trophy className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13.5px] font-extrabold tracking-tight text-[#0F1222]">{draw.title}</p>
+                      <p className="mt-0.5 text-[11.5px] text-[#667085]">
+                        {draw.userEntries} {draw.userEntries === 1 ? 'entry' : 'entries'} ·{' '}
+                        {closed ? 'Closed' : (draw.closedAt ? `Closes ${formatDateTimeSydney(draw.closedAt)}` : 'Active')}
+                      </p>
+                    </div>
+                    <Icon.ArrowRight className="h-4 w-4 shrink-0 text-[#6356E5] transition-transform group-hover:translate-x-0.5" />
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {/* Mobile View all link */}
+        <Link
+          href="/dashboard/entries"
+          className="mt-4 inline-flex w-full items-center justify-center gap-1 rounded-full border border-[#E0DAFF] bg-white px-4 py-2.5 text-[12.5px] font-bold text-[#6356E5] hover:border-[#6356E5] sm:hidden"
+        >
+          View all entries
+          <Icon.ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </article>
+
+      {/* ============================================================
+          RECENT ACTIVITY (Points ledger preview)
+      ============================================================ */}
+      <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">Recent activity</p>
+            <h2 className="mt-1 text-[18px] font-extrabold tracking-tight text-[#0F1222] sm:text-[20px]">Points + purchases</h2>
+          </div>
+          <Link
+            href="/dashboard/purchases"
+            className="hidden whitespace-nowrap text-[12.5px] font-bold text-[#6356E5] hover:text-[#5346D6] sm:inline-flex sm:items-center sm:gap-1"
+          >
+            View all
+            <Icon.ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        {recentLedger.length === 0 && recentPayments.length === 0 ? (
+          <div className="mt-4 rounded-2xl border border-dashed border-[#E0DAFF] bg-[#FBFAFF] px-4 py-6 text-center">
+            <p className="text-[13px] font-extrabold tracking-tight text-[#0F1222]">No activity yet</p>
+            <p className="mt-1 text-[12px] leading-relaxed text-[#4B5563]">
+              Your Membership payments, Point Booster purchases, and Points activity will appear here.
+            </p>
+          </div>
+        ) : (
+          <ul className="mt-4 divide-y divide-[#EFEDF5]">
+            {recentLedger.map((row: any) => {
+              const isCredit = Number(row.amount) >= 0;
+              return (
+                <li key={`l-${row.id}`} className="flex items-center gap-3 py-2.5 first:pt-0">
+                  <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${isCredit ? 'bg-[#ECFDF5] ring-[#A7F3D0] text-[#10B981]' : 'bg-[#F4F1FB] ring-[#E0DAFF] text-[#6356E5]'}`}>
+                    <Icon.Coins className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-extrabold tracking-tight text-[#0F1222]">{row.description || (isCredit ? 'Points granted' : 'Points used')}</p>
+                    <p className="mt-0.5 text-[11px] text-[#667085]">{formatDate(row.createdAt)}</p>
+                  </div>
+                  <p className={`shrink-0 whitespace-nowrap text-right text-[13px] font-extrabold tabular-nums ${isCredit ? 'text-[#10B981]' : 'text-[#0F1222]'}`}>
+                    {isCredit ? '+' : ''}{Number(row.amount).toLocaleString()} <span className="text-[10.5px] font-semibold text-[#667085]">Points</span>
+                  </p>
+                </li>
+              );
+            })}
+            {recentPayments.map((p: any) => {
+              const isMembership = p.paymentType === 'membership';
+              const isOneTimePackage = p.metadata?.majorDrawLanding === true;
+              const itemLabel = isMembership
+                ? `${p.metadata?.planName || planName || 'Membership'}${p.metadata?.isRenewal ? ' renewal' : ''}`
+                : isOneTimePackage
+                  ? `One-time package`
+                  : `Point Booster${p.metadata?.packName ? ` · ${p.metadata.packName}` : ''}`;
+              return (
+                <li key={`p-${p.id}`} className="flex items-center gap-3 py-2.5">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF6DA] text-[#C49A2C] ring-1 ring-[#FFC85D]/40">
+                    {isMembership ? <Icon.Crown className="h-4 w-4" /> : <Icon.Bolt className="h-4 w-4" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-extrabold tracking-tight text-[#0F1222]">{itemLabel}</p>
+                    <p className="mt-0.5 text-[11px] text-[#667085]">{formatDate(p.createdAt)}</p>
+                  </div>
+                  <p className="shrink-0 whitespace-nowrap text-right text-[13px] font-extrabold text-[#0F1222] tabular-nums">
+                    {formatAUD(Number(p.amount) || 0)}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <Link
+          href="/dashboard/purchases"
+          className="mt-4 inline-flex w-full items-center justify-center gap-1 rounded-full border border-[#E0DAFF] bg-white px-4 py-2.5 text-[12.5px] font-bold text-[#6356E5] hover:border-[#6356E5] sm:hidden"
+        >
+          View Purchase History
+          <Icon.ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </article>
+
+      {/* ============================================================
+          MANAGE PAYMENT MODAL — v4 wrapper around PaymentMethodsPanel.
+          Bottom-sheet on mobile, centered on desktop. createPortal'd to
+          document.body to escape transformed ancestors. The wrapper is
+          hidden when the inner Stripe Elements (Add/Update Card) modal
+          is open, so we never see two stacked modals.
+      ============================================================ */}
+      {portalMounted && showManagePaymentModal && createPortal(
+        <div
+          className={`fixed inset-0 z-[100] flex items-end justify-center sm:items-center ${hidePaymentMethodsShell ? 'pointer-events-none opacity-0' : ''}`}
+          aria-modal="true"
+          role="dialog"
+          aria-label="Manage payment method"
+        >
+          {/* Backdrop */}
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-[#0F1222]/45 backdrop-blur-[2px]"
+            onClick={closeManagePaymentModal}
+          />
+
+          {/* Sheet / Card */}
+          <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-t-3xl border border-[#E7E9F2] bg-white shadow-[0_30px_80px_-30px_rgba(15,18,34,0.45)] sm:mx-4 sm:rounded-3xl">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 border-b border-[#EFEDF5] px-5 py-4 sm:px-6 sm:py-5">
+              <div className="min-w-0">
+                <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">Billing</p>
+                <h3 className="mt-0.5 text-[18px] font-extrabold tracking-tight text-[#0F1222] sm:text-[20px]">Manage payment method</h3>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-[#4B5563]">
+                  Securely update or add a card. Changes are processed via Stripe.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={closeManagePaymentModal}
-                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
                 aria-label="Close"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#667085] transition-colors hover:bg-[#F4F1FB] hover:text-[#0F1222]"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
             </div>
-            <div className="px-6 pb-6 pt-2">
+
+            {/* Body — host PaymentMethodsPanel inside the wrapper modal. */}
+            <div className="max-h-[75vh] overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
               <PaymentMethodsPanel
                 title=""
                 wrapperClassName="space-y-4"
@@ -801,7 +893,8 @@ export default function DashboardPage() {
               />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

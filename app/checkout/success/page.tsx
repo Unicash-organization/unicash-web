@@ -4,6 +4,7 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
+import LoadingRing from '@/components/LoadingRing';
 
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
@@ -67,14 +68,7 @@ function CheckoutSuccessContent() {
   }, [sessionId, searchParams, router]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-          <p className="mt-4 text-gray-600">Verifying payment...</p>
-        </div>
-      </div>
-    );
+    return <LoadingRing fullscreen label="Verifying payment" />;
   }
 
   return (
@@ -142,14 +136,7 @@ function CheckoutSuccessContent() {
 
 export default function CheckoutSuccessPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<LoadingRing fullscreen label="Loading" />}>
       <CheckoutSuccessContent />
     </Suspense>
   );

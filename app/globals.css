@@ -2,6 +2,140 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   UNICASH Design System v4 — utilities, animations, and helpers
+   Used by the homepage v4 redesign. Additive — does not affect legacy classes.
+   ========================================================================== */
+
+@layer utilities {
+  /* Gold-gradient text — H2 emphasis word ("Real rewards.", "premium tier.", etc.) */
+  .uc-gold-gradient {
+    background: linear-gradient(180deg, #FFE2B0 0%, #F5B266 38%, #E78848 78%, #C8623E 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* Glow text shadow for hero headline */
+  .uc-glow-text {
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.15), 0 4px 22px rgba(0, 0, 0, 0.18);
+  }
+
+  /* Hero dot pattern overlay */
+  .uc-dot-stage {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  /* Faint purple dot texture for light section painted backgrounds */
+  .uc-dot-light {
+    background-image: radial-gradient(rgba(99, 86, 229, 1) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* Scroll-reveal fade-up base — relies on .uc-visible toggled via IntersectionObserver */
+  .uc-reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1), transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
+  }
+  .uc-reveal.uc-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Card hover lift */
+  .uc-lift {
+    transition:
+      transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .uc-lift:hover {
+    transform: translateY(-3px);
+  }
+  .uc-lift-sm {
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .uc-lift-sm:hover {
+    transform: translateY(-1px);
+  }
+  .uc-lift-sm:disabled:hover,
+  .uc-lift:disabled:hover {
+    transform: none;
+  }
+}
+
+/* Hero ambient blob motion */
+@keyframes uc-blob-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(38px, 56px) scale(1.06); }
+}
+@keyframes uc-blob-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-46px, -42px) scale(1.08); }
+}
+@keyframes uc-blob-c {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(22px, -28px) scale(1.04); }
+}
+.uc-blob-a { animation: uc-blob-a 14s ease-in-out infinite; }
+.uc-blob-b { animation: uc-blob-b 16s ease-in-out infinite; }
+.uc-blob-c { animation: uc-blob-c 12s ease-in-out infinite; }
+
+/* CTA pulse halo (Hero white CTA) */
+@keyframes uc-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35), 0 12px 32px -10px rgba(15, 18, 34, 0.4); }
+  50% { box-shadow: 0 0 0 14px rgba(255, 255, 255, 0), 0 12px 32px -10px rgba(15, 18, 34, 0.5); }
+}
+.uc-pulse { animation: uc-pulse 2.8s ease-in-out infinite; }
+
+/* Receipt scanning line on Fuel Rewards phone mockup */
+@keyframes uc-scan {
+  0%, 100% { transform: translateY(0); opacity: 0.7; }
+  50% { transform: translateY(72px); opacity: 0.95; }
+}
+.uc-scan { animation: uc-scan 2.6s ease-in-out infinite; }
+
+/* Bonus Draw progress bar shimmer (slides ONCE per trigger) */
+@keyframes uc-shimmer-bar {
+  0% { transform: translateX(-100%); opacity: 0; }
+  18% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { transform: translateX(180%); opacity: 0; }
+}
+.uc-shimmer-bar {
+  animation: uc-shimmer-bar 1.8s ease-out 1 forwards;
+  opacity: 0;
+}
+
+/* Float-idle helpers for hero render cluster */
+@keyframes uc-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes uc-float2 { 0%, 100% { transform: translateY(0) rotate(-6deg); } 50% { transform: translateY(-12px) rotate(-3deg); } }
+@keyframes uc-float3 { 0%, 100% { transform: translateY(0) rotate(8deg); } 50% { transform: translateY(-8px) rotate(12deg); } }
+.uc-float { animation: uc-float 5.6s ease-in-out infinite; }
+.uc-float2 { animation: uc-float2 6.4s ease-in-out infinite; }
+.uc-float3 { animation: uc-float3 5.2s ease-in-out infinite; animation-delay: -1.2s; }
+
+/* Drifting hero particles */
+@keyframes uc-particle {
+  0%, 100% { transform: translate(0, 0); opacity: 0.25; }
+  50% { transform: translate(8px, -34px); opacity: 0.55; }
+}
+.uc-particle { animation: uc-particle 9s ease-in-out infinite; }
+
+/* Reduced-motion respect — disable all v4 ambient motion */
+@media (prefers-reduced-motion: reduce) {
+  .uc-blob-a, .uc-blob-b, .uc-blob-c,
+  .uc-shimmer-bar, .uc-pulse, .uc-scan,
+  .uc-float, .uc-float2, .uc-float3,
+  .uc-particle {
+    animation: none;
+  }
+}
+
 @keyframes major-draw-cta-nudge {
   0%,
   100% {
@@ -29,10 +163,15 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
-/* Prevent horizontal scrolling */
+/* Prevent horizontal scrolling without breaking position: sticky.
+   `overflow-x: clip` (modern browsers) doesn't establish a scroll container,
+   so sticky descendants (e.g. the v4 Header) keep working. */
 html, body {
-  overflow-x: hidden;
+  overflow-x: clip;
   max-width: 100vw;
+}
+@supports not (overflow-x: clip) {
+  html, body { overflow-x: hidden; }
 }
 
 /* Ensure all containers respect viewport width */

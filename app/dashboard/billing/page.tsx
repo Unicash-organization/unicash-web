@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
+import LoadingRing from '@/components/LoadingRing';
 
 export default function BillingPage() {
   const { user } = useAuth();
@@ -83,8 +84,8 @@ export default function BillingPage() {
       <div className="bg-white rounded-2xl shadow-lg p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-6">Current Payment Method</h2>
         {loading ? (
-          <div className="text-center py-8">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+          <div className="flex justify-center py-8">
+            <LoadingRing size="sm" label="" />
           </div>
         ) : paymentMethod ? (
           <div className="space-y-4">

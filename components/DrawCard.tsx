@@ -28,6 +28,7 @@ interface DrawCardProps {
   title: string;
   image?: string;
   images?: Array<{ id?: string; url: string; order?: number; isPrimary?: boolean }>;
+  /** Backend field name kept for compatibility — UI displays "Points". */
   creditsPerEntry: number;
   entrants: number;
   cap: number;
@@ -35,6 +36,45 @@ interface DrawCardProps {
   state: string;
   requiresMembership?: boolean;
 }
+
+/* Inline SVG helpers (avoids extra deps) */
+const Icon = {
+  Coins: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M18.09 10.37A6 6 0 1 1 10.34 18" />
+      <path d="M7 6h1v4" />
+      <path d="m16.71 13.88.7.71-2.82 2.82" />
+    </svg>
+  ),
+  Users: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  ),
+  CalendarClock: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+      <circle cx="16" cy="16" r="6" />
+      <path d="M16 14v2l1 1" />
+    </svg>
+  ),
+  ArrowRight: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  ),
+  Bell: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    </svg>
+  ),
+};
 
 export default function DrawCard({
   id,
@@ -50,7 +90,6 @@ export default function DrawCard({
 }: DrawCardProps) {
   const displayImageUrl = getDisplayImageUrl({ image, images });
   const { user } = useAuth();
-  const [isHovered, setIsHovered] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [hasEntered, setHasEntered] = useState(false);
@@ -60,22 +99,32 @@ export default function DrawCard({
   const [addingToWaitlist, setAddingToWaitlist] = useState(false);
   const [membership, setMembership] = useState<any>(null);
   const [checkingMembership, setCheckingMembership] = useState(false);
+  /* Tracks whether membership status has been resolved at least once.
+     Prevents flashing membership warnings during the ~1-2s async fetch window. */
+  const [membershipReady, setMembershipReady] = useState(false);
 
   useEffect(() => {
     setTimeRemaining(formatTimeRemaining(closedAt));
     const interval = setInterval(() => {
       setTimeRemaining(formatTimeRemaining(closedAt));
-    }, 60000); // Update every minute
-
+    }, 60000);
     return () => clearInterval(interval);
   }, [closedAt]);
 
   useEffect(() => {
-    if (user && id) {
+    // No user → mark membership as resolved (nothing to check) so warnings don't flash
+    if (!user) {
+      setMembershipReady(true);
+      return;
+    }
+    if (id) {
       checkUserEntry();
       checkWaitlistStatus();
       if (requiresMembership) {
         checkMembership();
+      } else {
+        // Draw doesn't require membership — no fetch needed
+        setMembershipReady(true);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,16 +166,15 @@ export default function DrawCard({
       console.error('Error checking membership:', error);
     } finally {
       setCheckingMembership(false);
+      setMembershipReady(true);
     }
   };
 
   const handleAddToWaitlist = async () => {
     if (!user) {
-      // Redirect to login
       window.location.href = '/login';
       return;
     }
-
     setAddingToWaitlist(true);
     try {
       await api.waitlist.add(id);
@@ -153,217 +201,350 @@ export default function DrawCard({
     }
   };
 
-  // Check if draw is closed based on closedAt date, not just state
+  /* ---- Status logic — preserved ---- */
   const isClosedByDate = new Date(closedAt) < new Date();
-  // Skip sold out check if unlimited capacity (cap = -1)
-  const status: 'open' | 'soldOut' | 'closed' | 'canceled' = 
+  const status: 'open' | 'soldOut' | 'closed' | 'canceled' =
     state === 'canceled' ? 'canceled'
-    : cap !== -1 && (state === 'soldOut' || entrants >= cap) ? 'soldOut' 
-    : state === 'closed' || isClosedByDate ? 'closed' 
+    : cap !== -1 && (state === 'soldOut' || entrants >= cap) ? 'soldOut'
+    : state === 'closed' || isClosedByDate ? 'closed'
     : 'open';
 
-  const getButtonText = () => {
-    switch (status) {
-      case 'canceled':
-        return 'Canceled';
-      case 'soldOut':
-        return 'Sold Out';
-      case 'closed':
-        return 'Closed';
-      default:
-        return 'Enter Now';
-    }
-  };
-
-  const getButtonClass = () => {
-    switch (status) {
-      case 'canceled':
-      case 'soldOut':
-      case 'closed':
-        return 'bg-gray-300 text-gray-600 cursor-not-allowed';
-      default:
-        return 'btn-primary';
-    }
-  };
-
-  // Check if user has active membership for bonus draws
-  // Mirror backend DrawsService.enterDraw logic:
-  // - Block if status !== 'active'
-  // - Block if isPaused === true
-  // - Block if currentPeriodEnd exists AND is in the past
+  /* Membership entry-eligibility — mirrors backend DrawsService.enterDraw */
   const isCanceled = membership?.status === 'canceled';
-  const periodEnded =
-    membership?.currentPeriodEnd &&
-    new Date(membership.currentPeriodEnd) < new Date();
-
+  const periodEnded = membership?.currentPeriodEnd && new Date(membership.currentPeriodEnd) < new Date();
   const hasActiveMembership =
-    !!membership &&
-    !isCanceled &&
-    membership.status === 'active' &&
-    !membership.isPaused &&
-    !periodEnded;
-
+    !!membership && !isCanceled && membership.status === 'active' && !membership.isPaused && !periodEnded;
   const canEnterBonusDraw = !requiresMembership || hasActiveMembership;
 
-  // Debug logging
-  if (requiresMembership && user) {
-    console.log('DrawCard Debug:', {
-      drawId: id,
-      requiresMembership,
-      membership: membership,
-      isPaused: membership?.isPaused,
-      status: membership?.status,
-      hasActiveMembership,
-      canEnterBonusDraw
+  /* ---- v4 visual derivations ---- */
+  const pct = cap === -1 ? 0 : Math.min(100, Math.round((entrants / cap) * 100));
+  const pointsLabel = `${creditsPerEntry.toLocaleString()} Points`;
+
+  /* v4 closing-date format: "Ends 28 May · 8:00 PM AEST" — date + time + tz abbreviation.
+     Uses Australia/Sydney as the canonical UNICASH timezone (AEST/AEDT auto). */
+  const closingLabel = React.useMemo(() => {
+    const d = new Date(closedAt);
+    if (isNaN(d.getTime())) return '';
+    const verb = new Date() > d ? 'Closed' : 'Ends';
+    const datePart = d.toLocaleDateString('en-AU', {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'Australia/Sydney',
     });
-  }
+    const timePart = d.toLocaleTimeString('en-AU', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Australia/Sydney',
+      timeZoneName: 'short',
+    });
+    return `${verb} ${datePart} · ${timePart}`;
+  }, [closedAt]);
 
+  /* Animated progress fill — fills from 0 to pct when the bar scrolls into view,
+     and re-triggers the one-shot shimmer sweep via a remount key. */
+  const progressRef = React.useRef<HTMLDivElement>(null);
+  const [progressW, setProgressW] = React.useState(0);
+  const [shimmerKey, setShimmerKey] = React.useState(0);
+  React.useEffect(() => {
+    const target = pct;
+    const el = progressRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) {
+          setProgressW(target);
+          setShimmerKey((k) => k + 1);
+          io.disconnect();
+        }
+      },
+      { rootMargin: '-40px' }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [pct]);
+
+  const navigate = () => {
+    window.location.href = `/giveaways/${id}`;
+  };
+  const onCardKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      navigate();
+    }
+  };
+
+  /* CTA renderer — preserves all original branches.
+     All buttons use `w-full min-w-0` + `truncate` on text for safe rendering
+     when stacked (mobile/sm 2-col) or compressed (md+ grid 1fr column). */
+  const ctaBaseCls =
+    'uc-lift-sm inline-flex h-11 w-full min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-[13px] font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356e5] focus-visible:ring-offset-2';
+
+  const renderCta = () => {
+    if (hasEntered) {
+      return (
+        <button
+          type="button"
+          disabled
+          aria-label={`You have entered ${title}`}
+          className={`${ctaBaseCls} bg-[#E5F7EE] text-[#1F7A37]`}
+        >
+          <span className="truncate">✓ Entered</span>
+        </button>
+      );
+    }
+
+    if (status === 'open') {
+      // Show "Checking…" while async fetches are in-flight or membership not yet resolved.
+      const stillResolving =
+        checkingEntry ||
+        checkingMembership ||
+        (requiresMembership && !!user && !membershipReady);
+
+      if (stillResolving) {
+        return (
+          <button
+            type="button"
+            disabled
+            aria-label={`Checking eligibility for ${title}`}
+            className={`${ctaBaseCls} bg-[#F4F1FB] text-[#a3a8be] cursor-not-allowed`}
+          >
+            <span className="truncate">Checking…</span>
+          </button>
+        );
+      }
+
+      // Membership cancelled → link to membership plans page (pick plan to start fresh)
+      if (requiresMembership && isCanceled) {
+        return (
+          <Link
+            href="/#membership-plans"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Reactivate membership to enter ${title}`}
+            className={`${ctaBaseCls} bg-[#6356e5] text-white shadow-[0_10px_24px_-12px_rgba(99,86,229,0.6)] hover:bg-[#5346d6]`}
+          >
+            <span className="truncate">Reactivate</span>
+            <Icon.ArrowRight className="h-3.5 w-3.5 shrink-0" />
+          </Link>
+        );
+      }
+
+      // Membership paused → link to dashboard membership (resume)
+      if (requiresMembership && membership?.isPaused) {
+        return (
+          <Link
+            href="/dashboard/membership"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Resume membership to enter ${title}`}
+            className={`${ctaBaseCls} bg-[#6356e5] text-white shadow-[0_10px_24px_-12px_rgba(99,86,229,0.6)] hover:bg-[#5346d6]`}
+          >
+            <span className="truncate">Resume Membership</span>
+            <Icon.ArrowRight className="h-3.5 w-3.5 shrink-0" />
+          </Link>
+        );
+      }
+
+      // Membership required (no active membership) → link to membership plans
+      if (requiresMembership && !canEnterBonusDraw) {
+        return (
+          <Link
+            href="/#membership-plans"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Join to access ${title}`}
+            className={`${ctaBaseCls} bg-[#6356e5] text-white shadow-[0_10px_24px_-12px_rgba(99,86,229,0.6)] hover:bg-[#5346d6]`}
+          >
+            <span className="truncate">Join to Access</span>
+            <Icon.ArrowRight className="h-3.5 w-3.5 shrink-0" />
+          </Link>
+        );
+      }
+
+      // Available — open ConfirmEntryModal (preserved logic)
+      return (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            setShowConfirmModal(true);
+          }}
+          aria-label={`Enter Bonus Draw · ${title}`}
+          className={`${ctaBaseCls} bg-[#6356e5] text-white shadow-[0_10px_24px_-12px_rgba(99,86,229,0.6)] hover:bg-[#5346d6]`}
+        >
+          <span className="truncate">Enter Bonus Draw</span>
+          <Icon.ArrowRight className="h-3.5 w-3.5 shrink-0" />
+        </button>
+      );
+    }
+
+    /* Sold-out — disabled "Full" (no waitlist; matches detail page Option B). */
+    if (status === 'soldOut') {
+      return (
+        <button
+          type="button"
+          disabled
+          aria-label={`${title} is full`}
+          className={`${ctaBaseCls} bg-[#F4F1FB] text-[#a3a8be] cursor-not-allowed`}
+        >
+          <span className="truncate">Full</span>
+        </button>
+      );
+    }
+
+    /* Closed / canceled — draw has ended permanently. */
+    return (
+      <button
+        type="button"
+        disabled
+        aria-label={`Closed: ${title}`}
+        className={`${ctaBaseCls} bg-[#F4F1FB] text-[#a3a8be] cursor-not-allowed`}
+      >
+        <span className="truncate">Closed</span>
+      </button>
+    );
+  };
+
+  /* Status badge — top-left of image */
+  const renderStatusBadge = () => {
+    if (hasEntered) {
+      return (
+        <span className="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-[#E5F7EE] px-2.5 py-1 text-[11px] font-semibold text-[#1F7A37]">
+          ✓ Entered
+        </span>
+      );
+    }
+    if (requiresMembership && !hasActiveMembership && user) {
+      return (
+        <span className="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#6356E5] backdrop-blur">
+          Members-only
+        </span>
+      );
+    }
+    if (status === 'soldOut') {
+      return (
+        <span className="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#0f1222] backdrop-blur">
+          Full
+        </span>
+      );
+    }
+    if (status === 'closed' || status === 'canceled') {
+      return (
+        <span className="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#667085] backdrop-blur">
+          Closed
+        </span>
+      );
+    }
+    return null;
+  };
+
+  /* ---------------------------------------------------------------------
+     JSX — v4 DrawCard layout
+  --------------------------------------------------------------------- */
   return (
-    <div
-      className="card overflow-hidden"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+    <article
+      role="link"
+      tabIndex={0}
+      aria-label={`View details for ${title}`}
+      onClick={navigate}
+      onKeyDown={onCardKeyDown}
+      className="group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-3xl border border-[#E7E9F2] bg-white shadow-[0_1px_2px_rgba(15,18,34,.04)] transition-all duration-300 hover:-translate-y-1 hover:border-[#C9C0F2] hover:shadow-[0_30px_60px_-30px_rgba(99,86,229,.30),0_8px_24px_-12px_rgba(15,18,34,.10)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6356E5]"
     >
-      {/* Image */}
-      <Link href={`/giveaways/${id}`}>
-        <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
-          {requiresMembership && (
-            <div className="absolute top-3 left-3 z-10">
-              <span className="bg-accent-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
-                💎 Bonus Draw
-              </span>
-            </div>
-          )}
-          <div className="absolute top-3 right-3 z-10">
-            <span className="bg-green-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
-              🎁 State
-            </span>
-          </div>
-          {displayImageUrl ? (
-            <Image
-              src={displayImageUrl}
-              alt={title}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 33vw"
-              unoptimized
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400 text-6xl">
-              🎁
-            </div>
-          )}
-        </div>
-      </Link>
+      {/* Image area */}
+      <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-[#1B1B22] via-[#2A2A38] to-[#4B4DBD]">
+        {/* Soft texture */}
+        <div aria-hidden className="absolute inset-0 opacity-[0.18]" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,.55) 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+        {/* Top highlight + bottom shadow gradients */}
+        <div aria-hidden className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/14 to-transparent" />
+        <div aria-hidden className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />
 
-      {/* Content */}
-      <div className="p-4">
-        <Link href={`/giveaways/${id}`}>
-          <h3 className="font-bold text-lg mb-2 hover:text-accent-500 transition line-clamp-2">
-            {title}
-          </h3>
-        </Link>
+        {renderStatusBadge()}
 
-        <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
-          <span className="font-semibold text-accent-500">{creditsPerEntry} Credit = 1 entry</span>
-        </div>
+        {/* Time-left chip — bottom-right of image */}
+        {status === 'open' && timeRemaining && (
+          <span className="absolute bottom-3 right-3 z-10 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#0f1222] backdrop-blur">
+            {timeRemaining}
+          </span>
+        )}
 
-        <div className="mb-3">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>{entrants}/{cap === -1 ? '∞' : cap} entrants</span>
-            <span>time left: {timeRemaining}</span>
-          </div>
-          {cap !== -1 && (
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-accent-500 h-2 rounded-full transition-all"
-                style={{ width: `${(entrants / cap) * 100}%` }}
-              />
-            </div>
-          )}
-          {cap === -1 && (
-            <p className="text-xs text-gray-400 italic">Unlimited entries</p>
-          )}
-        </div>
-
-        {hasEntered ? (
-          <div className="w-full py-2 px-4 rounded-lg bg-green-50 border border-green-200 text-center">
-            <p className="text-sm text-green-800 font-semibold">✓ You've entered this draw</p>
-          </div>
-        ) : status === 'open' ? (
-          <>
-            {requiresMembership && !canEnterBonusDraw && user && (
-              <div className="w-full mb-2 py-2 px-3 rounded-lg bg-orange-50 border border-orange-200 text-center">
-                <p className="text-xs text-orange-800">
-                  {isCanceled ? '🚫 Membership cancelled' : membership?.isPaused ? '⏸️ Membership paused' : '💎 Active membership required'}
-                </p>
-              </div>
-            )}
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                // ✅ Block click if canceled membership or cannot enter
-                if (requiresMembership && !canEnterBonusDraw) {
-                  return;
-                }
-                setShowConfirmModal(true);
-              }}
-              className={`w-full py-2 px-4 rounded-lg font-semibold transition ${
-                requiresMembership && !canEnterBonusDraw ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : getButtonClass()
-              }`}
-              disabled={checkingEntry || checkingMembership || (requiresMembership && !canEnterBonusDraw)}
-            >
-              {checkingEntry || checkingMembership ? 'Checking...' : getButtonText()}
-            </button>
-          </>
-        ) : (status === 'soldOut' || status === 'closed') && user ? (
-          <div className="space-y-2">
-            <div className="w-full py-2 px-4 rounded-lg bg-gray-100 text-gray-600 text-center text-sm">
-              {getButtonText()}
-            </div>
-            {isOnWaitlist ? (
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleRemoveFromWaitlist();
-                }}
-                className="w-full py-2 px-4 rounded-lg font-semibold transition bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
-                disabled={addingToWaitlist || checkingWaitlist}
-              >
-                {addingToWaitlist ? 'Removing...' : '✓ On Waitlist - Click to Remove'}
-              </button>
-            ) : (
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleAddToWaitlist();
-                }}
-                className="w-full py-2 px-4 rounded-lg font-semibold transition bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200"
-                disabled={addingToWaitlist || checkingWaitlist}
-              >
-                {addingToWaitlist ? 'Adding...' : checkingWaitlist ? 'Checking...' : '🔔 Get Notified'}
-              </button>
-            )}
-          </div>
-        ) : (status === 'soldOut' || status === 'closed') && !user ? (
-          <div className="space-y-2">
-            <div className="w-full py-2 px-4 rounded-lg bg-gray-100 text-gray-600 text-center text-sm">
-              {getButtonText()}
-            </div>
-            <Link href="/login" className="block">
-              <button className="w-full py-2 px-4 rounded-lg font-semibold transition bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200">
-                🔔 Get Notified
-              </button>
-            </Link>
-          </div>
+        {displayImageUrl ? (
+          <Image
+            src={displayImageUrl}
+            alt=""
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            sizes="(max-width: 768px) 100vw, 33vw"
+            unoptimized
+          />
         ) : (
-          <div className="w-full py-2 px-4 rounded-lg bg-gray-100 text-gray-600 text-center text-sm">
-            {getButtonText()}
-          </div>
+          <div className="flex h-full w-full items-center justify-center text-6xl text-white/30">🎁</div>
         )}
       </div>
 
-      {/* Confirm Entry Modal */}
+      {/* Body */}
+      <div className="flex flex-1 flex-col p-5 sm:p-6">
+        {/* Title */}
+        <h3 className="text-[17px] font-extrabold leading-tight tracking-tight text-[#0F1222] sm:text-[18px]">
+          {title}
+        </h3>
+
+        {/* Entry rule */}
+        <p className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] text-[#667085]">
+          <Icon.Users className="h-3.5 w-3.5 text-[#6356E5]" />
+          Max 1 entry per member
+        </p>
+
+        {/* Member progress */}
+        {cap !== -1 ? (
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-[12px]">
+              <span className="text-[#4B5563]">
+                <span className="font-semibold text-[#0f1222] tabular-nums">{entrants.toLocaleString()}</span>
+                <span className="text-[#667085]"> / {cap.toLocaleString()} members joined</span>
+              </span>
+              <span className="rounded-full bg-[#F4F1FB] px-2 py-0.5 text-[11px] font-bold tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF]">{pct}%</span>
+            </div>
+            <div ref={progressRef} className="mt-2.5 h-2.5 w-full overflow-hidden rounded-full bg-[#eceaf7] ring-1 ring-inset ring-[#E0DAFF]/60">
+              <div
+                className="relative h-full overflow-hidden rounded-full bg-gradient-to-r from-[#6356e5] to-[#8a7bff] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] transition-[width] duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+                style={{ width: `${progressW}%` }}
+              >
+                {/* One-shot shimmer sweep — re-mounts via key to retrigger animation */}
+                {progressW > 0 && (
+                  <span
+                    key={shimmerKey}
+                    aria-hidden
+                    className="uc-shimmer-bar absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/70 to-transparent"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-4 text-[12px] italic text-[#667085]">Unlimited entries</p>
+        )}
+
+        {/* Closing date — v4 format: "Ends 28 May · 8:00 PM AEST" */}
+        <p className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-lg bg-[#FBFAFF] px-2.5 py-1.5 text-[12px] font-medium text-[#4B5563] ring-1 ring-[#EFEDF5]">
+          <Icon.CalendarClock className="h-3.5 w-3.5 text-[#6356E5]" />
+          {closingLabel}
+        </p>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* CTA row — Points chip + action button.
+            Stacks vertically below md (mobile + sm 2-col where each card is narrow);
+            switches to horizontal grid at md+ where card has enough width for both. */}
+        <div className="mt-5 flex flex-col gap-2 md:grid md:grid-cols-[auto_minmax(0,1fr)] md:items-stretch">
+          <span className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F1FB] px-3.5 text-[12.5px] font-extrabold tracking-tight tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF] md:w-auto">
+            <Icon.Coins className="h-3.5 w-3.5 shrink-0" />
+            {pointsLabel}
+          </span>
+          {renderCta()}
+        </div>
+      </div>
+
+      {/* Confirm Entry Modal — preserved */}
       <ConfirmEntryModal
         isOpen={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
@@ -378,11 +559,9 @@ export default function DrawCard({
           requiresMembership,
         }}
         onSuccess={() => {
-          // Optionally refresh data or update UI
           window.location.reload();
         }}
       />
-    </div>
+    </article>
   );
 }
-

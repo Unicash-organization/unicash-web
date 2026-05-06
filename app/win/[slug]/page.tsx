@@ -11,6 +11,7 @@ import NewsletterSection from '@/components/NewsletterSection';
 import LandingPrizeSlider from '@/components/LandingPrizeSlider';
 import GiveawayDetailCards from '@/components/GiveawayDetailCards';
 import LandingInclusionsPanel from '@/components/LandingInclusionsPanel';
+import LoadingRing from '@/components/LoadingRing';
 
 type LandingPackage = {
   id?: string;
@@ -159,7 +160,7 @@ export default function MajorDrawWinPage() {
   if (loading) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
+        <LoadingRing label="" />
       </div>
     );
   }

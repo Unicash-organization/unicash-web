@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import UpdateCardModal from '@/components/UpdateCardModal';
+import LoadingRing from '@/components/LoadingRing';
 
 export type PaymentMethodRow = {
   id: string;
@@ -146,8 +147,8 @@ export default function PaymentMethodsPanel({
       <div className={wrapperClassName}>
         {title ? <h2 className="text-xl font-bold text-gray-900 mb-6">{title}</h2> : null}
         {loading ? (
-          <div className="text-center py-8">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" />
+          <div className="flex justify-center py-8">
+            <LoadingRing size="sm" label="" />
           </div>
         ) : (
           <div className="space-y-4">

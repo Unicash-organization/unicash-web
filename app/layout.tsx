@@ -1,13 +1,12 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
-import ScrollToTop from '@/components/ScrollToTop'
+import SiteChrome from '@/components/SiteChrome'
+import ToastProvider from '@/components/ToastProvider'
 import { AuthProvider } from '@/contexts/AuthContext'
 
 export const metadata: Metadata = {
-  title: 'UniCash - Fair rewards. Real winners.',
-  description: 'Australia\'s first verified rewards platform built on transparency and fairness.',
+  title: 'UNICASH — Premium Australian Membership rewards',
+  description: 'Earn Points from eligible receipts, top up with Point Boosters, and access member-only Bonus Draws. A premium Australian Membership rewards platform.',
 }
 
 export default function RootLayout({
@@ -16,16 +15,17 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="overflow-x-hidden">
-      <body className="min-h-screen bg-gray-50 overflow-x-hidden">
+    <html lang="en-AU">
+      <body className="min-h-screen bg-white text-[#0f1222]">
         <AuthProvider>
-          <Header />
-          <main className="overflow-x-hidden pt-16">{children}</main>
-          <Footer />
-          <ScrollToTop />
+          {/* SiteChrome conditionally renders PromoBanner + Header + Footer + ScrollToTop
+              for normal pages, and bare-main for focused flows like /checkout. */}
+          <SiteChrome>{children}</SiteChrome>
+          {/* Custom v4-branded toast system — replaces SweetAlert2.
+              Mounted once at root; subscribes to events from showToast(). */}
+          <ToastProvider />
         </AuthProvider>
       </body>
     </html>
   )
 }
-

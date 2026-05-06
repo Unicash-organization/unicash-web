@@ -15,6 +15,7 @@ import ScrollReveal from '@/components/ScrollReveal';
 import LandingPrizeSlider from '@/components/LandingPrizeSlider';
 import GiveawayDetailCards from '@/components/GiveawayDetailCards';
 import LandingInclusionsPanel from '@/components/LandingInclusionsPanel';
+import LoadingRing from '@/components/LoadingRing';
 
 const RICH_HTML =
   'text-gray-700 text-sm sm:text-base leading-relaxed [&_a]:text-indigo-600 [&_a]:underline [&_p]:mb-3 last:[&_p]:mb-0 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-semibold [&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-2';
@@ -192,7 +193,7 @@ export default function MembershipLandingPage() {
   if (loading) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600" />
+        <LoadingRing label="" />
       </div>
     );
   }
@@ -257,7 +258,7 @@ export default function MembershipLandingPage() {
 
         {authLoading ? (
           <div className="flex justify-center py-16 mb-10">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-600" />
+            <LoadingRing size="sm" label="" />
           </div>
         ) : user ? (
           <div className="max-w-2xl mx-auto mb-10 rounded-2xl border border-purple-200 bg-white/90 px-6 py-10 text-center shadow-md">
