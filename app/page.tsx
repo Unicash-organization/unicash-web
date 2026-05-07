@@ -283,11 +283,6 @@ function Hero() {
     { Icon: Icon.Gift, label: 'Bonus Draws' },
     { Icon: Icon.Fuel, label: 'Fuel Rewards' },
   ];
-  const featurePillsMobile = [
-    { Icon: Icon.Coins, label: 'Points' },
-    { Icon: Icon.Gift, label: 'Draws' },
-    { Icon: Icon.Fuel, label: 'Fuel' },
-  ];
   const trustClaimsDesktop = ['Published Winners', 'Clear Limits', 'Secure Checkout', 'Cancel Anytime'];
   const trustClaimsMobile = ['Published Winners', 'Secure Checkout', 'Cancel Anytime'];
 
@@ -370,16 +365,8 @@ function Hero() {
             </p>
           </ScrollReveal>
 
-          {/* Feature pills — separate mobile/desktop blocks for shorter mobile labels */}
+          {/* Feature pills — desktop only (mobile hides for compact hero) */}
           <ScrollReveal delay={360}>
-            <div className="mt-7 flex flex-wrap gap-2 sm:hidden">
-              {featurePillsMobile.map(({ Icon: I, label }) => (
-                <span key={label} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[13px] font-medium text-white/85 backdrop-blur">
-                  <I className="h-3.5 w-3.5 text-[#FFE2B0]" />
-                  {label}
-                </span>
-              ))}
-            </div>
             <div className="mt-7 hidden flex-wrap gap-2 sm:flex">
               {featurePillsDesktop.map(({ Icon: I, label }) => (
                 <span key={label} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[13px] font-medium text-white/85 backdrop-blur">
@@ -476,7 +463,7 @@ function HowItWorks() {
       />
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#6356e5]/35 to-transparent" />
 
-      <div className="relative mx-auto max-w-7xl px-6 py-16 sm:py-24 lg:px-8">
+      <div className="relative mx-auto max-w-7xl px-6 py-12 sm:py-24 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <ScrollReveal><Eyebrow>How it works</Eyebrow></ScrollReveal>
           <ScrollReveal delay={60} as="h2" className="mt-3 text-[28px] font-extrabold leading-[1.1] tracking-tight text-[#0f1222] sm:text-[36px] md:text-[44px]">
@@ -488,15 +475,15 @@ function HowItWorks() {
         </div>
 
         <div className="relative mt-10 sm:mt-14">
-          {/* Mobile-only vertical connector — aligns with icon centre (px-5 grid + p-6 card + icon-w/2 = 64px) */}
-          <div aria-hidden className="absolute left-16 top-6 bottom-6 w-px bg-gradient-to-b from-[#6356e5]/40 via-[#6356e5]/20 to-transparent md:hidden" />
-
-          <div className="grid grid-cols-1 gap-5 px-5 md:grid-cols-3 md:gap-6 md:px-0">
+          {/* Mobile: horizontal swipe carousel — cards become snap-start, peek of next card visible.
+              md+: standard 3-column grid (no swipe). The negative-mx + matching px lets cards swipe edge-to-edge
+              while keeping consistent left padding for the first card. */}
+          <div className="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pt-2 pb-8 scroll-px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:grid md:grid-cols-3 md:gap-6 md:overflow-visible md:p-0">
             {steps.map((s, i) => (
               <ScrollReveal
                 key={s.n}
                 delay={i * 90}
-                className="uc-lift relative flex flex-col rounded-3xl bg-white p-6 ring-1 ring-[#E7E2F4]/60 shadow-[0_10px_28px_-12px_rgba(99,86,229,.20)] hover:ring-[#D8D0F7] hover:shadow-[0_24px_50px_-30px_rgba(15,18,34,.25)] sm:p-7"
+                className="relative flex w-[82%] shrink-0 snap-start flex-col rounded-3xl bg-white p-6 ring-1 ring-[#E7E2F4]/60 shadow-[0_10px_28px_-12px_rgba(99,86,229,.20)] transition-shadow duration-300 sm:w-[60%] md:w-auto md:shrink md:snap-none md:hover:ring-[#D8D0F7] md:hover:shadow-[0_24px_50px_-30px_rgba(15,18,34,.25)] sm:p-7"
               >
                 <div className="flex items-center justify-between">
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-[#F0EDFB] text-[#6356e5] ring-1 ring-[#E0DAFF] ring-offset-2 ring-offset-white sm:h-11 sm:w-11">
@@ -515,7 +502,7 @@ function HowItWorks() {
           </div>
         </div>
 
-        <ScrollReveal delay={300}>
+        <ScrollReveal delay={300} className="hidden sm:block">
           <p className="mx-auto mt-8 max-w-xl text-center text-[12.5px] leading-relaxed text-[#667085] sm:mt-12 sm:text-[14px]">
             Built for everyday value, clear limits, and published Winners.
           </p>
@@ -559,7 +546,7 @@ function FuelRewards() {
       />
       <div aria-hidden className="uc-dot-light absolute inset-0 opacity-[0.03]" />
 
-      <div className="relative mx-auto max-w-7xl px-6 py-14 sm:py-24 lg:px-8">
+      <div className="relative mx-auto max-w-7xl px-6 py-10 sm:py-24 lg:px-8">
         <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#FBFAFF] via-white to-[#FFF8E8] p-6 ring-1 ring-[#E0DAFF]/50 shadow-[0_30px_80px_-50px_rgba(99,86,229,.18)] sm:p-10 lg:p-14">
           {/* Inner warm glows */}
           <div aria-hidden className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#FFE2B0]/35 blur-3xl" />
@@ -862,7 +849,7 @@ function Boosters() {
       />
       <div aria-hidden className="uc-dot-light absolute inset-0 opacity-[0.04]" />
 
-      <div className="relative mx-auto max-w-7xl px-6 py-14 sm:py-24 lg:px-8">
+      <div className="relative mx-auto max-w-7xl px-6 py-10 sm:py-24 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <ScrollReveal><Eyebrow>Point Boosters</Eyebrow></ScrollReveal>
           <ScrollReveal delay={60} as="h2" className="mt-3 text-[28px] font-extrabold leading-[1.1] tracking-tight text-[#0f1222] sm:text-[36px] md:text-[44px]">
@@ -905,7 +892,7 @@ function Faq() {
 
   return (
     <section id="faq" className="w-full bg-[#FBFAFF]">
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 px-6 py-14 sm:py-24 md:grid-cols-12 lg:px-8">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 px-6 py-10 sm:py-24 md:grid-cols-12 lg:px-8">
         <div className="md:col-span-4">
           <ScrollReveal><Eyebrow>FAQ</Eyebrow></ScrollReveal>
           <ScrollReveal delay={60} as="h2" className="mt-3 text-[28px] font-extrabold leading-[1.1] tracking-tight text-[#0f1222] sm:text-[36px] md:text-[44px]">
@@ -1133,7 +1120,7 @@ export default function Home() {
         <div aria-hidden className="pointer-events-none absolute right-[-12%] top-1/3 h-[360px] w-[360px] rounded-full bg-[#FFE2B0]/14 blur-[120px]" />
         <div aria-hidden className="pointer-events-none absolute left-[-8%] bottom-0 h-[320px] w-[320px] rounded-full bg-[#6356e5]/10 blur-[120px]" />
 
-        <div className="relative mx-auto max-w-7xl px-6 py-14 sm:py-24 lg:px-8">
+        <div className="relative mx-auto max-w-7xl px-6 py-10 sm:py-24 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <ScrollReveal><Eyebrow>Membership Plans</Eyebrow></ScrollReveal>
             <ScrollReveal delay={60} as="h2" className="mt-3 text-[32px] font-extrabold leading-[1.1] tracking-tight text-[#0f1222] sm:text-[44px] md:text-[52px]">
@@ -1207,9 +1194,6 @@ export default function Home() {
                 </div>
               </div>
             </ScrollReveal>
-            <p className="mx-auto mt-4 max-w-md px-2 text-center text-[12px] leading-relaxed text-[#667085]">
-              Points refresh monthly. Point Boosters are one-time — Booster Points never expire.
-            </p>
           </div>
 
           {/* DESKTOP — full chips with icons + larger payments + full footer copy */}
@@ -1267,14 +1251,14 @@ export default function Home() {
         />
         <div aria-hidden className="uc-dot-light absolute inset-0 opacity-[0.04]" />
 
-        <div className="relative mx-auto max-w-7xl px-6 py-16 sm:py-24 lg:px-8">
+        <div className="relative mx-auto max-w-7xl px-6 py-12 sm:py-24 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <ScrollReveal><Eyebrow>Bonus Draws</Eyebrow></ScrollReveal>
             <ScrollReveal delay={60} as="h2" className="mt-3 text-[28px] font-extrabold leading-[1.1] tracking-tight text-[#0f1222] sm:text-[36px] md:text-[44px]">
               Use Points. Join <span className="uc-gold-gradient">member-only rewards.</span>
             </ScrollReveal>
             <ScrollReveal delay={120} as="p" className="mx-auto mt-3 max-w-xl text-[14.5px] leading-relaxed text-[#4b5563] sm:text-[15.5px]">
-              Every Bonus Draw clearly shows the Points needed, member limit, closing time, and published outcome.
+              Transparent by design. Points, limits, and Winners — shown for every Bonus Draw.
             </ScrollReveal>
           </div>
 
@@ -1302,7 +1286,7 @@ export default function Home() {
             </div>
           ) : (
             <>
-              <div className="mt-10 grid grid-cols-1 gap-6 px-5 sm:mt-14 sm:grid-cols-2 sm:px-0 lg:grid-cols-3 lg:gap-6">
+              <div className="mt-10 grid grid-cols-1 gap-6 sm:mt-14 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
                 {draws.map((draw: any, i: number) => (
                   <ScrollReveal
                     key={draw.id}
