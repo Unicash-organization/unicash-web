@@ -304,6 +304,25 @@ export const api = {
     listPaymentMethods: () => apiClient.get<{ id: string; brand: string; last4: string; exp_month: number; exp_year: number; isDefault: boolean }[]>('/payments/payment-methods/me'),
     retryFailedInvoice: () => apiClient.post('/payments/retry-failed-invoice'),
   },
+
+  // Receipts (Scan Receipts feature — Phase 2 skeleton)
+  // Backend endpoints are member-only via JwtAuthGuard + ActiveMemberGuard.
+  // 401 → handled by global response interceptor (clears token).
+  // 403 with `code: 'MEMBERSHIP_REQUIRED'` propagates as a normal axios error;
+  //   callers detect via `error.response?.data?.code === 'MEMBERSHIP_REQUIRED'`.
+  receipts: {
+    upload: (file: File, idempotencyKey?: string) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const headers: Record<string, string> = { 'Content-Type': 'multipart/form-data' };
+      if (idempotencyKey) headers['idempotency-key'] = idempotencyKey;
+      return apiClient.post<{ id: string; status: string; message: string }>('/receipts/upload', formData, { headers });
+    },
+    getMyReceipts: (params?: { status?: string; page?: number; limit?: number }) =>
+      apiClient.get<{ items: any[]; page: number; limit: number; total: number }>('/receipts/me', { params }),
+    getById: (id: string) =>
+      apiClient.get<any>(`/receipts/${id}`),
+  },
 };
 
 export default api;

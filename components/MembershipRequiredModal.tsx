@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
+export type MembershipRequiredContext = 'scan-receipts' | 'bonus-draw' | 'major-draw' | 'default';
+
 interface MembershipRequiredModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -11,6 +13,16 @@ interface MembershipRequiredModalProps {
   message?: string;
   isPaused?: boolean;
   isCancelled?: boolean;
+  /** Feature context that drives copy. Omit/'default' preserves existing boost-pack copy. */
+  context?: MembershipRequiredContext;
+  /** Backend user.state — used to vary copy for past-due / canceled / etc. */
+  userState?:
+    | 'NON_MEMBER'
+    | 'INCOMPLETE'
+    | 'MEMBER_PAST_DUE'
+    | 'MEMBER_PAYMENT_FAILED'
+    | 'MEMBER_CANCELED'
+    | string;
 }
 
 /* -----------------------------------------------------------------------
@@ -61,6 +73,8 @@ export default function MembershipRequiredModal({
   message,
   isPaused = false,
   isCancelled = false,
+  context = 'default',
+  userState,
 }: MembershipRequiredModalProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -81,6 +95,53 @@ export default function MembershipRequiredModal({
      - onClose called before navigation
   ------------------------------------------------------------------ */
   const getModalContent = () => {
+    /* -------- context: scan-receipts ------------------------------------
+       Phase 2 entry-point gating for the Scan Receipts feature.
+       Copy varies by `userState` returned from backend (memberActive
+       users never reach this modal — gating happens in MobileBottomNav).
+    -------------------------------------------------------------------- */
+    if (context === 'scan-receipts') {
+      if (userState === 'MEMBER_PAST_DUE' || userState === 'MEMBER_PAYMENT_FAILED') {
+        return {
+          Icon: RefreshIcon,
+          title: 'Update your payment',
+          body: 'Update your payment to keep scanning receipts and earning Points.',
+          primaryButton: 'Update payment',
+          secondaryButton: 'Maybe later',
+          primaryAction: () => {
+            onClose();
+            router.push('/dashboard/billing');
+          },
+        };
+      }
+      if (userState === 'MEMBER_CANCELED') {
+        return {
+          Icon: RefreshIcon,
+          title: 'Resume your membership',
+          body: 'Resume your membership to start earning Points from receipts again.',
+          primaryButton: 'Resume membership',
+          secondaryButton: 'Maybe later',
+          primaryAction: () => {
+            onClose();
+            router.push('/dashboard/membership');
+          },
+        };
+      }
+      // NON_MEMBER, INCOMPLETE, undefined, or any other state → upsell
+      return {
+        Icon: CrownIcon,
+        title: 'Members earn Points',
+        body: 'Become a Member to scan receipts and earn Points for Bonus Draws or selected gift cards.',
+        primaryButton: 'View Memberships',
+        secondaryButton: 'Maybe later',
+        primaryAction: () => {
+          onClose();
+          router.push('/#membership-plans');
+        },
+      };
+    }
+
+    /* -------- default / boost-pack flow (existing behaviour) ----------- */
     if (isPaused) {
       return {
         Icon: RefreshIcon,

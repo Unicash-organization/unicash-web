@@ -1,9 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import LoginRequiredModal from './LoginRequiredModal';
+import MembershipRequiredModal from './MembershipRequiredModal';
 
 /* -----------------------------------------------------------------------
    Global mobile bottom navigation — task-focused 5-slot bar.
@@ -100,30 +102,56 @@ function shouldHide(pathname: string | null): boolean {
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, loading } = useAuth();
 
+  // Phase 2 — Scan Receipts entry-point gating modals
+  const [showLoginRequired, setShowLoginRequired] = useState(false);
+  const [showMembershipRequired, setShowMembershipRequired] = useState(false);
+
+  /* Render bottom nav only for logged-in users on non-focused-flow routes.
+     Modals don't need to be reachable when nav is hidden. */
   if (loading || !user) return null;
   if (shouldHide(pathname)) return null;
 
+  /* Scan icon click handler — gate by auth state, then membership state.
+     Phase 2: active members get pushed to /scan-receipts (placeholder page).
+     Phase 6 will replace the active-member branch with the actual scan modal. */
+  const handleScanClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+
+    if (!user) {
+      setShowLoginRequired(true);
+      return;
+    }
+
+    if (user.state !== 'memberActive') {
+      setShowMembershipRequired(true);
+      return;
+    }
+
+    // TODO Phase 6: open scan flow modal here
+    console.log('TODO Phase 6: open scan flow');
+    router.push('/scan-receipts');
+  };
+
   return (
-    <nav
-      aria-label="Quick actions"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#EFEDF5] bg-white/95 backdrop-blur-md sm:hidden"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}
-    >
-      <ul className="grid grid-cols-5">
-        {NAV_ITEMS.map((item) => {
-          const active = item.matcher(pathname || '');
-          const Icon = item.Icon;
-          return (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                aria-current={active ? 'page' : undefined}
-                className={`flex h-16 flex-col items-center justify-center gap-0.5 px-1 transition-colors active:scale-95 ${
-                  active ? 'text-[#6356E5]' : 'text-[#667085] hover:text-[#0F1222]'
-                }`}
-              >
+    <>
+      <nav
+        aria-label="Quick actions"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-[#EFEDF5] bg-white/95 backdrop-blur-md sm:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}
+      >
+        <ul className="grid grid-cols-5">
+          {NAV_ITEMS.map((item) => {
+            const active = item.matcher(pathname || '');
+            const Icon = item.Icon;
+            const isScan = item.label === 'Scan';
+            const linkClass = `flex h-16 flex-col items-center justify-center gap-0.5 px-1 transition-colors active:scale-95 ${
+              active ? 'text-[#6356E5]' : 'text-[#667085] hover:text-[#0F1222]'
+            }`;
+            const inner = (
+              <>
                 <span
                   className={`relative inline-flex h-7 w-12 items-center justify-center rounded-full transition-all duration-200 ${
                     active
@@ -136,12 +164,50 @@ export default function MobileBottomNav() {
                 <span className={`text-[10px] tracking-tight transition-colors ${active ? 'font-extrabold text-[#6356E5]' : 'font-bold text-[#667085]'}`}>
                   {item.label}
                 </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
+              </>
+            );
+            return (
+              <li key={item.href}>
+                {isScan ? (
+                  /* Scan slot — intercept click for entry-point gating.
+                     Render as <a> (not Link) since we always preventDefault
+                     and route through handleScanClick. */
+                  <a
+                    href={item.href}
+                    onClick={handleScanClick}
+                    aria-current={active ? 'page' : undefined}
+                    className={linkClass}
+                  >
+                    {inner}
+                  </a>
+                ) : (
+                  <Link
+                    href={item.href}
+                    aria-current={active ? 'page' : undefined}
+                    className={linkClass}
+                  >
+                    {inner}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+
+      {/* Phase 2 entry-point modals — both portal to document.body */}
+      <LoginRequiredModal
+        isOpen={showLoginRequired}
+        onClose={() => setShowLoginRequired(false)}
+        redirectAfterLogin="/scan-receipts"
+      />
+      <MembershipRequiredModal
+        isOpen={showMembershipRequired}
+        onClose={() => setShowMembershipRequired(false)}
+        context="scan-receipts"
+        userState={user?.state}
+      />
+    </>
   );
 }
 
