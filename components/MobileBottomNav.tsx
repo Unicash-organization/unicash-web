@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import LoginRequiredModal from './LoginRequiredModal';
 import MembershipRequiredModal from './MembershipRequiredModal';
+import ScanReceiptModal from './ScanReceiptModal';
 
 /* -----------------------------------------------------------------------
    Global mobile bottom navigation — task-focused 5-slot bar.
@@ -108,6 +109,8 @@ export default function MobileBottomNav() {
   // Phase 2 — Scan Receipts entry-point gating modals
   const [showLoginRequired, setShowLoginRequired] = useState(false);
   const [showMembershipRequired, setShowMembershipRequired] = useState(false);
+  // Phase 6 — Scan flow modal (active members)
+  const [showScanModal, setShowScanModal] = useState(false);
 
   /* Render bottom nav only for logged-in users on non-focused-flow routes.
      Modals don't need to be reachable when nav is hidden. */
@@ -115,8 +118,7 @@ export default function MobileBottomNav() {
   if (shouldHide(pathname)) return null;
 
   /* Scan icon click handler — gate by auth state, then membership state.
-     Phase 2: active members get pushed to /scan-receipts (placeholder page).
-     Phase 6 will replace the active-member branch with the actual scan modal. */
+     Phase 6: active members open the scan modal directly (no navigation). */
   const handleScanClick = (e: React.MouseEvent) => {
     e.preventDefault();
 
@@ -130,9 +132,7 @@ export default function MobileBottomNav() {
       return;
     }
 
-    // TODO Phase 6: open scan flow modal here
-    console.log('TODO Phase 6: open scan flow');
-    router.push('/scan-receipts');
+    setShowScanModal(true);
   };
 
   return (
@@ -206,6 +206,12 @@ export default function MobileBottomNav() {
         onClose={() => setShowMembershipRequired(false)}
         context="scan-receipts"
         userState={user?.state}
+      />
+
+      {/* Phase 6 scan flow — active members only (gated above). */}
+      <ScanReceiptModal
+        isOpen={showScanModal}
+        onClose={() => setShowScanModal(false)}
       />
     </>
   );
