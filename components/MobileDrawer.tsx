@@ -120,6 +120,7 @@ const ACCOUNT_NAV = [
   { label: 'Dashboard',          href: '/dashboard',                    icon: Icon.Home },
   { label: 'Membership',         href: '/dashboard/membership',         icon: Icon.Crown },
   { label: 'My Entries',         href: '/dashboard/entries',            icon: Icon.List },
+  { label: 'My Receipts',        href: '/dashboard/receipts',           icon: Icon.Camera },
   { label: 'Purchase History',   href: '/dashboard/purchases',          icon: Icon.Receipt },
   { label: 'Security & Billing', href: '/dashboard/security-billing',   icon: Icon.Card },
 ];

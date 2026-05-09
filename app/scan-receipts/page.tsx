@@ -7,7 +7,7 @@
  * UNICASH terminology only — Points / Bonus Draws / Fuel Rewards / Point Boosters / Membership.
  */
 
-import { useEffect, useReducer, useState } from 'react';
+import { useCallback, useEffect, useReducer, useState } from 'react';
 import Link from 'next/link';
 import {
   motion,
@@ -35,6 +35,11 @@ import {
   Unlock,
   type LucideIcon,
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import api from '@/lib/api';
+import ScanReceiptModal from '@/components/ScanReceiptModal';
+import LoginRequiredModal from '@/components/LoginRequiredModal';
+import MembershipRequiredModal from '@/components/MembershipRequiredModal';
 
 /* ------------------------------------------------------------------
    Brand tokens (kept inline to avoid touching globals.css)
@@ -645,7 +650,93 @@ function Faq() {
    PAGE
 ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------
+   Real receipts hook — fetches the signed-in member's receipt history
+   and surfaces it in the activity preview. Guests / non-members
+   continue to see the marketing ACTIVITY mock unchanged.
+------------------------------------------------------------------ */
+type RealReceipt = {
+  id: string;
+  status: 'uploaded' | 'processing' | 'needs_review' | 'approved' | 'rejected' | 'duplicate';
+  merchantName?: string | null;
+  receiptDate?: string | null;
+  receiptTotal?: string | number | null;
+  category?: string | null;
+  pointsAwarded?: number;
+  rejectReason?: string | null;
+  createdAt?: string;
+};
+
+function mapBackendStatusToUiKey(s: RealReceipt['status']): StatusKey {
+  if (s === 'uploaded' || s === 'processing') return 'scanning';
+  if (s === 'needs_review') return 'pending';
+  if (s === 'approved') return 'approved';
+  if (s === 'rejected') return 'rejected';
+  if (s === 'duplicate') return 'duplicate';
+  return 'pending';
+}
+
+function formatRelativeOrDate(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60_000);
+  const diffHours = Math.floor(diffMs / 3_600_000);
+  const diffDays = Math.floor(diffMs / 86_400_000);
+  if (diffMins < 60) return diffMins <= 1 ? 'Just now' : `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+}
+
 export default function ScanReceiptsPage() {
+  const { user } = useAuth();
+  const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [memberModalOpen, setMemberModalOpen] = useState(false);
+  const [myReceipts, setMyReceipts] = useState<RealReceipt[] | null>(null);
+  const [receiptsLoading, setReceiptsLoading] = useState(false);
+
+  const isActiveMember = user?.state === 'memberActive';
+
+  /* Open scan flow with auth + membership gate. */
+  const handleScanClick = useCallback(() => {
+    if (!user) {
+      setLoginModalOpen(true);
+      return;
+    }
+    if (!isActiveMember) {
+      setMemberModalOpen(true);
+      return;
+    }
+    setScanModalOpen(true);
+  }, [user, isActiveMember]);
+
+  /* Fetch real receipts for active members (replaces mock activity preview). */
+  const loadReceipts = useCallback(async () => {
+    if (!isActiveMember) return;
+    setReceiptsLoading(true);
+    try {
+      const res = await api.receipts.getMyReceipts({ limit: 5 });
+      setMyReceipts((res.data as { items?: RealReceipt[] })?.items || []);
+    } catch (err) {
+      console.warn('[ScanReceipts] Failed to load receipts:', err);
+      setMyReceipts([]);
+    } finally {
+      setReceiptsLoading(false);
+    }
+  }, [isActiveMember]);
+
+  useEffect(() => {
+    if (isActiveMember) loadReceipts();
+  }, [isActiveMember, loadReceipts]);
+
+  /* Reload receipts after a scan completes. */
+  const handleScanComplete = useCallback(() => {
+    loadReceipts();
+  }, [loadReceipts]);
+
   return (
     <div className="bg-white" style={{ color: BRAND.ink }}>
       {/* ============== HERO ============== */}
@@ -709,9 +800,18 @@ export default function ScanReceiptsPage() {
               transition={{ delay: 0.15 }}
               className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
             >
-              <PrimaryCTA href="/dashboard?action=scan" icon={ScanLine}>
+              <button
+                type="button"
+                onClick={handleScanClick}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-[15px] font-bold text-white transition-all duration-200"
+                style={{
+                  background: `linear-gradient(180deg, ${BRAND.gradEnd} 0%, ${BRAND.primary} 100%)`,
+                  boxShadow: `0 0 0 1px ${BRAND.primary}, 0 10px 24px -10px rgba(99,86,229,0.55)`,
+                }}
+              >
                 Scan Receipt
-              </PrimaryCTA>
+                <ScanLine className="h-4 w-4" aria-hidden />
+              </button>
               <SecondaryCTA href="#how-points-work">View How Points Work</SecondaryCTA>
             </motion.div>
 
@@ -979,63 +1079,149 @@ export default function ScanReceiptsPage() {
               style={{ background: BRAND.lavender, borderBottom: `1px solid ${BRAND.border}` }}
             >
               <p className="text-[12px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.primary }}>
-                Receipt activity
+                {isActiveMember ? 'Your recent receipts' : 'Receipt activity'}
               </p>
               <p className="text-[11px]" style={{ color: BRAND.muted }}>
-                Each receipt shows a clear status in your dashboard
+                {isActiveMember
+                  ? (myReceipts && myReceipts.length > 0 ? 'Last 5 receipts from your history' : 'No receipts scanned yet')
+                  : 'Each receipt shows a clear status in your dashboard'}
               </p>
             </div>
-            <ul className="divide-y" style={{ borderColor: BRAND.border }}>
-              {ACTIVITY.map((row) => (
+
+            {isActiveMember ? (
+              /* === REAL receipts list (active members) === */
+              receiptsLoading && !myReceipts ? (
+                <ul className="divide-y" style={{ borderColor: BRAND.border }}>
+                  {[0, 1, 2].map((i) => (
+                    <li key={i} className="flex items-center gap-3 px-5 py-3.5 sm:px-6">
+                      <span className="h-9 w-9 shrink-0 animate-pulse rounded-xl" style={{ background: BRAND.soft }} />
+                      <div className="flex-1 space-y-1.5">
+                        <span className="block h-3.5 w-40 animate-pulse rounded" style={{ background: BRAND.soft }} />
+                        <span className="block h-3 w-24 animate-pulse rounded" style={{ background: BRAND.soft }} />
+                      </div>
+                      <span className="h-5 w-20 animate-pulse rounded-full" style={{ background: BRAND.soft }} />
+                    </li>
+                  ))}
+                </ul>
+              ) : myReceipts && myReceipts.length > 0 ? (
+                <ul className="divide-y" style={{ borderColor: BRAND.border }}>
+                  {myReceipts.map((row) => {
+                    const uiStatus = mapBackendStatusToUiKey(row.status);
+                    const isFuel = row.category === 'fuel';
+                    const merchantLabel = row.merchantName || 'Receipt';
+                    const totalNum = row.receiptTotal != null ? Number(row.receiptTotal) : null;
+                    const subParts: string[] = [];
+                    subParts.push(formatRelativeOrDate(row.createdAt));
+                    if (totalNum != null && Number.isFinite(totalNum)) subParts.push(`A$${totalNum.toFixed(2)}`);
+                    if (row.status === 'rejected' && row.rejectReason) subParts.push(row.rejectReason.replace(/_/g, ' '));
+                    const subline = subParts.filter(Boolean).join(' · ');
+                    return (
+                      <li
+                        key={row.id}
+                        className="flex flex-col gap-2 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6"
+                        style={{ borderColor: BRAND.border }}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span
+                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                            style={{ background: BRAND.soft, color: BRAND.primary }}
+                          >
+                            {isFuel ? <Fuel className="h-4 w-4" aria-hidden /> : <ShoppingBag className="h-4 w-4" aria-hidden />}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-[14px] font-semibold" style={{ color: BRAND.ink }}>{merchantLabel}</p>
+                            <p className="truncate text-[12px]" style={{ color: BRAND.muted }}>{subline}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {row.status === 'approved' && row.pointsAwarded != null && row.pointsAwarded > 0 && (
+                            <span className="text-[13px] font-bold" style={{ color: BRAND.primary }}>+{row.pointsAwarded.toLocaleString()} Pts</span>
+                          )}
+                          <StatusPill status={uiStatus} />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                /* Empty state for active members — encourage first scan */
+                <div className="px-5 py-10 text-center sm:px-6">
+                  <span
+                    className="inline-flex h-12 w-12 items-center justify-center rounded-2xl ring-1"
+                    style={{ background: BRAND.soft, color: BRAND.primary, '--tw-ring-color': '#E0DAFF' } as React.CSSProperties}
+                  >
+                    <ScanLine className="h-5 w-5" aria-hidden />
+                  </span>
+                  <p className="mt-3 text-[15px] font-extrabold tracking-tight" style={{ color: BRAND.ink }}>No receipts scanned yet</p>
+                  <p className="mt-1 text-[13px]" style={{ color: BRAND.muted }}>Scan a fuel receipt to start earning Points.</p>
+                  <button
+                    type="button"
+                    onClick={handleScanClick}
+                    className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-[13.5px] font-bold text-white transition-all"
+                    style={{
+                      background: `linear-gradient(180deg, ${BRAND.gradEnd} 0%, ${BRAND.primary} 100%)`,
+                      boxShadow: `0 10px 24px -10px rgba(99,86,229,0.55)`,
+                    }}
+                  >
+                    <ScanLine className="h-4 w-4" aria-hidden />
+                    Scan your first receipt
+                  </button>
+                </div>
+              )
+            ) : (
+              /* === Marketing mock list (guests + non-members) === */
+              <ul className="divide-y" style={{ borderColor: BRAND.border }}>
+                {ACTIVITY.map((row) => (
+                  <li
+                    key={row.merchant}
+                    className="flex flex-col gap-2 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6"
+                    style={{ borderColor: BRAND.border }}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                        style={{ background: BRAND.soft, color: BRAND.primary }}
+                      >
+                        {row.merchant.startsWith('Shell') || row.merchant.startsWith('BP') ? (
+                          <Fuel className="h-4 w-4" aria-hidden />
+                        ) : (
+                          <ShoppingBag className="h-4 w-4" aria-hidden />
+                        )}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-[14px] font-semibold" style={{ color: BRAND.ink }}>{row.merchant}</p>
+                        <p className="truncate text-[12px]" style={{ color: BRAND.muted }}>{row.subline}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {row.pts && row.status === 'approved' && (
+                        <span className="text-[13px] font-bold" style={{ color: BRAND.primary }}>+{row.pts.toLocaleString()} Pts</span>
+                      )}
+                      <StatusPill status={row.status} />
+                    </div>
+                  </li>
+                ))}
+                {/* Membership Required state */}
                 <li
-                  key={row.merchant}
                   className="flex flex-col gap-2 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6"
-                  style={{ borderColor: BRAND.border }}
+                  style={{ background: BRAND.soft }}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <span
                       className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-                      style={{ background: BRAND.soft, color: BRAND.primary }}
+                      style={{ background: 'white', color: BRAND.primary }}
                     >
-                      {row.merchant.startsWith('Shell') || row.merchant.startsWith('BP') ? (
-                        <Fuel className="h-4 w-4" aria-hidden />
-                      ) : (
-                        <ShoppingBag className="h-4 w-4" aria-hidden />
-                      )}
+                      <Lock className="h-4 w-4" aria-hidden />
                     </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-[14px] font-semibold" style={{ color: BRAND.ink }}>{row.merchant}</p>
-                      <p className="truncate text-[12px]" style={{ color: BRAND.muted }}>{row.subline}</p>
+                    <div>
+                      <p className="text-[14px] font-semibold" style={{ color: BRAND.ink }}>Redeem 2,000 Points → $20 gift card</p>
+                      <p className="text-[12px]" style={{ color: BRAND.muted }}>Active UNICASH Membership required to redeem</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {row.pts && row.status === 'approved' && (
-                      <span className="text-[13px] font-bold" style={{ color: BRAND.primary }}>+{row.pts.toLocaleString()} Pts</span>
-                    )}
-                    <StatusPill status={row.status} />
-                  </div>
+                  <StatusPill status="member" />
                 </li>
-              ))}
-              {/* Membership Required state */}
-              <li
-                className="flex flex-col gap-2 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6"
-                style={{ background: BRAND.soft }}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span
-                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-                    style={{ background: 'white', color: BRAND.primary }}
-                  >
-                    <Lock className="h-4 w-4" aria-hidden />
-                  </span>
-                  <div>
-                    <p className="text-[14px] font-semibold" style={{ color: BRAND.ink }}>Redeem 2,000 Points → $20 gift card</p>
-                    <p className="text-[12px]" style={{ color: BRAND.muted }}>Active UNICASH Membership required to redeem</p>
-                  </div>
-                </div>
-                <StatusPill status="member" />
-              </li>
-            </ul>
+              </ul>
+            )}
           </motion.div>
         </div>
       </section>
@@ -1096,6 +1282,28 @@ export default function ScanReceiptsPage() {
         </div>
       </section>
 
+      {/* ============== MODALS — Phase 6 ==============
+           - ScanReceiptModal: actual upload flow (active members only)
+           - LoginRequiredModal: gate for guests
+           - MembershipRequiredModal: gate for non-members + paused/canceled
+           All three portal to document.body via createPortal. */}
+      <ScanReceiptModal
+        isOpen={scanModalOpen}
+        onClose={() => setScanModalOpen(false)}
+        onComplete={handleScanComplete}
+      />
+      <LoginRequiredModal
+        isOpen={loginModalOpen}
+        onClose={() => setLoginModalOpen(false)}
+        redirectAfterLogin="/scan-receipts"
+      />
+      <MembershipRequiredModal
+        isOpen={memberModalOpen}
+        onClose={() => setMemberModalOpen(false)}
+        context="scan-receipts"
+        userState={user?.state}
+      />
+
       {/* ============== FINAL CTA ============== */}
       <section className="bg-white">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-6 sm:py-20 lg:px-8">
@@ -1116,14 +1324,15 @@ export default function ScanReceiptsPage() {
                 </p>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-                <Link
-                  href="/dashboard?action=scan"
+                <button
+                  type="button"
+                  onClick={handleScanClick}
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-[15px] font-bold transition hover:bg-white/90"
                   style={{ color: BRAND.primary }}
                 >
                   <ScanLine className="h-4 w-4" aria-hidden />
                   Scan Receipt
-                </Link>
+                </button>
                 <Link
                   href="/dashboard/membership"
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/40 px-6 text-[15px] font-bold text-white transition hover:bg-white/10"
