@@ -63,7 +63,7 @@ export default function MembershipLandingCheckoutModal({
   subtitle = 'Membership',
 }: Props) {
   /* ===== Logic preserved exactly ===== */
-  const { user } = useAuth();
+  const { user, login } = useAuth();
   const [step, setStep] = useState<1 | 2>(1);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -72,6 +72,15 @@ export default function MembershipLandingCheckoutModal({
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loadingIntent, setLoadingIntent] = useState(false);
+
+  // RESUME-1 — when the typed email maps to a user that has NO active
+  // membership (abandoned signup, cancelled member returning, etc.) the
+  // modal flips into 'resume' mode: the name/phone fields hide, a single
+  // password field appears, and the CTA becomes "Log in & continue".
+  // Resetting to null on email change keeps the flow predictable.
+  const [resumeMode, setResumeMode] = useState<null | 'login' | 'blocked'>(null);
+  const [password, setPassword] = useState('');
+  const [resetSent, setResetSent] = useState(false);
 
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
@@ -109,6 +118,10 @@ export default function MembershipLandingCheckoutModal({
       setMobile('');
       setSavedCards([]);
       setPayWithSavedId(null);
+      // RESUME-1 — also reset resume-mode state when modal closes.
+      setResumeMode(null);
+      setPassword('');
+      setResetSent(false);
       return;
     }
     if (user?.email) {
@@ -190,21 +203,10 @@ export default function MembershipLandingCheckoutModal({
     }
   };
 
-  const handleContinueToPay = async () => {
-    if (!validateInfo()) return;
-    if (!user?.id && email.trim()) {
-      try {
-        const checkRes = await api.auth.checkEmail(email.trim());
-        if (checkRes.data?.exists) {
-          setFormError(
-            'This email is already registered. Please log in first, then return to this page.',
-          );
-          return;
-        }
-      } catch {
-        /* proceed */
-      }
-    }
+  // RESUME-1 — kicks off the Stripe checkout intent. Shared between the
+  // "new signup" and "resume after login" paths so the Stripe creation
+  // logic lives in exactly one place.
+  const createPaymentIntent = async () => {
     setLoadingIntent(true);
     setFormError(null);
     try {
@@ -228,6 +230,98 @@ export default function MembershipLandingCheckoutModal({
       setFormError(typeof msg === 'string' ? msg : JSON.stringify(msg));
     } finally {
       setLoadingIntent(false);
+    }
+  };
+
+  const handleContinueToPay = async () => {
+    if (!validateInfo()) return;
+
+    // Already logged in → skip email lookup, straight to Stripe.
+    if (user?.id) {
+      await createPaymentIntent();
+      return;
+    }
+
+    // RESUME-1 — branch on the rich /auth/check-email response. Three
+    // outcomes:
+    //   1. No account     → continue new-signup flow (handled by Stripe
+    //                       create-intent + post-payment register hook)
+    //   2. Can resume     → flip to login mode, gather password, then
+    //                       re-enter the Stripe flow
+    //   3. Already member → block with a clear "you're already a member"
+    //                       message + login link
+    try {
+      const checkRes = await api.auth.checkEmail(email.trim());
+      const data = checkRes.data ?? {
+        exists: false,
+        hasActiveMembership: false,
+        canResumeCheckout: false,
+      };
+
+      if (data.exists && data.hasActiveMembership) {
+        setResumeMode('blocked');
+        setFormError(null);
+        return;
+      }
+
+      if (data.exists && data.canResumeCheckout) {
+        setResumeMode('login');
+        setFormError(null);
+        return;
+      }
+      // Falls through: new account → carry on with Stripe intent.
+    } catch {
+      // Throttled or network failure → optimistically proceed. The
+      // backend has its own membership guard at /payments/checkout/membership
+      // that re-checks status, so the worst case is a clean 400 later.
+    }
+
+    await createPaymentIntent();
+  };
+
+  // RESUME-1 — logs in with the existing password, then jumps straight to
+  // the Stripe intent. We do NOT validate the name/phone fields here
+  // because in login-mode they are intentionally hidden — the existing
+  // account already has those.
+  const handleLoginAndContinue = async () => {
+    if (!password.trim()) {
+      setFormError('Enter your password to continue.');
+      return;
+    }
+    setLoadingIntent(true);
+    setFormError(null);
+    try {
+      await login(email.trim().toLowerCase(), password);
+      // login() updates AuthContext.user → next render rehydrates the
+      // form with firstName/lastName/phone from the user record (see the
+      // existing useEffect on `user`). Push straight to payment intent.
+      await createPaymentIntent();
+    } catch (e: any) {
+      const msg =
+        typeof e?.message === 'string'
+          ? e.message
+          : 'Incorrect password. Try again or reset your password below.';
+      setFormError(msg);
+    } finally {
+      setLoadingIntent(false);
+    }
+  };
+
+  // RESUME-1 — fires a password-reset email so the user can recover the
+  // existing account without losing their place in the checkout flow.
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setFormError('Enter your email first.');
+      return;
+    }
+    setFormError(null);
+    try {
+      await api.auth.requestPasswordReset(email.trim().toLowerCase());
+      setResetSent(true);
+    } catch {
+      // Endpoint is intentionally vague — always shows "sent" to avoid
+      // enumeration. We mirror that on the client.
+      setResetSent(true);
     }
   };
 
@@ -327,7 +421,144 @@ export default function MembershipLandingCheckoutModal({
 
         {/* Body — scrollable */}
         <div className="flex-1 overflow-y-auto bg-[#FBFAFF] px-5 py-5 sm:px-6 sm:py-6">
-          {step === 1 && (
+          {/* RESUME-1 — "already a member" terminal state. No form, just
+              context + login link. Member can dismiss by editing the email. */}
+          {step === 1 && resumeMode === 'blocked' && (
+            <div className="space-y-4">
+              <div className="rounded-2xl bg-[#F4F1FB] p-4 ring-1 ring-[#E0DAFF]">
+                <p className="text-[14px] font-bold text-[#0F1222]">
+                  You&apos;re already a UNICASH member
+                </p>
+                <p className="mt-1 text-[13px] text-[#667085]">
+                  The email <span className="font-semibold text-[#0F1222]">{email}</span>{' '}
+                  has an active membership. Log in to manage your benefits, scan
+                  receipts, or join Bonus Draws.
+                </p>
+              </div>
+              <Link
+                href="/login"
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[14.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] hover:from-[#5346D6] hover:to-[#7867EC]"
+              >
+                Log in to your account
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setResumeMode(null);
+                  setEmail('');
+                  setFormError(null);
+                }}
+                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-white px-5 text-[13.5px] font-bold text-[#6356E5] ring-1 ring-[#E0DAFF] hover:bg-[#F4F1FB]"
+              >
+                Use a different email
+              </button>
+            </div>
+          )}
+
+          {/* RESUME-1 — inline login. Shown when the email maps to an
+              existing user with no active membership. Hides the name/phone
+              fields (we already have them from the account) and asks only
+              for the password. */}
+          {step === 1 && resumeMode === 'login' && (
+            <div className="space-y-3">
+              <div className="rounded-2xl bg-[#FFF8EC] p-3.5 ring-1 ring-[#FFE2B0]">
+                <p className="text-[13px] font-semibold text-[#0F1222]">
+                  Welcome back
+                </p>
+                <p className="mt-0.5 text-[12.5px] text-[#667085]">
+                  We found your account. Enter your password to continue with{' '}
+                  <span className="font-semibold text-[#0F1222]">{plan.name}</span>.
+                </p>
+              </div>
+
+              <div>
+                <input
+                  type="email"
+                  value={email}
+                  readOnly
+                  className={`${inputCls(false)} cursor-not-allowed bg-[#F4F1FB] text-[#667085]`}
+                />
+              </div>
+
+              <div>
+                <input
+                  type="password"
+                  placeholder="Password*"
+                  value={password}
+                  autoFocus
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (formError) setFormError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !loadingIntent) handleLoginAndContinue();
+                  }}
+                  className={inputCls(false)}
+                />
+              </div>
+
+              {formError && (
+                <div className="rounded-2xl bg-[#FEF2F2] p-3.5 ring-1 ring-[#FCA5A5]/60">
+                  <div className="flex items-start gap-2">
+                    <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-[#EF4444]" />
+                    <p className="text-[13px] text-[#991B1B]">{formError}</p>
+                  </div>
+                </div>
+              )}
+
+              {resetSent ? (
+                <div className="rounded-2xl bg-[#ECFDF5] p-3 ring-1 ring-[#A7F3D0]">
+                  <p className="text-[12.5px] text-[#065F46]">
+                    If an account exists for <span className="font-semibold">{email}</span>,
+                    we&apos;ve sent a password reset link. Check your inbox.
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-[12.5px] font-semibold text-[#6356E5] hover:underline"
+                >
+                  Forgot your password?
+                </button>
+              )}
+
+              <button
+                type="button"
+                disabled={loadingIntent}
+                onClick={handleLoginAndContinue}
+                className="mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[14.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loadingIntent ? (
+                  <>
+                    <SpinnerIcon className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+                    Logging you in…
+                  </>
+                ) : (
+                  <>
+                    Log in &amp; continue
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setResumeMode(null);
+                  setPassword('');
+                  setResetSent(false);
+                  setFormError(null);
+                }}
+                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-white px-5 text-[13px] font-semibold text-[#667085] ring-1 ring-[#E7E9F2] hover:text-[#6356E5]"
+              >
+                Use a different email
+              </button>
+            </div>
+          )}
+
+          {step === 1 && resumeMode === null && (
             <div className="space-y-3">
               <div>
                 <input

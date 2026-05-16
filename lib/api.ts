@@ -76,8 +76,16 @@ export const api = {
       apiClient.post('/auth/login', { email, password, deviceId }),
     register: (data: any) => 
       apiClient.post('/auth/register', data),
-    checkEmail: (email: string) => 
-      apiClient.post<{ exists: boolean }>('/auth/check-email', { email }),
+    // RESUME-1 — response now distinguishes "new email", "exists but no
+     // active membership (can resume signup)", and "exists with active
+     // membership (already a member)". Older callers that only read
+     // .exists still work.
+    checkEmail: (email: string) =>
+      apiClient.post<{
+        exists: boolean;
+        hasActiveMembership: boolean;
+        canResumeCheckout: boolean;
+      }>('/auth/check-email', { email }),
     me: () => 
       apiClient.get('/auth/me'),
     // Social Login
