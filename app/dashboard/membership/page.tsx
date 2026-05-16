@@ -10,6 +10,7 @@ import Link from 'next/link';
 import ConfirmModal from '@/components/ConfirmModal';
 import PaymentMethodsPanel from '@/components/PaymentMethodsPanel';
 import LoadingRing from '@/components/LoadingRing';
+import { LoyaltyCard } from '@/components/loyalty/LoyaltyCard';
 import { notifyAndRetryMembershipAfterPaymentUpdate } from '@/lib/membershipPaymentRetry';
 
 /* -----------------------------------------------------------------------
@@ -788,6 +789,15 @@ export default function MembershipPage() {
       )}
 
       {/* ============================================================
+          LOYALTY ENTRIES (Sprint 2 — Major Draw auto-applied entries)
+          Self-contained: fetches its own data via api.loyalty.summary().
+          Returns its own non-eligible state if Membership is missing /
+          paused / canceled, so we mount it unconditionally for logged-in
+          users to give the upgrade nudge a home.
+      ============================================================ */}
+      <LoyaltyCard />
+
+      {/* ============================================================
           AVAILABLE PLANS (upgrade/downgrade) — only for active Members
       ============================================================ */}
       {plans.length > 0 && membership && !isPaused && !isCanceled && (
@@ -1020,12 +1030,57 @@ export default function MembershipPage() {
       {/* ============================================================
           CONFIRM MODALS — preserved
       ============================================================ */}
+      {/*
+       * QW-7 — itemise what the member is about to lose so the cancel CTA
+       * becomes an informed choice rather than a one-tap mistake. Concrete
+       * numbers pulled from their current plan (monthly Points + Major Draw
+       * entries) + the actual end-of-period date.
+       */}
       <ConfirmModal
         isOpen={showCancelConfirm}
         onClose={() => setShowCancelConfirm(false)}
         onConfirm={handleCancel}
         title="Cancel Membership"
-        message="Are you sure you want to cancel your Membership? You'll keep access until the end of your current billing period, and you won't be charged again."
+        message={
+          <>
+            <p>
+              You&rsquo;ll keep <strong className="text-[#0F1222]">{planName}</strong> benefits until{' '}
+              <strong className="text-[#0F1222]">
+                {membership?.currentPeriodEnd ? formatMembershipDate(membership.currentPeriodEnd) : 'the end of this billing period'}
+              </strong>
+              . After that, you&rsquo;ll lose:
+            </p>
+            <ul className="mt-3 space-y-2 rounded-2xl bg-[#FBFAFF] p-4 ring-1 ring-[#E0DAFF]">
+              {monthlyPoints > 0 && (
+                <li className="flex items-start gap-2">
+                  <span aria-hidden className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#6356E5]" />
+                  <span>
+                    <strong className="text-[#0F1222]">{monthlyPoints.toLocaleString()} Points</strong> every billing period
+                  </span>
+                </li>
+              )}
+              {majorDrawEntries > 0 && (
+                <li className="flex items-start gap-2">
+                  <span aria-hidden className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#6356E5]" />
+                  <span>
+                    <strong className="text-[#0F1222]">{majorDrawEntries.toLocaleString()} Major Draw {majorDrawEntries === 1 ? 'entry' : 'entries'}</strong> every period
+                  </span>
+                </li>
+              )}
+              <li className="flex items-start gap-2">
+                <span aria-hidden className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#6356E5]" />
+                <span>Access to member-only Bonus Draws</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span aria-hidden className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#6356E5]" />
+                <span>Higher Points rate when you Scan Receipts</span>
+              </li>
+            </ul>
+            <p className="mt-3 text-[13px] text-[#667085]">
+              You won&rsquo;t be charged again. You can resume any time — your account, balance, and history stay intact.
+            </p>
+          </>
+        }
         confirmText="Cancel Membership"
         cancelText="Keep Membership"
         type="danger"

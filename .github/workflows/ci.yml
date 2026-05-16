@@ -1,0 +1,50 @@
+name: CI
+
+# OPS-02 — minimum-viable CI gate for the member-facing web repo. Vercel
+# auto-deploys main on success; this workflow catches breakage BEFORE
+# Vercel build minute (theirs is metered; ours is free).
+#
+# Steps:
+#   - tsc --noEmit         — type errors must not reach prod
+#   - next build           — verifies the Next.js production bundle
+#
+# Lint is intentionally not part of the gate yet — codebase has legacy
+# warnings; add as separate non-blocking job once cleanup lands.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Next.js production build
+        env:
+          # Next.js reads these at build time. Use safe placeholders so the
+          # build can render server components that reference them. Replace
+          # in Vercel project env vars for the live deploy.
+          NEXT_PUBLIC_API_URL: 'http://placeholder.local/api'
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_placeholder'
+          NEXT_PUBLIC_SENTRY_DSN: ''
+          NEXT_PUBLIC_SENTRY_ENVIRONMENT: 'ci'
+        run: npm run build

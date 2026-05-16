@@ -157,8 +157,9 @@ export default function ForgotPasswordPage() {
   };
 
   /* --- Visual classes (matches /login) --- */
+  // QW-1: text-base (16px) on mobile so iOS Safari does NOT auto-zoom on focus.
   const inputCls =
-    'h-12 w-full rounded-2xl border border-[#E0DAFF] bg-[#FBFAFF] px-4 text-[14px] text-[#0f1222] placeholder-[#a3a8be] shadow-[inset_0_1px_2px_rgba(15,18,34,0.04)] transition-all hover:border-[#c8c5ea] hover:bg-white focus:border-[#6356e5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6356e5]/30 disabled:opacity-60';
+    'h-12 w-full rounded-2xl border border-[#E0DAFF] bg-[#FBFAFF] px-4 text-base sm:text-[14px] text-[#0f1222] placeholder-[#a3a8be] shadow-[inset_0_1px_2px_rgba(15,18,34,0.04)] transition-all hover:border-[#c8c5ea] hover:bg-white focus:border-[#6356e5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6356e5]/30 disabled:opacity-60';
 
   const primaryBtnCls =
     'uc-lift-sm relative flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-[15px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#4538B8] disabled:cursor-not-allowed disabled:opacity-60';

@@ -144,6 +144,11 @@ export default function SecurityBillingPage() {
       return;
     }
     setSaving(true);
+    // Capture the first-time flag BEFORE we await — we use it post-success
+    // to redirect new members to the dashboard so the U1 onboarding wizard
+    // fires. Without this, brand-new accounts get stuck on this page after
+    // their forced password set and never see the welcome flow.
+    const wasFirstTime = isFirstTimeChange;
     try {
       await api.users.updatePassword({
         currentPassword: isFirstTimeChange ? undefined : formData.currentPassword,
@@ -154,6 +159,12 @@ export default function SecurityBillingPage() {
       showToast('Password updated successfully!', 'success');
       setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setIsFirstTimeChange(false);
+      if (wasFirstTime) {
+        // Send the new member straight to /dashboard — the layout effect
+        // no longer redirects them here (hasChangedPassword is now true)
+        // and the OnboardingWizard mounts on /dashboard.
+        router.push('/dashboard');
+      }
     } catch (error: any) {
       if (error.response?.status === 401) {
         showToast('Your session has expired. Please log in again.', 'error');

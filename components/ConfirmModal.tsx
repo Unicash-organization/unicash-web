@@ -8,7 +8,12 @@ interface ConfirmModalProps {
   onClose: () => void;
   onConfirm: () => void;
   title: string;
-  message: string;
+  /**
+   * QW-7 — message accepts ReactNode so callers can pass rich content
+   * (e.g. an itemised list of what the user is about to lose).
+   * Plain strings continue to work and render with `whitespace-pre-line`.
+   */
+  message: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
   type?: 'danger' | 'warning' | 'success' | 'info';
@@ -131,11 +136,19 @@ export default function ConfirmModal({
           </h2>
         </div>
 
-        {/* Body */}
+        {/* Body — string messages keep whitespace-pre-line; ReactNode
+           messages render as a styled block so callers can compose lists
+           or paragraphs. */}
         <div className="px-6 pb-6 pt-5 sm:px-7 sm:pb-7 sm:pt-6">
-          <p className="whitespace-pre-line text-[14px] leading-relaxed text-[#4B5563] sm:text-[14.5px]">
-            {message}
-          </p>
+          {typeof message === 'string' ? (
+            <p className="whitespace-pre-line text-[14px] leading-relaxed text-[#4B5563] sm:text-[14.5px]">
+              {message}
+            </p>
+          ) : (
+            <div className="text-[14px] leading-relaxed text-[#4B5563] sm:text-[14.5px]">
+              {message}
+            </div>
+          )}
 
           {/* CTAs — vertical stack */}
           <div className="mt-6 flex flex-col gap-2.5">

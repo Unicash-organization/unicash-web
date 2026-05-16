@@ -165,6 +165,19 @@ export default function Header() {
 
   return (
     <>
+      {/*
+       * QW-8 — skip-to-content link. First focusable in the document; hidden
+       * by default, visible only when keyboard focus lands on it. Jumps the
+       * user past the header + mobile drawer chrome straight to the page's
+       * <main id="main"> (set in app/layout.tsx).
+       */}
+      <a
+        href="#main"
+        className="sr-only fixed left-3 top-3 z-[100] -translate-y-16 rounded-full bg-[#6356E5] px-4 py-2 text-[13px] font-semibold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-transform focus:not-sr-only focus:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#6356E5]"
+      >
+        Skip to content
+      </a>
+
       <header
         className={`sticky top-0 z-50 w-full border-b transition-all duration-300 ease-out ${
           scrolled

@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { notifyAndRetryMembershipAfterPaymentUpdate } from '@/lib/membershipPaymentRetry';
 import LoadingRing from '@/components/LoadingRing';
 import PaymentMethodsPanel from '@/components/PaymentMethodsPanel';
+import OnboardingWizard from '@/components/OnboardingWizard';
 
 /* -----------------------------------------------------------------------
    Inline icons — minimal v4 set
@@ -418,6 +419,14 @@ export default function DashboardPage() {
   ===================================================================== */
   return (
     <div className="space-y-5 sm:space-y-6">
+      {/*
+       * Phase U1 — OnboardingWizard mounts itself only when the user's
+       * onboardingCompletedAt is NULL. Renders nothing for returning
+       * members. Keeping it at the top means the modal portal is
+       * created before the rest of the dashboard hydrates.
+       */}
+      <OnboardingWizard />
+
       {/* ============================================================
           PAGE HEADER — single <header> matching the structure used on
           all other dashboard pages (Entries, Membership, etc.) so the

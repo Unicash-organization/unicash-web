@@ -83,7 +83,7 @@ function CheckoutSuccessContent() {
           
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Successful!</h1>
           <p className="text-lg text-gray-600 mb-8">
-            Thank you for your purchase. Your account has been created and credits have been granted.
+            Thank you for your purchase. Your account has been created and your Points have been added.
           </p>
 
           {payment && (
@@ -98,12 +98,18 @@ function CheckoutSuccessContent() {
                   <span className="text-gray-600">Amount:</span>
                   <span className="font-medium">{formatAUD(parseFloat(payment.amount?.toString() || '0'))}</span>
                 </div>
-                {payment.creditsGranted && (
+                {/*
+                  FE-01 — UI label is "Points Granted". `payment.creditsGranted`
+                  is the legacy backend field name (rename deferred to
+                  BE-29 post-launch); we read it but render with the
+                  brand-correct label.
+                */}
+                {payment.creditsGranted ? (
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Credits Granted:</span>
+                    <span className="text-gray-600">Points Granted:</span>
                     <span className="font-medium">{payment.creditsGranted}</span>
                   </div>
-                )}
+                ) : null}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Status:</span>
                   <span className={`font-medium ${

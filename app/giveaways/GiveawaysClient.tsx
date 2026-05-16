@@ -1,0 +1,303 @@
+'use client';
+
+import React from 'react';
+import GiveawaysClient from '@/components/GiveawaysClient';
+import FeaturedBonusDraw from '@/components/FeaturedBonusDraw';
+
+/* -----------------------------------------------------------------------
+   Inline v4 icons used in the hero
+----------------------------------------------------------------------- */
+const PillDot = () => (
+  <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-[#6356E5]" />
+);
+const ArrowDown = ({ className = '' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <path d="M12 5v14" />
+    <path d="m19 12-7 7-7-7" />
+  </svg>
+);
+const SparkBoltIcon = ({ className = '' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+  </svg>
+);
+const UsersIcon = ({ className = '' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+const CalendarClockIcon = ({ className = '' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5" />
+    <path d="M16 2v4M8 2v4M3 10h18" />
+    <circle cx="16" cy="16" r="6" />
+    <path d="M16 14v2l1 1" />
+  </svg>
+);
+const ShieldCheckIcon = ({ className = '' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+    <path d="m9 12 2 2 4-4" />
+  </svg>
+);
+const TrophyIcon = ({ className = '' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <path d="M6 9H4a2 2 0 0 1-2-2V5h4" />
+    <path d="M18 9h2a2 2 0 0 0 2-2V5h-4" />
+    <path d="M4 22h16" />
+    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+  </svg>
+);
+
+/* Hero trust signals — locked v4 copy */
+const TRUST_ITEMS = ['Clear limits', 'Published Winners', 'Points-based access', 'Member-only rewards'];
+
+export default function GiveawaysPageClient() {
+  return (
+    <div>
+      {/* ====================================================================
+         v4 hero — premium product stage for Bonus Draws.
+         NOTE: Backend BannerSlider bypassed (legacy banner copy uses banned
+         terminology like "lottery"/"tickets"). Banner CMS still works on
+         other pages.
+      ==================================================================== */}
+      <section className="relative w-full overflow-hidden bg-gradient-to-b from-[#F4F1FB] via-[#FBFAFF] to-[#F4F1FB]">
+        {/* Animated bg layer */}
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          <div className="uc-bd-aurora-1 absolute -top-40 left-[15%] h-[560px] w-[560px] -translate-x-1/2 rounded-full bg-[#8B7BFF]/22 blur-[140px]" />
+          <div className="uc-bd-aurora-2 absolute right-[-10%] top-1/3 h-[460px] w-[460px] rounded-full bg-[#FFE2B0]/22 blur-[120px]" />
+          <div className="uc-bd-aurora-3 absolute left-[-12%] bottom-[-12%] h-[420px] w-[420px] rounded-full bg-[#6356E5]/14 blur-[120px]" />
+          <div
+            className="absolute inset-0 opacity-[0.28]"
+            style={{
+              backgroundImage:
+                'radial-gradient(rgba(99,86,229,0.18) 1px, transparent 1px)',
+              backgroundSize: '22px 22px',
+            }}
+          />
+        </div>
+
+        <div className="relative mx-auto max-w-7xl px-5 pt-12 pb-14 sm:px-6 sm:pt-20 sm:pb-24 lg:px-8 lg:pt-24 lg:pb-28">
+          <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-14">
+            {/* ============== LEFT — content ============== */}
+            <div className="text-center lg:col-span-7 lg:text-left">
+              <div className="flex justify-center lg:justify-start">
+                <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-[#6356E5] shadow-[0_2px_8px_-3px_rgba(99,86,229,0.2)] ring-1 ring-[#E0DAFF] backdrop-blur">
+                  <PillDot />
+                  Bonus Draws
+                </span>
+              </div>
+
+              {/* Headline — distinct mobile vs desktop */}
+              <h1 className="mt-5 text-[34px] font-extrabold leading-[1.05] tracking-tight text-[#0F1222] sm:text-[48px] md:text-[58px] lg:mt-6">
+                <span className="sm:hidden">
+                  Use Points. <span className="uc-gold-gradient">Unlock rewards.</span>
+                </span>
+                <span className="hidden sm:inline">
+                  Use Points. Unlock <span className="uc-gold-gradient">member-only rewards.</span>
+                </span>
+              </h1>
+
+              {/* Subheadline */}
+              <p className="mx-auto mt-5 max-w-2xl text-[15px] leading-relaxed text-[#4B5563] sm:text-[17px] lg:mx-0">
+                <span className="sm:hidden">
+                  Browse capped Bonus Draws, see Points needed upfront, and enter before each draw closes.
+                </span>
+                <span className="hidden sm:inline">
+                  Explore capped Bonus Draws, see the Points needed upfront, and enter before each draw closes. Member-only with published Winners.
+                </span>
+              </p>
+
+              {/* CTAs */}
+              <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:mt-9 sm:flex-row lg:justify-start">
+                <a
+                  href="#bonus-draws-grid"
+                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-7 text-[15px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2 sm:w-auto"
+                >
+                  View Bonus Draws
+                  <ArrowDown className="h-4 w-4" />
+                </a>
+                <a
+                  href="/boost-packs"
+                  className="inline-flex h-12 w-full items-center justify-center rounded-full border border-[#E0DAFF] bg-white/90 px-6 text-[14.5px] font-bold text-[#0F1222] backdrop-blur transition-colors hover:border-[#6356E5] hover:text-[#6356E5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2 sm:w-auto"
+                >
+                  Get More Points
+                </a>
+              </div>
+
+              {/* Trust line */}
+              <div className="mt-7 flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-[12.5px] text-[#667085] lg:justify-start">
+                {TRUST_ITEMS.map((t, i) => (
+                  <React.Fragment key={t}>
+                    {i > 0 && <span aria-hidden className="text-[#cfc8e8]">·</span>}
+                    <span className="inline-flex items-center gap-1.5">
+                      {i === 0 && <ShieldCheckIcon className="h-3.5 w-3.5 text-[#10B981]" />}
+                      {t}
+                    </span>
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+
+            {/* ============== RIGHT — animated featured-draw preview card ============== */}
+            <div className="hidden lg:col-span-5 lg:block" aria-hidden>
+              <div className="relative mx-auto max-w-[420px]">
+                {/* Soft halo */}
+                <div className="absolute inset-0 -z-10 rounded-[40px] bg-gradient-to-br from-[#8B7BFF]/12 via-transparent to-[#FFE2B0]/12 blur-2xl" />
+
+                {/* Preview card */}
+                <div className="uc-bd-card-rise relative overflow-hidden rounded-3xl border border-[#E0DAFF] bg-white shadow-[0_30px_70px_-30px_rgba(99,86,229,0.45)]">
+                  {/* Image header */}
+                  <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-[#5346d6] via-[#6356e5] to-[#7b6cec]">
+                    <div className="absolute inset-0 opacity-[0.18]" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,.55) 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+                    <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />
+
+                    {/* Featured badge */}
+                    <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#FFE2B0] to-[#FFC85D] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#3A2A06] shadow-[0_4px_12px_-2px_rgba(255,200,93,0.5)]">
+                      <SparkBoltIcon className="h-3 w-3" />
+                      Featured
+                    </span>
+
+                    {/* Trophy in center */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-white/15 ring-1 ring-white/25 backdrop-blur">
+                        <TrophyIcon className="h-9 w-9 text-[#FFE2B0]" />
+                      </span>
+                    </div>
+
+                    {/* Floating Points chip */}
+                    <span className="uc-bd-points-chip absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-full bg-gradient-to-br from-[#6356E5] to-[#8B7BFF] px-3 py-1.5 text-[12px] font-extrabold tracking-tight text-white shadow-[0_8px_20px_-6px_rgba(99,86,229,0.6)]">
+                      200 Points
+                    </span>
+                  </div>
+
+                  {/* Body */}
+                  <div className="p-5">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">
+                      Bonus Draw preview
+                    </p>
+                    <h3 className="-mt-0.5 text-[17px] font-extrabold tracking-tight text-[#0F1222]">
+                      $2,000 Fuel Rewards Bonus
+                    </h3>
+
+                    {/* Member progress */}
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between text-[11.5px]">
+                        <span className="text-[#4B5563]">
+                          <span className="font-semibold text-[#0F1222] tabular-nums">642</span>
+                          <span className="text-[#667085]"> / 1,000 Members</span>
+                        </span>
+                        <span className="rounded-full bg-[#F4F1FB] px-2 py-0.5 text-[10.5px] font-bold tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF]">64%</span>
+                      </div>
+                      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[#eceaf7] ring-1 ring-inset ring-[#E0DAFF]/60">
+                        <div
+                          className="uc-bd-progress relative h-full rounded-full bg-gradient-to-r from-[#6356e5] to-[#8a7bff] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]"
+                          style={{ width: '64%' }}
+                        >
+                          <span aria-hidden className="uc-bd-shimmer absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/70 to-transparent" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Closing time */}
+                    <p className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-[#FBFAFF] px-2.5 py-1.5 text-[11.5px] font-medium text-[#4B5563] ring-1 ring-[#EFEDF5]">
+                      <CalendarClockIcon className="h-3.5 w-3.5 text-[#6356E5]" />
+                      Ends 28 May · 8:00 PM AEST
+                    </p>
+
+                    {/* Mock CTA row */}
+                    <div className="mt-5 grid grid-cols-[auto_1fr] items-stretch gap-2">
+                      <span className="inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-[#F4F1FB] px-3 text-[12px] font-extrabold tracking-tight text-[#6356E5] ring-1 ring-[#E0DAFF]">
+                        200 Points
+                      </span>
+                      <span className="inline-flex h-10 items-center justify-center gap-1 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-[12.5px] font-bold text-white shadow-[0_8px_20px_-8px_rgba(99,86,229,0.55)]">
+                        Enter Bonus Draw
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Floating Members joined chip */}
+                <div className="uc-bd-side-chip absolute -left-6 top-1/2 hidden -translate-y-1/2 items-center gap-2 rounded-2xl border border-[#E0DAFF] bg-white/95 px-3 py-2 shadow-[0_12px_30px_-12px_rgba(99,86,229,0.30)] backdrop-blur xl:inline-flex">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#F4F1FB] text-[#6356E5] ring-1 ring-[#E0DAFF]">
+                    <UsersIcon className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-[9.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Members joined</p>
+                    <p className="-mt-0.5 text-[13px] font-extrabold tracking-tight text-[#0F1222] tabular-nums">642 / 1,000</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Animations */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          @keyframes uc-bd-aurora-a {
+            0%   { transform: translate3d(-50%, 0, 0) scale(1);     opacity: .9; }
+            50%  { transform: translate3d(-46%, 16px, 0) scale(1.06); opacity: 1; }
+            100% { transform: translate3d(-52%, -8px, 0) scale(0.96); opacity: .85; }
+          }
+          @keyframes uc-bd-aurora-b {
+            0%   { transform: translate3d(0, 0, 0) scale(1);       opacity: .85; }
+            50%  { transform: translate3d(-20px, 24px, 0) scale(1.08); opacity: 1; }
+            100% { transform: translate3d(12px, -14px, 0) scale(0.95); opacity: .8; }
+          }
+          @keyframes uc-bd-aurora-c {
+            0%   { transform: translate3d(0, 0, 0) scale(1);       opacity: .8; }
+            50%  { transform: translate3d(22px, -18px, 0) scale(1.05); opacity: .95; }
+            100% { transform: translate3d(-10px, 14px, 0) scale(0.97); opacity: .82; }
+          }
+          .uc-bd-aurora-1 { animation: uc-bd-aurora-a 18s ease-in-out infinite alternate; will-change: transform, opacity; }
+          .uc-bd-aurora-2 { animation: uc-bd-aurora-b 22s ease-in-out infinite alternate; will-change: transform, opacity; }
+          .uc-bd-aurora-3 { animation: uc-bd-aurora-c 26s ease-in-out infinite alternate; will-change: transform, opacity; }
+
+          @keyframes uc-bd-card-breathe {
+            0%, 100% { transform: translateY(0); }
+            50%      { transform: translateY(-6px); }
+          }
+          .uc-bd-card-rise { animation: uc-bd-card-breathe 7s ease-in-out infinite; will-change: transform; }
+
+          @keyframes uc-bd-points-pulse {
+            0%, 100% { transform: scale(1);   filter: brightness(1); }
+            50%      { transform: scale(1.05); filter: brightness(1.08); }
+          }
+          .uc-bd-points-chip { animation: uc-bd-points-pulse 2.6s ease-in-out infinite; will-change: transform, filter; }
+
+          @keyframes uc-bd-progress-shimmer {
+            0%   { transform: translateX(-100%); }
+            100% { transform: translateX(220%); }
+          }
+          .uc-bd-shimmer { animation: uc-bd-progress-shimmer 2.4s ease-in-out infinite; will-change: transform; }
+
+          @keyframes uc-bd-side-chip-float {
+            0%, 100% { transform: translateY(-50%) translateX(0); }
+            50%      { transform: translateY(-50%) translateX(4px); }
+          }
+          .uc-bd-side-chip { animation: uc-bd-side-chip-float 5s ease-in-out infinite; will-change: transform; }
+
+          @media (prefers-reduced-motion: reduce) {
+            .uc-bd-aurora-1,
+            .uc-bd-aurora-2,
+            .uc-bd-aurora-3,
+            .uc-bd-card-rise,
+            .uc-bd-points-chip,
+            .uc-bd-shimmer,
+            .uc-bd-side-chip { animation: none !important; }
+          }
+        ` }} />
+      </section>
+
+      {/* Featured Bonus Draw */}
+      <FeaturedBonusDraw />
+
+      <GiveawaysClient />
+    </div>
+  );
+}

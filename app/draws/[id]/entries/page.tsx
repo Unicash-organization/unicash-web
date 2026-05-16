@@ -85,8 +85,10 @@ export default function DrawEntriesPage() {
   };
 
   const getSourceLabel = (source: string) => {
-    if (source === 'membership_credit') return 'Membership Credit';
-    if (source === 'boost_credit') return 'Boost Credit';
+    // FE-04 — display labels brand-correct; raw `source` value remains the
+    // legacy backend enum string ('membership_credit', 'boost_credit').
+    if (source === 'membership_credit') return 'Membership Points';
+    if (source === 'boost_credit') return 'Booster Points';
     if (source === 'external_payment') return 'One-time package';
     return source;
   };
@@ -199,13 +201,13 @@ export default function DrawEntriesPage() {
                         Order ID
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ticket #
+                        Entry #
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Source
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Credits Spent
+                        Points Spent
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Entry Date

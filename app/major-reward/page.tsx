@@ -222,7 +222,7 @@ export default function MajorRewardPage() {
                 <span className="text-4xl">2️⃣</span>
               </div>
               <h3 className="text-xl font-bold mb-2">Enter the Draw</h3>
-              <p className="text-gray-600">Use your credits to enter the Major Reward</p>
+              <p className="text-gray-600">Use your Points to enter the Major Reward</p>
             </div>
             <div className="text-center">
               <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">

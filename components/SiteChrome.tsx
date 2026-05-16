@@ -23,9 +23,11 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
   const hideChrome = shouldHideChrome(pathname);
   const bottomNavVisible = useBottomNavVisible();
 
-  // /checkout etc. — bare main, no chrome at all (focused flow)
+  // /checkout etc. — bare main, no chrome at all (focused flow).
+  // id="main" target for the global skip-to-content link (QW-8); kept even
+  // on focused-flow routes so keyboard users can skip past header chrome.
   if (hideChrome) {
-    return <main className="overflow-x-hidden">{children}</main>;
+    return <main id="main" tabIndex={-1} className="overflow-x-hidden">{children}</main>;
   }
 
   return (
@@ -33,8 +35,13 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
       <PromoBanner />
       <Header />
       {/* When mobile bottom nav is visible, reserve bottom space so content doesn't
-          render under the fixed nav. The 80px = nav h-16 (64px) + safe-area room. */}
-      <main className={`overflow-x-hidden ${bottomNavVisible ? 'pb-20 sm:pb-0' : ''}`}>
+          render under the fixed nav. The 80px = nav h-16 (64px) + safe-area room.
+          id="main" + tabIndex=-1 lets the skip link (Header.tsx) jump focus here. */}
+      <main
+        id="main"
+        tabIndex={-1}
+        className={`overflow-x-hidden ${bottomNavVisible ? 'pb-20 sm:pb-0' : ''}`}
+      >
         {children}
       </main>
       <Footer />

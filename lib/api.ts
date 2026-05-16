@@ -5,6 +5,11 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // BE-08 — required so the OAuth CSRF state cookie (HttpOnly, set during
+  // /auth/social/:provider) rides along on the subsequent
+  // /auth/social/callback POST. Without this axios drops cookies on
+  // cross-origin requests and the backend would 401 every OAuth flow.
+  withCredentials: true,
 });
 
 // Add auth token to requests if available
@@ -46,6 +51,25 @@ apiClient.interceptors.response.use(
 );
 
 export const api = {
+  /**
+   * Loyalty Entries (Sprint 2A). Member-side read-only endpoints powered by
+   * LoyaltyService. All return shapes mirror /unicash-web/components/loyalty/types.ts.
+   * Always succeed with `eligible: false` for non-eligible users — the frontend
+   * decides whether to render the loyalty card or an upgrade nudge.
+   */
+  loyalty: {
+    summary: () => apiClient.get('/me/loyalty/summary'),
+    history: (params?: { page?: number; limit?: number }) =>
+      apiClient.get('/me/loyalty/history', { params }),
+    forDraw: (drawId: string) =>
+      apiClient.get(`/me/loyalty/draws/${encodeURIComponent(drawId)}`),
+    // Sprint 3 wave 1 — celebration modal feed
+    listNotifications: () => apiClient.get('/me/loyalty/notifications'),
+    dismissNotification: (id: string) =>
+      apiClient.post(`/me/loyalty/notifications/${encodeURIComponent(id)}/dismiss`),
+    dismissAllNotifications: () =>
+      apiClient.post('/me/loyalty/notifications/dismiss-all'),
+  },
   // Auth
   auth: {
     login: (email: string, password: string, deviceId?: string) => 
@@ -61,8 +85,15 @@ export const api = {
       const params = redirectTo ? { redirectTo } : {};
       return apiClient.get(`/auth/social/${provider}`, { params });
     },
-    handleOAuthCallback: (code: string, provider?: string) =>
-      apiClient.post('/auth/social/callback', { code, provider }),
+    /**
+     * BE-08 — OAuth callback now requires the `state` value echoed back by
+     * the provider. The CSRF state cookie set during initiate is sent
+     * automatically by axios (apiClient is configured withCredentials);
+     * the backend matches state ↔ cookie before exchanging the code.
+     * Missing or mismatched state → 401 "OAuth state mismatch".
+     */
+    handleOAuthCallback: (code: string, state: string, provider?: string) =>
+      apiClient.post('/auth/social/callback', { code, state, provider }),
     // Magic Link
     sendMagicLink: (email: string, redirectTo?: string) =>
       apiClient.post('/auth/magic-link', { email, redirectTo }),
@@ -81,6 +112,12 @@ export const api = {
     // Email Verification
     sendEmailVerification: (email: string, redirectTo?: string) =>
       apiClient.post('/auth/verify-email', { email, redirectTo }),
+    // AUTH-01 — confirm verify token (from email link)
+    confirmEmailVerification: (token: string) =>
+      apiClient.post('/auth/verify-email/confirm', { token }),
+    // AUTH-01 — request a fresh verify email (logged-in user)
+    resendEmailVerification: () =>
+      apiClient.post('/auth/verify-email/resend', {}),
   },
 
   // Draws
@@ -100,9 +137,34 @@ export const api = {
       const params = userId ? { userId } : {};
       return apiClient.get(`/draws/${id}`, { params });
     },
-    /** Public major-draw landing (enabled + slug); no auth */
-    getByWinSlug: (slug: string) =>
-      apiClient.get(`/draws/win/${encodeURIComponent(slug)}`),
+    /**
+     * Public major-draw landing (enabled + slug); no auth.
+     * Optional `preview` + `token` (Phase PB1) — admin iframe preview
+     * mode that bypasses DRAFT / disabled filters when the token is a
+     * valid admin JWT.
+     */
+    getByWinSlug: (
+      slug: string,
+      opts?: { preview?: 'admin'; token?: string },
+    ) =>
+      apiClient.get(`/draws/win/${encodeURIComponent(slug)}`, {
+        params:
+          opts?.preview && opts?.token
+            ? { preview: opts.preview, token: opts.token }
+            : undefined,
+      }),
+    /**
+     * Phase U5 — Bonus Draw closing-soon reminders. Member opts in;
+     * scheduler emails ~1 hour before the draw closes. Idempotent both
+     * directions.
+     */
+    remindMe: (drawId: string) =>
+      apiClient.post(`/draws/${drawId}/remind-me`),
+    unremindMe: (drawId: string) =>
+      apiClient.delete(`/draws/${drawId}/remind-me`),
+    reminderStatus: (drawId: string) =>
+      apiClient.get<{ subscribed: boolean }>(`/draws/${drawId}/remind-me`),
+    myReminders: () => apiClient.get('/draws/me/reminders'),
     enter: (drawId: string, idempotencyKey?: string) => {
       const headers: any = {};
       if (idempotencyKey) {
@@ -134,8 +196,11 @@ export const api = {
     updateProfile: (data: any) => apiClient.put('/users/me/profile', data),
     getCredits: () => apiClient.get('/users/credits'),
     getCreditLedger: () => apiClient.get('/users/me/credit-ledger'),
-          updatePassword: (data: { currentPassword?: string; newPassword: string; skipCurrentPasswordCheck?: boolean }) => 
+          updatePassword: (data: { currentPassword?: string; newPassword: string; skipCurrentPasswordCheck?: boolean }) =>
             apiClient.put('/users/me/password', data),
+    /** Phase U1 — stamp onboardingCompletedAt server-side. Idempotent. */
+    completeOnboarding: () =>
+      apiClient.post<{ onboardingCompletedAt: string }>('/users/me/onboarding/complete'),
   },
 
   // Entries
@@ -322,6 +387,31 @@ export const api = {
       apiClient.get<{ items: any[]; page: number; limit: number; total: number }>('/receipts/me', { params }),
     getById: (id: string) =>
       apiClient.get<any>(`/receipts/${id}`),
+  },
+
+  // Phase GP4 — Gift card catalog + Redemptions
+  giftCards: {
+    list: () => apiClient.get<any[]>('/gift-cards'),
+    getById: (brandId: string) => apiClient.get<any>(`/gift-cards/${encodeURIComponent(brandId)}`),
+  },
+  redemptions: {
+    create: (body: {
+      brandId: string;
+      brandName: string;
+      denominationId: string;
+      providerSku: string;
+      valueAud: number;
+      pointsRequired: number;
+      providerCostAud: number;
+      quantity?: number;
+      idempotencyKey: string;
+      channel?: 'web' | 'ios' | 'android';
+    }) => apiClient.post<any>('/redemptions', body),
+    reveal: (id: string) => apiClient.post<{ code: string; pin: string | null; expiresAt: string }>(
+      `/redemptions/${encodeURIComponent(id)}/reveal`,
+    ),
+    getMyHistory: () => apiClient.get<any[]>('/redemptions'),
+    getById: (id: string) => apiClient.get<any>(`/redemptions/${encodeURIComponent(id)}`),
   },
 };
 

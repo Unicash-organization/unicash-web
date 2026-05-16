@@ -63,6 +63,12 @@ const Icon = {
       <path d="M16 14v2l1 1" />
     </svg>
   ),
+  ShieldCheck: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  ),
   ArrowRight: ({ className = '' }: { className?: string }) => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
       <path d="M5 12h14M13 6l6 6-6 6" />
@@ -103,6 +109,10 @@ export default function DrawCard({
      Prevents flashing membership warnings during the ~1-2s async fetch window. */
   const [membershipReady, setMembershipReady] = useState(false);
 
+  // QW-9 / U5 — closing-soon reminder opt-in. `null` until we've fetched.
+  const [reminderOn, setReminderOn] = useState<boolean | null>(null);
+  const [reminderBusy, setReminderBusy] = useState(false);
+
   useEffect(() => {
     setTimeRemaining(formatTimeRemaining(closedAt));
     const interval = setInterval(() => {
@@ -120,6 +130,7 @@ export default function DrawCard({
     if (id) {
       checkUserEntry();
       checkWaitlistStatus();
+      checkReminder();
       if (requiresMembership) {
         checkMembership();
       } else {
@@ -129,6 +140,53 @@ export default function DrawCard({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, id, requiresMembership]);
+
+  const checkReminder = async () => {
+    if (!user) {
+      setReminderOn(false);
+      return;
+    }
+    try {
+      const res = await api.draws.reminderStatus(id);
+      setReminderOn(!!res.data?.subscribed);
+    } catch {
+      setReminderOn(false);
+    }
+  };
+
+  const toggleReminder = async (e?: React.MouseEvent | React.KeyboardEvent) => {
+    // The whole card is a click target → stop bubbling so the toggle
+    // doesn't also navigate to the draw detail page.
+    e?.stopPropagation?.();
+    e?.preventDefault?.();
+    if (!user || reminderBusy) return;
+    setReminderBusy(true);
+    // Optimistic — flip immediately; revert on failure
+    const next = !reminderOn;
+    setReminderOn(next);
+    // Dev-only breadcrumb so we can see the flip even on a slow network
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.log(`[DrawCard] reminder toggle ${id.slice(0, 8)} → ${next}`);
+    }
+    try {
+      if (next) await api.draws.remindMe(id);
+      else await api.draws.unremindMe(id);
+    } catch (err: any) {
+      // Revert on error
+      setReminderOn(!next);
+      const serverMsg = err?.response?.data?.message;
+      showToast(
+        serverMsg ||
+          'We couldn’t update your reminder. Please try again.',
+        'error',
+      );
+      // eslint-disable-next-line no-console
+      console.error('[DrawCard] reminder toggle failed', err);
+    } finally {
+      setReminderBusy(false);
+    }
+  };
 
   const checkUserEntry = async () => {
     if (!user) return;
@@ -203,10 +261,18 @@ export default function DrawCard({
 
   /* ---- Status logic — preserved ---- */
   const isClosedByDate = new Date(closedAt) < new Date();
+  // Any post-OPEN admin transition (drawn / published / drawing) is
+  // treated as 'closed' from the member's POV — the draw is over. This
+  // also keeps the Remind me button correctly hidden once an admin has
+  // resolved a draw, since the status === 'open' gate fails.
+  const isAdminResolved =
+    state === 'drawn' ||
+    state === 'drawing' ||
+    state === 'published';
   const status: 'open' | 'soldOut' | 'closed' | 'canceled' =
     state === 'canceled' ? 'canceled'
     : cap !== -1 && (state === 'soldOut' || entrants >= cap) ? 'soldOut'
-    : state === 'closed' || isClosedByDate ? 'closed'
+    : state === 'closed' || isClosedByDate || isAdminResolved ? 'closed'
     : 'open';
 
   /* Membership entry-eligibility — mirrors backend DrawsService.enterDraw */
@@ -487,11 +553,25 @@ export default function DrawCard({
           {title}
         </h3>
 
-        {/* Entry rule */}
-        <p className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] text-[#667085]">
-          <Icon.Users className="h-3.5 w-3.5 text-[#6356E5]" />
-          Max 1 entry per member
-        </p>
+        {/* Entry rule + trust signal.
+            QW-9 — the "Verified & published" chip anchors the Bonus Draw
+            as a premium, transparent product (not gambling). Sits next to
+            the existing entry rule so it's part of the title group, not
+            visual clutter. */}
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+          <span className="inline-flex items-center gap-1.5 text-[#667085]">
+            <Icon.Users className="h-3.5 w-3.5 text-[#6356E5]" />
+            Max 1 entry per member
+          </span>
+          <span aria-hidden className="text-[#D1D5DB]">·</span>
+          <span
+            className="inline-flex items-center gap-1.5 text-[#0F766E]"
+            title="Winners are picked transparently and published when the draw closes."
+          >
+            <Icon.ShieldCheck className="h-3.5 w-3.5 text-[#10B981]" />
+            Verified &amp; published
+          </span>
+        </div>
 
         {/* Member progress */}
         {cap !== -1 ? (
@@ -523,11 +603,74 @@ export default function DrawCard({
           <p className="mt-4 text-[12px] italic text-[#667085]">Unlimited entries</p>
         )}
 
-        {/* Closing date — v4 format: "Ends 28 May · 8:00 PM AEST" */}
-        <p className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-lg bg-[#FBFAFF] px-2.5 py-1.5 text-[12px] font-medium text-[#4B5563] ring-1 ring-[#EFEDF5]">
-          <Icon.CalendarClock className="h-3.5 w-3.5 text-[#6356E5]" />
-          {closingLabel}
-        </p>
+        {/* Closing date + reminder toggle.
+            U5 — opt-in "Remind me" sits next to the closing time so the
+            time-pressure context is right there. Hidden for guests,
+            already-entered members, and non-OPEN draws.
+            Layout uses justify-between so both pills stay on the same row
+            at every viewport — date on the left grows naturally, reminder
+            stays a fixed-width icon button so it never wraps. */}
+        <div className="mt-4 flex items-center justify-between gap-2">
+          <p className="inline-flex min-w-0 flex-1 items-center gap-1.5 rounded-lg bg-[#FBFAFF] px-2.5 py-1.5 text-[12px] font-medium text-[#4B5563] ring-1 ring-[#EFEDF5]">
+            <Icon.CalendarClock className="h-3.5 w-3.5 shrink-0 text-[#6356E5]" />
+            <span className="truncate">{closingLabel}</span>
+          </p>
+          {/*
+           * Only show on OPEN draws when the user hasn't entered yet and
+           * we know the subscription state. Closed / sold-out / canceled
+           * draws don't render this at all.
+           *
+           * Stop-propagation handlers below (mousedown/touchstart/click
+           * on the button itself) keep the outer <article onClick={navigate}>
+           * from hijacking the tap. We deliberately do NOT use
+           * onClickCapture — that fires before descendants and would
+           * kill the button's own onClick handler.
+           */}
+          {user && !hasEntered && status === 'open' && reminderOn !== null && (
+            <button
+              type="button"
+              onClick={toggleReminder}
+              onPointerDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.stopPropagation();
+                  toggleReminder(e);
+                }
+              }}
+              disabled={reminderBusy}
+              aria-pressed={reminderOn}
+              aria-label={reminderOn ? 'Reminder set — tap to remove' : 'Remind me before this Bonus Draw closes'}
+              title={reminderOn ? 'Reminder set — tap to remove' : 'Remind me before this Bonus Draw closes'}
+              /*
+               * Mobile: 36×36 icon-only square (fits next to the date pill
+               * without wrapping). Desktop sm+: same icon + short label.
+               * ON state is solid purple so the flip is obvious.
+               */
+              className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg text-[12px] font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5]/40 disabled:opacity-60 w-9 sm:w-auto sm:px-2.5 ${
+                reminderOn
+                  ? 'bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-white shadow-[0_4px_12px_-4px_rgba(99,86,229,0.5)] hover:from-[#5346D6] hover:to-[#7867EC]'
+                  : 'bg-white text-[#4B5563] ring-1 ring-[#EFEDF5] hover:text-[#6356E5] hover:ring-[#E0DAFF]'
+              }`}
+            >
+              {reminderOn ? (
+                <>
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5 shrink-0" aria-hidden>
+                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                  </svg>
+                  <span className="hidden sm:inline">Reminder set</span>
+                </>
+              ) : (
+                <>
+                  <Icon.Bell className="h-3.5 w-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Remind me</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
 
         {/* Spacer */}
         <div className="flex-1" />

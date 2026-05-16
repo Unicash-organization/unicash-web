@@ -104,12 +104,14 @@ export default function PasswordPage() {
                 type={showPasswords.current ? 'text' : 'password'}
                 value={formData.currentPassword}
                 onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 pr-10"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 pr-10 text-base sm:text-sm"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPasswords({ ...showPasswords, current: !showPasswords.current })}
+                aria-label={showPasswords.current ? 'Hide current password' : 'Show current password'}
+                aria-pressed={showPasswords.current}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
               >
                 {showPasswords.current ? '👁️' : '👁️‍🗨️'}
@@ -132,7 +134,7 @@ export default function PasswordPage() {
                   setFormData({ ...formData, newPassword: e.target.value });
                   if (errors.newPassword) validate();
                 }}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 pr-10 ${
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 pr-10 text-base sm:text-sm ${
                   errors.newPassword ? 'border-red-500' : 'border-gray-300'
                 }`}
                 required
@@ -141,6 +143,8 @@ export default function PasswordPage() {
               <button
                 type="button"
                 onClick={() => setShowPasswords({ ...showPasswords, new: !showPasswords.new })}
+                aria-label={showPasswords.new ? 'Hide new password' : 'Show new password'}
+                aria-pressed={showPasswords.new}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
               >
                 {showPasswords.new ? '👁️' : '👁️‍🗨️'}
@@ -162,7 +166,7 @@ export default function PasswordPage() {
                   setFormData({ ...formData, confirmPassword: e.target.value });
                   if (errors.confirmPassword) validate();
                 }}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 pr-10 ${
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 pr-10 text-base sm:text-sm ${
                   errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
                 }`}
                 required
@@ -170,6 +174,8 @@ export default function PasswordPage() {
               <button
                 type="button"
                 onClick={() => setShowPasswords({ ...showPasswords, confirm: !showPasswords.confirm })}
+                aria-label={showPasswords.confirm ? 'Hide confirm password' : 'Show confirm password'}
+                aria-pressed={showPasswords.confirm}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
               >
                 {showPasswords.confirm ? '👁️' : '👁️‍🗨️'}

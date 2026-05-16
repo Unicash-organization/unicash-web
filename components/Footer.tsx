@@ -42,8 +42,30 @@ const COMPANY_LINKS = [
 const LEGAL_LINKS = [
   { label: 'Terms & Conditions', href: '/terms' },
   { label: 'Privacy Policy', href: '/privacy' },
+  { label: 'Refund Policy', href: '/legal/refund-policy' },
   { label: 'Bonus Draw rules', href: '/terms#bonus-draws' },
   { label: 'Responsible participation', href: '/terms#responsible' },
+];
+
+/**
+ * AU-04 — UNICASH Pty Ltd legal identity. Required on every commerce
+ * footer under AU Consumer Law (visible ABN + registered address). Mirrors
+ * the values used on email footers (see EmailFooter.tsx + memory
+ * `reference_unicash_company_identity.md`). If the operating entity ever
+ * changes, update both sources in lockstep.
+ */
+const COMPANY_NAME = 'UNICASH Pty Ltd';
+const COMPANY_ABN = '90 693 062 538';
+const COMPANY_ADDRESS = '45 St Georges Terrace, Perth WA 6000';
+
+/**
+ * AU-04 — only real social handles. Placeholder URLs (facebook.com root etc.)
+ * were a brand-trust risk: a user clicking through landed on someone else's
+ * profile or the platform home page. We list only accounts that exist; once
+ * Instagram / YouTube are live, add them back here.
+ */
+const SOCIAL_LINKS: Array<{ label: string; href: string; Icon: () => JSX.Element }> = [
+  { label: 'Facebook', href: 'https://www.facebook.com/Unicash.au', Icon: FacebookIcon },
 ];
 
 const linkCls =
@@ -77,6 +99,14 @@ export default function Footer() {
           </Link>
           <p className="mt-4 text-[13px] leading-relaxed text-white/60">
             A premium Australian Membership rewards platform.
+          </p>
+          {/* AU-04 — required disclosure: registered legal name + ABN + AU address. */}
+          <p className="mt-4 text-[12px] leading-relaxed text-white/55">
+            {COMPANY_NAME}
+            <br />
+            ABN {COMPANY_ABN}
+            <br />
+            {COMPANY_ADDRESS}
           </p>
         </div>
 
@@ -122,18 +152,21 @@ export default function Footer() {
         {/* Bottom strip — social on top of copyright on mobile, side-by-side on sm+ */}
         <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className={socialCls}>
-              <FacebookIcon />
-            </a>
-            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className={socialCls}>
-              <InstagramIcon />
-            </a>
-            <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" aria-label="YouTube" className={socialCls}>
-              <YouTubeIcon />
-            </a>
+            {SOCIAL_LINKS.map(({ label, href, Icon }) => (
+              <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={label}
+                className={socialCls}
+              >
+                <Icon />
+              </a>
+            ))}
           </div>
           <p className="text-[12px] text-white/45">
-            © {new Date().getFullYear()} UNICASH. All rights reserved. Made in Australia.
+            © {new Date().getFullYear()} {COMPANY_NAME}. All rights reserved. Made in Australia.
           </p>
         </div>
       </div>

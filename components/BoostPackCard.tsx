@@ -349,13 +349,43 @@ export default function BoostPackCard({ pack, v4Index }: BoostPackCardProps) {
 
       {/* Points pill */}
       <div className={`mt-4 rounded-2xl px-4 py-3.5 sm:mt-5 ${statsBg}`}>
-        <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${statLabelColor}`}>
-          You&rsquo;ll receive
-        </p>
-        <p className={`mt-1 text-[24px] font-extrabold leading-none tracking-tight sm:text-[26px] ${statValueColor}`}>
-          {Number(displayPoints).toLocaleString()}
-          <span className={`ml-1.5 text-[13.5px] font-semibold sm:text-[14px] ${statLabelColor}`}>Points</span>
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${statLabelColor}`}>
+              You&rsquo;ll receive
+            </p>
+            <p className={`mt-1 text-[24px] font-extrabold leading-none tracking-tight sm:text-[26px] ${statValueColor}`}>
+              {Number(displayPoints).toLocaleString()}
+              <span className={`ml-1.5 text-[13.5px] font-semibold sm:text-[14px] ${statLabelColor}`}>Points</span>
+            </p>
+          </div>
+          {/*
+           * QW-2 — savings chip relative to Spark (the cheapest pack per Point).
+           * Spark: A$4.99 / 250 = A$0.01996 per Point.
+           * Pulse: A$19.99 / 1,200 = A$0.01666 per Point → ~17% cheaper.
+           * Surge: A$29.99 / 2,000 = A$0.01500 per Point → ~25% cheaper.
+           * Shown on Pulse + Surge only so the chip justifies the
+           * MOST POPULAR / BEST VALUE ribbon without doing arithmetic in
+           * the user's head.
+           */}
+          {(variant === 'pulse' || variant === 'surge') && (() => {
+            const sparkPerPoint = 4.99 / 250;
+            const perPoint = displayPrice / displayPoints;
+            const savings = Math.round((1 - perPoint / sparkPerPoint) * 100);
+            if (savings <= 0) return null;
+            const chipCls = isPopular
+              ? 'bg-[#FFE2B0]/95 text-[#3A2A06]'
+              : 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200';
+            return (
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.12em] ${chipCls}`}
+                aria-label={`Save ${savings} percent versus Booster Spark`}
+              >
+                Save {savings}%
+              </span>
+            );
+          })()}
+        </div>
       </div>
 
       {/* Feature checklist — tighter spacing on mobile */}

@@ -154,6 +154,12 @@
   animation-play-state: paused;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .major-draw-cta-nudge {
+    animation: none;
+  }
+}
+
 :root {
   --primary: 139, 92, 246;
   --accent: 99, 102, 241;

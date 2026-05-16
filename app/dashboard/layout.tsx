@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import LoadingRing from '@/components/LoadingRing';
+import { AnniversaryModal } from '@/components/loyalty/AnniversaryModal';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -196,6 +197,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* Sprint 3 wave 1 — celebration modal. Self-fetches pending notifications. */}
+      <AnniversaryModal />
     </div>
   );
 }

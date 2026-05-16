@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
@@ -252,14 +253,25 @@ export default function ProfilePage() {
 
           <Field
             label="Email"
-            hint="Used for magic-link login. Contact support to change."
+            hint={
+              <>
+                Used for magic-link login.{' '}
+                <Link
+                  href="/contact"
+                  className="font-semibold text-[#6356E5] underline-offset-2 transition-colors hover:text-[#5346D6] hover:underline focus:outline-none focus-visible:underline focus-visible:ring-2 focus-visible:ring-[#6356E5]/40 rounded-sm"
+                >
+                  Contact support
+                </Link>{' '}
+                to change.
+              </>
+            }
             className="sm:col-span-2"
           >
             <input
               type="email"
               value={formData.email}
               disabled
-              className="h-11 w-full rounded-2xl border border-[#E7E9F2] bg-[#FBFAFF] px-4 text-[14px] text-[#667085]"
+              className="h-11 w-full rounded-2xl border border-[#E7E9F2] bg-[#FBFAFF] px-4 text-base sm:text-[14px] text-[#667085]"
             />
           </Field>
 
@@ -452,7 +464,11 @@ function Field({
   children,
 }: {
   label: string;
-  hint?: string;
+  /**
+   * QW-6 — accept ReactNode so individual fields can embed links
+   * (e.g. "Contact support to change") without losing the styled hint.
+   */
+  hint?: React.ReactNode;
   error?: string;
   className?: string;
   children: React.ReactNode;

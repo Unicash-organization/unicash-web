@@ -19,6 +19,8 @@ interface User {
   lockedAt?: string;
   lockReason?: string;
   metadata?: Record<string, any>;
+  /** Phase U1 — null if onboarding wizard hasn't been completed yet. */
+  onboardingCompletedAt?: string | null;
 }
 
 interface AuthContextType {

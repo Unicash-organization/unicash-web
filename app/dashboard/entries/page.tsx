@@ -14,6 +14,7 @@ type GroupedRow = {
   draw: { id: string; title: string; drawType: string };
   drawType: string;
   source: string;
+  subsource: string | null;
   creditsSpent: number;
   date: string;
   count: number;
@@ -29,7 +30,43 @@ const SOURCE_LABEL: Record<string, { label: string; bg: string; text: string; ri
   membership_credit: { label: 'Membership',       bg: 'bg-[#F4F1FB]', text: 'text-[#6356E5]', ring: 'ring-[#E0DAFF]' },
   boost_credit:      { label: 'Point Booster',    bg: 'bg-[#FFF6DA]', text: 'text-[#9C5410]', ring: 'ring-[#FFC85D]/40' },
   external_payment:  { label: 'One-time package', bg: 'bg-[#ECFDF5]', text: 'text-[#10B981]', ring: 'ring-[#A7F3D0]' },
+  loyalty:           { label: 'Loyalty',          bg: 'bg-[#FFF6E5]', text: 'text-[#9A6A00]', ring: 'ring-[#FCE6B5]' },
 };
+
+/* Loyalty V2 — friendly label for each subsource. Keep parallel with
+   unicash-api/src/entries/entities/entry.entity.ts LoyaltySubsource enum. */
+const LOYALTY_SUBSOURCE_LABEL: Record<string, string> = {
+  draw_open_snapshot:  'Draw-open snapshot',
+  signup_bonus:        'Sign-up bonus',
+  tier_quota:          'Tier quota',
+  tenure_monthly:      'Monthly tenure',
+  upgrade_delta:       'Tier upgrade bonus',
+  anniversary_3m:      '3-month anniversary',
+  anniversary_6m:      '6-month anniversary',
+  anniversary_12m:     '12-month anniversary',
+  anniversary_18m:     '18-month anniversary',
+  anniversary_24m:     '24-month anniversary',
+  anniversary_yearly:  'Yearly anniversary',
+  streak_12:           '12-month streak',
+  streak_24:           '24-month streak',
+  streak_36:           '36-month streak',
+  admin_grant:         'Admin grant',
+  restore_full:        'Restored (full)',
+  restore_partial:     'Restored (partial)',
+};
+
+function resolveSourceLabel(source: string, subsource: string | null): {
+  label: string;
+  bg: string;
+  text: string;
+  ring: string;
+} {
+  const base = SOURCE_LABEL[source] || { label: source, bg: 'bg-[#F4F1FB]', text: 'text-[#6356E5]', ring: 'ring-[#E0DAFF]' };
+  if (source === 'loyalty' && subsource && LOYALTY_SUBSOURCE_LABEL[subsource]) {
+    return { ...base, label: `${base.label} · ${LOYALTY_SUBSOURCE_LABEL[subsource]}` };
+  }
+  return base;
+}
 
 const Icon = {
   ArrowRight: ({ className = '' }: { className?: string }) => (
@@ -105,6 +142,7 @@ export default function EntriesPage() {
         data: Array<{
           drawId: string;
           source: string;
+          subsource?: string | null;
           dayUtc: string;
           count: number;
           latestCreatedAt: string;
@@ -118,12 +156,14 @@ export default function EntriesPage() {
       const mapped: GroupedRow[] = list.map((r) => {
         const count = Number(r.count) || 0;
         const rawOrder = r.sampleOrderNo != null ? String(r.sampleOrderNo).trim() : '';
+        const sub = r.subsource ?? null;
         return {
-          key: `${r.drawId}-${r.source}-${r.dayUtc}`,
+          key: `${r.drawId}-${r.source}-${sub ?? ''}-${r.dayUtc}`,
           drawId: r.drawId,
           draw: r.draw,
           drawType: r.draw?.drawType || 'mini',
           source: r.source,
+          subsource: sub,
           creditsSpent: Number(r.creditsSpent) || 0,
           date: formatDate(r.latestCreatedAt),
           count,
@@ -274,7 +314,7 @@ export default function EntriesPage() {
               {/* Mobile: card list */}
               <ul className="space-y-2.5 sm:hidden">
                 {rows.map((row) => {
-                  const sourceCfg = SOURCE_LABEL[row.source] || { label: row.source, bg: 'bg-[#F4F1FB]', text: 'text-[#6356E5]', ring: 'ring-[#E0DAFF]' };
+                  const sourceCfg = resolveSourceLabel(row.source, row.subsource);
                   return (
                     <li key={row.key}>
                       <article className="rounded-2xl border border-[#E7E9F2] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,18,34,.04)]">
@@ -332,13 +372,13 @@ export default function EntriesPage() {
                         <th className="px-5 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Points</th>
                         <th className="px-5 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Source</th>
                         <th className="px-5 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Date</th>
-                        <th className="px-5 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Count</th>
+                        <th className="px-5 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Entries</th>
                         {activeTab === 'mini' && <th className="px-5 py-3" />}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#EFEDF5] bg-white">
                       {rows.map((row) => {
-                        const sourceCfg = SOURCE_LABEL[row.source] || { label: row.source, bg: 'bg-[#F4F1FB]', text: 'text-[#6356E5]', ring: 'ring-[#E0DAFF]' };
+                        const sourceCfg = resolveSourceLabel(row.source, row.subsource);
                         return (
                           <tr key={row.key} className="transition-colors hover:bg-[#FBFAFF]">
                             <td className="whitespace-nowrap px-5 py-3.5 font-mono text-[12px] text-[#0F1222]">{row.orderNoSample ?? '—'}</td>

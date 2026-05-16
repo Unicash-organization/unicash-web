@@ -170,9 +170,20 @@ function ToastCard({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => vo
     setTimeout(onDismiss, 220);
   };
 
+  /*
+   * QW-4 — a11y: error toasts get role="alert" (implies assertive),
+   * everything else stays role="status" (polite, deferred until idle).
+   * This way a screen reader interrupts the user for failures but
+   * doesn't break their flow on successes/info messages.
+   */
+  const ariaRole = toast.type === 'error' ? 'alert' : 'status';
+  const ariaLive = toast.type === 'error' ? 'assertive' : 'polite';
+
   return (
     <div
-      role="status"
+      role={ariaRole}
+      aria-live={ariaLive}
+      aria-atomic="true"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}

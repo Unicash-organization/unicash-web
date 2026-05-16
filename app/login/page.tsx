@@ -191,8 +191,13 @@ function LoginPageContent() {
 
     if (code) {
       const provider = searchParams.get('provider') as 'google' | 'facebook' | 'github' | 'apple' | undefined;
+      // BE-08 — provider echoes back the same `state` we signed into a
+      // cookie at /auth/social/:provider initiate. If it's missing, the
+      // callback will fail server-side with "OAuth state cookie missing"
+      // — better to short-circuit here than waste a code exchange.
+      const state = searchParams.get('state') || '';
       setVerifyingAuth({ isVerifying: true, method: 'oauth', provider });
-      handleOAuthCallback(code);
+      handleOAuthCallback(code, state, provider);
     } else if (accessToken) {
       console.log('🔗 Detected Supabase magic link with access_token in hash');
       setVerifyingAuth({ isVerifying: true, method: 'magic-link' });
@@ -263,11 +268,17 @@ function LoginPageContent() {
     }
   };
 
-  const handleOAuthCallback = async (code: string) => {
+  const handleOAuthCallback = async (
+    code: string,
+    state: string,
+    provider?: 'google' | 'facebook' | 'github' | 'apple',
+  ) => {
     try {
       setLoading(true);
       setVerifyingAuth({ isVerifying: true, method: 'oauth' });
-      const response = await api.auth.handleOAuthCallback(code);
+      // BE-08 — pass `state` so backend can verify CSRF cookie ↔ provider
+      // round-trip match.
+      const response = await api.auth.handleOAuthCallback(code, state, provider);
       const { user: userData, token } = response.data;
 
       localStorage.setItem('token', token);
@@ -516,8 +527,10 @@ function LoginPageContent() {
   }
 
   /* ---- Login UI ---- */
+  // QW-1: text-base (16px) on mobile so iOS Safari does NOT auto-zoom on focus.
+  // sm:text-[14px] scales back down on desktop where the design wants smaller text.
   const inputCls =
-    'h-12 w-full rounded-2xl border border-[#E0DAFF] bg-[#FBFAFF] px-4 text-[14px] text-[#0f1222] placeholder-[#a3a8be] shadow-[inset_0_1px_2px_rgba(15,18,34,0.04)] transition-all hover:border-[#c8c5ea] hover:bg-white focus:border-[#6356e5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6356e5]/30 disabled:opacity-60';
+    'h-12 w-full rounded-2xl border border-[#E0DAFF] bg-[#FBFAFF] px-4 text-base sm:text-[14px] text-[#0f1222] placeholder-[#a3a8be] shadow-[inset_0_1px_2px_rgba(15,18,34,0.04)] transition-all hover:border-[#c8c5ea] hover:bg-white focus:border-[#6356e5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6356e5]/30 disabled:opacity-60';
 
   const primaryBtnCls =
     'uc-lift-sm relative flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-[15px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#4538B8] disabled:cursor-not-allowed disabled:opacity-60';
