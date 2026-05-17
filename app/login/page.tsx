@@ -189,6 +189,29 @@ function LoginPageContent() {
     const hashParams = new URLSearchParams(hash.substring(1));
     const accessToken = hashParams.get('access_token');
 
+    // Case 9 — user cancels the Google/Facebook consent screen. The provider
+    // bounces back with ?error=access_denied (or similar). Without this branch
+    // the page just sits blank as if nothing happened. Show a friendly message
+    // so the user understands they cancelled, and clear the query params so
+    // a refresh doesn't show the toast again.
+    const oauthError = searchParams.get('error');
+    const oauthErrorDescription = searchParams.get('error_description');
+    if (oauthError && !code) {
+      const friendly =
+        oauthError === 'access_denied'
+          ? 'Sign-in cancelled. You can try again or use email + password below.'
+          : `Sign-in failed: ${oauthErrorDescription || oauthError}`;
+      setError(friendly);
+      // Strip ?error/?error_description from the URL.
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('error');
+        url.searchParams.delete('error_description');
+        window.history.replaceState({}, '', url.toString());
+      }
+      return;
+    }
+
     if (code) {
       const provider = searchParams.get('provider') as 'google' | 'facebook' | 'github' | 'apple' | undefined;
       // BE-08 — provider echoes back the same `state` we signed into a
