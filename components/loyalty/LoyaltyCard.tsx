@@ -144,16 +144,16 @@ export function LoyaltyCard() {
   const anniversaryDays = summary.nextAnniversary
     ? daysUntil(summary.nextAnniversary.at)
     : null;
-  // Multi-draw: each open Major Draw is its own grant cycle. Render an
-  // aggregate headline (total entries) + per-draw breakdown card list.
+  // V2 spec — each open Major Draw is its own independent grant cycle.
+  // No aggregate "X entries across N draws" headline because summing
+  // entries from independent lottery pools misleads members about their
+  // actual win probability. We render per-draw cards only.
   const draws = summary.currentDraws ?? [];
   const hasDraws = draws.length > 0;
-  const totalEntries = summary.totalEntriesAcrossDraws ?? 0;
-  // "First cycle" state — member is eligible and at least one Major Draw is
-  // open, but no entries have accrued yet (tenure = 0 OR next-accrual still
-  // pending). Showing 4× "No Loyalty Entries yet" cards plus a "0 across N"
-  // headline is noise; collapse to a calm tenure + countdown view instead.
-  const isEmptyCycle = hasDraws && totalEntries === 0;
+  // Compute the empty-cycle hint locally — no draws have any entries yet.
+  // (Replaces the old `totalEntriesAcrossDraws === 0` check.)
+  const isEmptyCycle =
+    hasDraws && draws.every((d) => (d.entries ?? 0) === 0);
 
   return (
     <article className="rounded-3xl border border-[#E0DAFF] bg-white p-5 shadow-[0_18px_50px_-30px_rgba(99,86,229,0.20)] sm:p-7">
@@ -169,23 +169,22 @@ export function LoyaltyCard() {
             <h2 className="mt-1 text-[20px] font-extrabold tracking-tight text-[#0F1222] sm:text-[22px]">
               {hasDraws ? (
                 <>
+                  Entries in{' '}
                   <span className="bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] bg-clip-text text-transparent">
-                    {totalEntries.toLocaleString('en-AU')}
+                    {draws.length}
                   </span>{' '}
-                  across {draws.length}{' '}
                   {draws.length === 1 ? 'Major Draw' : 'Major Draws'}
                 </>
               ) : (
                 'Earning is paused'
               )}
             </h2>
+            {/* V2 spec — no aggregate total. Per-draw counts live in the
+                card list below (each draw is its own independent pool). */}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             {summary.loyaltyStatus !== 'none' && (
               <LoyaltyStatusBadge status={summary.loyaltyStatus} />
-            )}
-            {hasDraws && (
-              <LoyaltyEntryBadge entries={totalEntries} drawTitle={null} />
             )}
           </div>
         </div>

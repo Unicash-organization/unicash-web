@@ -54,8 +54,15 @@ export interface LoyaltySummary {
   monthlyAccrual: number;
   /** Per-draw snapshot, one entry per currently-OPEN Major Draw. */
   currentDraws: LoyaltyCurrentDraw[];
-  /** Sum of entries across every open Major Draw. */
-  totalEntriesAcrossDraws: number;
+  /**
+   * REMOVED per V2 spec — summing entries across N independent Major Draw
+   * pools misleads members about their actual win probability. Use
+   * `currentDraws[i].entries` per-draw instead.
+   *
+   * Kept as `?: number` to absorb stale API responses without a runtime
+   * crash; FE code MUST NOT read this field.
+   */
+  totalEntriesAcrossDraws?: number;
   /** @deprecated Back-compat alias for first/newest open draw. Prefer currentDraws[0]. */
   currentDraw: LoyaltyCurrentDraw | null;
   nextAccrualAt: string | null;

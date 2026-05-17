@@ -25,6 +25,7 @@ import api from '@/lib/api';
 import { EntryBreakdown } from '@/components/loyalty/EntryBreakdown';
 import { TenureTimeline } from '@/components/loyalty/TenureTimeline';
 import { LoyaltyEntryBadge } from '@/components/loyalty/LoyaltyEntryBadge';
+import { LoyaltyStatusBadge } from '@/components/loyalty/LoyaltyStatusBadge';
 import type {
   LoyaltyHistoryResponse,
   LoyaltyHistoryRow,
@@ -142,7 +143,9 @@ function CurrentTab() {
   }
 
   const draws = summary.currentDraws ?? [];
-  const totalEntries = summary.totalEntriesAcrossDraws ?? 0;
+  // V2 spec — no aggregate total across draws (each Major Draw is an
+  // independent lottery pool, summing entries misleads probability).
+  // Per-draw breakdown is rendered in the draw card list below.
 
   if (draws.length === 0) {
     return (
@@ -169,25 +172,30 @@ function CurrentTab() {
 
   return (
     <div className="space-y-4">
-      {/* Aggregate headline card */}
+      {/* Status + tenure headline. V2 spec — no aggregate "X total entries
+          across N draws" line because each Major Draw is an independent
+          pool; summing them misleads members about win probability. */}
       <article className="rounded-3xl border border-[#E0DAFF] bg-white p-5 shadow-[0_18px_50px_-30px_rgba(99,86,229,0.20)] sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">
-              Across {draws.length} {draws.length === 1 ? 'Major Draw' : 'Major Draws'}
+              Your Loyalty Entries
             </p>
             <h2 className="mt-1 text-[22px] font-extrabold tracking-tight leading-[1.1] text-[#0F1222] sm:text-[26px]">
+              Entries in{' '}
               <span className="bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] bg-clip-text text-transparent">
-                {totalEntries.toLocaleString('en-AU')}
+                {draws.length}
               </span>{' '}
-              total Loyalty {totalEntries === 1 ? 'Entry' : 'Entries'}
+              {draws.length === 1 ? 'Major Draw' : 'Major Draws'}
             </h2>
             <p className="mt-1 text-[12.5px] font-semibold text-[#4B5563]">
               Month {summary.tenureMonths} · {summary.planName ?? summary.tier} ·{' '}
               <span className="capitalize">{summary.loyaltyStatus}</span> status
             </p>
           </div>
-          <LoyaltyEntryBadge entries={totalEntries} drawTitle={null} />
+          {summary.loyaltyStatus !== 'none' && (
+            <LoyaltyStatusBadge status={summary.loyaltyStatus} />
+          )}
         </div>
 
         <div className="mt-6">
