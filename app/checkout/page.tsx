@@ -250,7 +250,7 @@ function CheckoutContent() {
   const boostPackId = searchParams.get('boostPackId');
   const drawId = searchParams.get('drawId');
   const isUpgradeParam = searchParams.get('upgrade') === 'true';
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, login: authLogin } = useAuth();
 
   const [step, setStep] = useState<'info' | 'pay'>('info');
   const [selectedPack, setSelectedPack] = useState<any>(null);
@@ -273,6 +273,15 @@ function CheckoutContent() {
   selectedPackRef.current = selectedPack;
 
   const [showEmailExistsModal, setShowEmailExistsModal] = useState(false);
+  // RESUME-1 — same 3-state branching as MembershipLandingCheckoutModal.
+  //   'login'   → user exists, no active membership, can resume after login
+  //   'blocked' → user exists with active membership, already a member
+  //   null      → no email-exists state
+  const [resumeMode, setResumeMode] = useState<null | 'login' | 'blocked'>(null);
+  const [resumePassword, setResumePassword] = useState('');
+  const [resumePasswordError, setResumePasswordError] = useState<string | null>(null);
+  const [resumeLoggingIn, setResumeLoggingIn] = useState(false);
+  const [resumeResetSent, setResumeResetSent] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -560,12 +569,28 @@ function CheckoutContent() {
     if (isNewUser && formData.email?.trim()) {
       try {
         const checkRes = await api.auth.checkEmail(formData.email.trim());
-        if (checkRes.data?.exists) {
+        const data = checkRes.data ?? {
+          exists: false,
+          hasActiveMembership: false,
+          canResumeCheckout: false,
+        };
+        // RESUME-1 — 3-state branch identical to membership checkout modal.
+        if (data.exists && data.hasActiveMembership) {
+          setResumeMode('blocked');
           setShowEmailExistsModal(true);
           return;
         }
+        if (data.exists && data.canResumeCheckout) {
+          setResumeMode('login');
+          setResumePassword('');
+          setResumePasswordError(null);
+          setResumeResetSent(false);
+          setShowEmailExistsModal(true);
+          return;
+        }
+        // Fresh email → continue to payment intent below.
       } catch {
-        // proceed on error (network etc)
+        // proceed on network failure — backend re-checks at intent time.
       }
     }
 
@@ -588,6 +613,74 @@ function CheckoutContent() {
       setLoading(false);
       setIsProcessingPayment(false);
     }
+  };
+
+  // RESUME-1 — log in with existing password from the inline modal, then
+  // jump straight to creating the payment intent. Mirrors MembershipLanding
+  // CheckoutModal.handleLoginAndContinue so the behaviour is consistent
+  // between booster + membership checkouts.
+  const handleResumeLogin = async () => {
+    if (!resumePassword.trim()) {
+      setResumePasswordError('Enter your password to continue.');
+      return;
+    }
+    setResumeLoggingIn(true);
+    setResumePasswordError(null);
+    try {
+      await authLogin(formData.email.trim().toLowerCase(), resumePassword);
+      // Close + reset modal state.
+      setShowEmailExistsModal(false);
+      setResumeMode(null);
+      setResumePassword('');
+      // Continue with payment intent — checkEmail re-check would now skip
+      // (isNewUser becomes false on next render), but we proceed directly
+      // since we know the auth context just updated.
+      setLoading(true);
+      setIsProcessingPayment(true);
+      try {
+        const response = await createPaymentIntent(selectedPlan, selectedPack);
+        if (response?.data?.clientSecret) {
+          intentPackIdRef.current = selectedPack?.id ?? null;
+          setClientSecret(response.data.clientSecret);
+          setPaymentId(response.data.paymentId);
+          setStep('pay');
+        } else {
+          setPaymentError('Failed to initialize payment. Please try again.');
+        }
+      } catch (e: any) {
+        const msg =
+          e?.response?.data?.message || 'Failed to initialize payment. Please try again.';
+        setPaymentError(msg);
+      } finally {
+        setLoading(false);
+        setIsProcessingPayment(false);
+      }
+    } catch (e: any) {
+      setResumePasswordError(
+        typeof e?.message === 'string'
+          ? e.message
+          : 'Incorrect password. Try again or reset your password below.',
+      );
+    } finally {
+      setResumeLoggingIn(false);
+    }
+  };
+
+  // RESUME-1 — fire password reset email so the member can recover without
+  // losing their place in the checkout funnel.
+  const handleResumeForgotPassword = async () => {
+    if (!formData.email?.trim()) {
+      setResumePasswordError('Enter your email first.');
+      return;
+    }
+    setResumePasswordError(null);
+    try {
+      await api.auth.requestPasswordReset(formData.email.trim().toLowerCase());
+    } catch {
+      // Backend deliberately vague to avoid enumeration; mirror that on the
+      // client by always pretending success.
+    }
+    setResumeResetSent(true);
   };
 
   const handlePackChangeInStep2 = async (newPack: any) => {
@@ -1497,7 +1590,10 @@ function CheckoutContent() {
         </div>
       </div>
 
-      {/* Email already registered modal — restyled v4 */}
+      {/* RESUME-1 — Email-exists modal. Two modes:
+            * 'login'   — inline login (existing user, no active membership)
+            * 'blocked' — terminal "already a member" screen
+          Both kept inside the same wrapper so the open/close UX feels the same. */}
       {showEmailExistsModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1222]/60 p-4 backdrop-blur-sm"
@@ -1508,42 +1604,162 @@ function CheckoutContent() {
           <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-[0_30px_80px_-30px_rgba(15,18,34,0.45)] sm:p-7">
             <button
               type="button"
-              onClick={() => setShowEmailExistsModal(false)}
+              onClick={() => {
+                setShowEmailExistsModal(false);
+                setResumeMode(null);
+                setResumePassword('');
+                setResumePasswordError(null);
+                setResumeResetSent(false);
+              }}
               aria-label="Close"
               className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full text-[#667085] hover:bg-[#F4F1FB] hover:text-[#0f1222] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356e5]"
             >
               <Icon.X className="h-4 w-4" />
             </button>
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFF6E2] ring-1 ring-[#FFC85D]/40">
-              <Icon.AlertCircle className="h-6 w-6 text-[#9C5410]" />
-            </div>
-            <h2 id="email-exists-title" className="mt-4 text-center text-[20px] font-extrabold tracking-tight text-[#0f1222] sm:text-[22px]">
-              This email is already registered
-            </h2>
-            <p className="mt-2 text-center text-[13.5px] leading-relaxed text-[#4b5563]">
-              You already have a UNICASH account with this email. Log in to continue with checkout.
-            </p>
-            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-              <button
-                type="button"
-                onClick={() => router.push('/login')}
-                className="uc-lift-sm inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-[14px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356e5] focus-visible:ring-offset-2"
-              >
-                Log in
-                <Icon.ArrowRight className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setFormData((prev) => ({ ...prev, email: '' }));
-                  setShowEmailExistsModal(false);
-                  setTimeout(() => emailInputRef.current?.focus(), 0);
-                }}
-                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-[#E7E9F2] bg-white text-[14px] font-semibold text-[#0f1222] transition-colors hover:border-[#c8c5ea] hover:bg-[#FBFAFF] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356e5] focus-visible:ring-offset-2"
-              >
-                Use a different email
-              </button>
-            </div>
+
+            {resumeMode === 'login' ? (
+              <>
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFF8EC] ring-1 ring-[#FFE2B0]">
+                  <Icon.AlertCircle className="h-6 w-6 text-[#9C5410]" />
+                </div>
+                <h2
+                  id="email-exists-title"
+                  className="mt-4 text-center text-[20px] font-extrabold tracking-tight text-[#0f1222] sm:text-[22px]"
+                >
+                  Welcome back
+                </h2>
+                <p className="mt-2 text-center text-[13.5px] leading-relaxed text-[#4b5563]">
+                  We found your UNICASH account for{' '}
+                  <span className="font-semibold text-[#0f1222]">{formData.email}</span>.
+                  Enter your password to continue with checkout.
+                </p>
+
+                <div className="mt-5 space-y-3">
+                  <input
+                    type="email"
+                    value={formData.email}
+                    readOnly
+                    className="w-full cursor-not-allowed rounded-2xl border border-[#E0DAFF] bg-[#F4F1FB] px-4 py-3.5 text-[14.5px] text-[#667085]"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Password*"
+                    autoFocus
+                    value={resumePassword}
+                    onChange={(e) => {
+                      setResumePassword(e.target.value);
+                      if (resumePasswordError) setResumePasswordError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !resumeLoggingIn) handleResumeLogin();
+                    }}
+                    className="w-full rounded-2xl border border-[#E0DAFF] bg-[#FBFAFF] px-4 py-3.5 text-[14.5px] text-[#0F1222] transition focus:border-[#6356E5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6356E5]/30"
+                  />
+
+                  {resumePasswordError && (
+                    <div className="rounded-2xl bg-[#FEF2F2] p-3 ring-1 ring-[#FCA5A5]/60">
+                      <div className="flex items-start gap-2">
+                        <Icon.AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#EF4444]" />
+                        <p className="text-[13px] text-[#991B1B]">{resumePasswordError}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {resumeResetSent ? (
+                    <div className="rounded-2xl bg-[#ECFDF5] p-3 ring-1 ring-[#A7F3D0]">
+                      <p className="text-[12.5px] text-[#065F46]">
+                        If an account exists for{' '}
+                        <span className="font-semibold">{formData.email}</span>, we&apos;ve sent
+                        a password reset link. Check your inbox.
+                      </p>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleResumeForgotPassword}
+                      className="text-[12.5px] font-semibold text-[#6356E5] hover:underline"
+                    >
+                      Forgot your password?
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-5 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    disabled={resumeLoggingIn}
+                    onClick={handleResumeLogin}
+                    className="uc-lift-sm inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-[14.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356e5] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {resumeLoggingIn ? (
+                      <>
+                        <Icon.Spinner className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+                        Logging you in…
+                      </>
+                    ) : (
+                      <>
+                        Log in &amp; continue
+                        <Icon.ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData((prev) => ({ ...prev, email: '' }));
+                      setShowEmailExistsModal(false);
+                      setResumeMode(null);
+                      setResumePassword('');
+                      setResumePasswordError(null);
+                      setResumeResetSent(false);
+                      setTimeout(() => emailInputRef.current?.focus(), 0);
+                    }}
+                    className="inline-flex h-11 w-full items-center justify-center rounded-full border border-[#E7E9F2] bg-white text-[13px] font-semibold text-[#667085] transition-colors hover:border-[#c8c5ea] hover:bg-[#FBFAFF] hover:text-[#6356E5]"
+                  >
+                    Use a different email
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F4F1FB] ring-1 ring-[#E0DAFF]">
+                  <Icon.AlertCircle className="h-6 w-6 text-[#6356E5]" />
+                </div>
+                <h2
+                  id="email-exists-title"
+                  className="mt-4 text-center text-[20px] font-extrabold tracking-tight text-[#0f1222] sm:text-[22px]"
+                >
+                  You&apos;re already a UNICASH member
+                </h2>
+                <p className="mt-2 text-center text-[13.5px] leading-relaxed text-[#4b5563]">
+                  The email <span className="font-semibold text-[#0f1222]">{formData.email}</span>{' '}
+                  has an active membership. Log in to manage your benefits, scan receipts, or join
+                  Bonus Draws.
+                </p>
+                <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => router.push('/login')}
+                    className="uc-lift-sm inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-[14px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356e5] focus-visible:ring-offset-2"
+                  >
+                    Log in to your account
+                    <Icon.ArrowRight className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData((prev) => ({ ...prev, email: '' }));
+                      setShowEmailExistsModal(false);
+                      setResumeMode(null);
+                      setTimeout(() => emailInputRef.current?.focus(), 0);
+                    }}
+                    className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-[#E7E9F2] bg-white text-[14px] font-semibold text-[#0f1222] transition-colors hover:border-[#c8c5ea] hover:bg-[#FBFAFF] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356e5] focus-visible:ring-offset-2"
+                  >
+                    Use a different email
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
