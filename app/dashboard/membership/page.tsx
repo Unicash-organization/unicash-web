@@ -224,6 +224,26 @@ export default function MembershipPage() {
     }
   };
 
+  // Loyalty V2 PR1 — Reactivate a PENDING_CANCEL membership before
+  // currentPeriodEnd. Flips status back to ACTIVE on the BE; FE just
+  // calls then reloads. No confirm modal — single-click action.
+  const handleReactivateMembership = async () => {
+    setActionLoading('reactivate');
+    try {
+      await api.membership.reactivate();
+      await loadData();
+      await refreshUser();
+      showToast('Membership reactivated — Loyalty Entries will resume accruing.', 'success');
+    } catch (error: any) {
+      showToast(
+        error.response?.data?.message || 'Failed to reactivate Membership',
+        'error',
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleCancelUpgrade = async () => {
     setActionLoading('cancelUpgrade');
     try {
@@ -461,9 +481,15 @@ export default function MembershipPage() {
   const status = (membership?.status || '').toLowerCase();
   const isPaymentDue = status === 'payment_failed' || status === 'past_due';
   const isPaused = !!membership?.isPaused;
+  // Loyalty V2 PR1 — three cancel-related states:
+  //   isPendingCancel : status='pending_cancel' (member clicked Cancel, period still ongoing)
+  //   isCanceled      : status='canceled' (period ended OR legacy cancel from pre-PR1)
+  //   isScheduledCancel : legacy flag-based check (kept for back-compat with old data)
+  const isPendingCancel = status === 'pending_cancel';
   const isCanceled = status === 'canceled';
-  const isScheduledCancel = !!membership?.cancelAtPeriodEnd && status !== 'canceled' && membership?.currentPeriodEnd && new Date(membership.currentPeriodEnd) > new Date();
-  const cancelAccessUntil = isCanceled && membership?.currentPeriodEnd && new Date(membership.currentPeriodEnd) > new Date();
+  const isScheduledCancel = !!membership?.cancelAtPeriodEnd && status !== 'canceled' && status !== 'pending_cancel' && membership?.currentPeriodEnd && new Date(membership.currentPeriodEnd) > new Date();
+  // PENDING_CANCEL also has currentPeriodEnd populated → show the "Cancelling on DD/MM" banner.
+  const cancelAccessUntil = (isPendingCancel || isCanceled) && membership?.currentPeriodEnd && new Date(membership.currentPeriodEnd) > new Date();
   const noActiveMembership = !membership || (isCanceled && (!membership?.currentPeriodEnd || new Date(membership.currentPeriodEnd) <= new Date()));
 
   const planDisplayKind = isPaused ? 'paused' : isPaymentDue ? (status === 'past_due' ? 'past_due' : 'payment_failed') : 'active';
@@ -536,34 +562,64 @@ export default function MembershipPage() {
         </article>
       ) : cancelAccessUntil ? (
         /* ============================================================
-            CANCELLED — still in billing period
+            PENDING CANCEL — membership cancelled, period still ongoing
+            Loyalty V2 PR1 — calm purple chrome (vs old alarming red)
+            because nothing destructive has happened yet. Member can still
+            reactivate and keep all earned Loyalty Entries.
         ============================================================ */
-        <article className="overflow-hidden rounded-3xl border border-[#FCA5A5] bg-white shadow-[0_18px_50px_-30px_rgba(185,28,28,0.18)]">
-          <div className="bg-[#FEF2F2] px-5 py-4 sm:px-7 sm:py-5">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#B91C1C] ring-1 ring-[#FCA5A5]">
+        <article className="overflow-hidden rounded-3xl border border-[#E0DAFF] bg-white shadow-[0_18px_50px_-30px_rgba(99,86,229,0.18)]">
+          <div className="bg-[#F4F1FB] px-5 py-4 sm:px-7 sm:py-5">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#6356E5] ring-1 ring-[#E0DAFF]">
               <Icon.Alert className="h-3 w-3" />
-              Cancelled
+              Cancelling on {formatMembershipDate(membership.currentPeriodEnd)}
             </span>
-            <p className="mt-2 text-[13.5px] font-bold text-[#7F1D1D]">
-              Access until {formatMembershipDate(membership.currentPeriodEnd)}
+            <p className="mt-2 text-[13.5px] font-bold text-[#0F1222]">
+              Your {planName} ends in{' '}
+              {Math.max(
+                0,
+                Math.ceil(
+                  (new Date(membership.currentPeriodEnd).getTime() - Date.now()) /
+                    (24 * 60 * 60 * 1000),
+                ),
+              )}{' '}
+              days
             </p>
           </div>
           <div className="px-5 py-5 sm:px-7 sm:py-6">
-            <h2 className="text-[20px] font-extrabold tracking-tight text-[#0F1222] sm:text-[22px]">{planName}</h2>
-            <p className="mt-2 text-[13px] leading-relaxed text-[#4B5563]">
-              Your UNICASH Membership has been cancelled. You won't be charged again, and you keep dashboard access until {formatMembershipDate(membership.currentPeriodEnd)}.
+            <p className="text-[13px] leading-relaxed text-[#0F1222]">
+              You&apos;re cancelling your {planName} membership.<br />
+              Full benefits stay until {formatMembershipDate(membership.currentPeriodEnd)} — you can reactivate any time before then.
             </p>
-            <p className="mt-2 text-[12.5px] italic text-[#667085]">
-              All of your entries have been removed. To enter future Bonus Draws, you'll need to start a new Membership.
+            <div className="mt-4 rounded-2xl border border-[#E7E9F2] bg-[#FBFAFF] p-4">
+              <p className="text-[12.5px] font-bold text-[#0F1222]">
+                What happens to your Loyalty Entries:
+              </p>
+              <ul className="mt-2 space-y-1 text-[12.5px] text-[#4B5563]">
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 text-[#10B981]">✓</span>
+                  <span>Entries already earned stay</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 text-[#EF4444]">✗</span>
+                  <span>
+                    No new entries from today — accrual stops at cancel time
+                  </span>
+                </li>
+              </ul>
+            </div>
+            <p className="mt-3 text-[12.5px] leading-relaxed text-[#667085]">
+              Resubscribe within 90 days to preserve your tenure (avoid restarting from 0).
             </p>
-            <button
-              type="button"
-              onClick={() => router.push('/#membership-plans')}
-              className="mt-4 inline-flex h-11 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[13.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.55)] transition-all hover:from-[#5346D6] hover:to-[#7867EC]"
-            >
-              Reactivate Membership
-              <Icon.ArrowRight className="h-4 w-4" />
-            </button>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={handleReactivateMembership}
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[13.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.55)] transition-all hover:from-[#5346D6] hover:to-[#7867EC]"
+              >
+                Reactivate membership
+                <Icon.ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </article>
       ) : (
@@ -1036,6 +1092,11 @@ export default function MembershipPage() {
        * numbers pulled from their current plan (monthly Points + Major Draw
        * entries) + the actual end-of-period date.
        */}
+      {/* Loyalty V2 PR1 — calm cancel modal. Plain copy matches the
+          locked spec: entries earned stay, no new entries after cancel,
+          90-day resubscribe grace preserves tenure. Type=warning (not
+          danger) because nothing destructive happens immediately — the
+          member can still reactivate during the current period. */}
       <ConfirmModal
         isOpen={showCancelConfirm}
         onClose={() => setShowCancelConfirm(false)}
@@ -1044,46 +1105,44 @@ export default function MembershipPage() {
         message={
           <>
             <p>
-              You&rsquo;ll keep <strong className="text-[#0F1222]">{planName}</strong> benefits until{' '}
+              You&rsquo;re cancelling your <strong className="text-[#0F1222]">{planName}</strong> membership.
+              Full benefits stay until{' '}
               <strong className="text-[#0F1222]">
-                {membership?.currentPeriodEnd ? formatMembershipDate(membership.currentPeriodEnd) : 'the end of this billing period'}
-              </strong>
-              . After that, you&rsquo;ll lose:
+                {membership?.currentPeriodEnd
+                  ? formatMembershipDate(membership.currentPeriodEnd)
+                  : 'the end of this billing period'}
+              </strong>{' '}
+              — you can reactivate any time before then.
             </p>
-            <ul className="mt-3 space-y-2 rounded-2xl bg-[#FBFAFF] p-4 ring-1 ring-[#E0DAFF]">
-              {monthlyPoints > 0 && (
+
+            <div className="mt-3 rounded-2xl bg-[#FBFAFF] p-4 ring-1 ring-[#E0DAFF]">
+              <p className="text-[13px] font-bold text-[#0F1222]">
+                What happens to your Loyalty Entries:
+              </p>
+              <ul className="mt-2 space-y-1.5 text-[13px]">
                 <li className="flex items-start gap-2">
-                  <span aria-hidden className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#6356E5]" />
-                  <span>
-                    <strong className="text-[#0F1222]">{monthlyPoints.toLocaleString()} Points</strong> every billing period
+                  <span className="mt-0.5 text-[#10B981]">✓</span>
+                  <span className="text-[#0F1222]">Entries already earned stay</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 text-[#EF4444]">✗</span>
+                  <span className="text-[#0F1222]">
+                    No new entries from today — accrual stops at cancel time
                   </span>
                 </li>
-              )}
-              {majorDrawEntries > 0 && (
-                <li className="flex items-start gap-2">
-                  <span aria-hidden className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#6356E5]" />
-                  <span>
-                    <strong className="text-[#0F1222]">{majorDrawEntries.toLocaleString()} Major Draw {majorDrawEntries === 1 ? 'entry' : 'entries'}</strong> every period
-                  </span>
-                </li>
-              )}
-              <li className="flex items-start gap-2">
-                <span aria-hidden className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#6356E5]" />
-                <span>Access to member-only Bonus Draws</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span aria-hidden className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#6356E5]" />
-                <span>Higher Points rate when you Scan Receipts</span>
-              </li>
-            </ul>
-            <p className="mt-3 text-[13px] text-[#667085]">
-              You won&rsquo;t be charged again. You can resume any time — your account, balance, and history stay intact.
+              </ul>
+            </div>
+
+            <p className="mt-3 text-[13px] text-[#4B5563]">
+              Resubscribe within{' '}
+              <strong className="text-[#0F1222]">90 days</strong> to preserve
+              your tenure (avoid restarting from 0).
             </p>
           </>
         }
-        confirmText="Cancel Membership"
+        confirmText="Continue cancellation"
         cancelText="Keep Membership"
-        type="danger"
+        type="warning"
         confirmDisabled={actionLoading === 'cancel'}
       />
       <ConfirmModal

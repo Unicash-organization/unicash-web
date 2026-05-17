@@ -193,6 +193,8 @@ export const api = {
     pause: () => apiClient.post('/membership/me/pause'),
     resume: () => apiClient.post('/membership/me/resume'),
     cancel: () => apiClient.post('/membership/me/cancel'),
+    // Loyalty V2 PR1 — flip PENDING_CANCEL back to ACTIVE.
+    reactivate: () => apiClient.post('/membership/me/reactivate'),
     cancelUpgrade: () => apiClient.post('/membership/me/cancel-upgrade'),
     cancelDowngrade: () => apiClient.post('/membership/me/cancel-downgrade'),
     upgrade: (newPlanId: string) => apiClient.post('/membership/me/upgrade', { newPlanId }),
