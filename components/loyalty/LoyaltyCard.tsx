@@ -30,7 +30,7 @@ import Link from 'next/link';
 import { Sparkles, AlertTriangle, RefreshCw, ChevronRight, Calendar, Flame } from 'lucide-react';
 import { api } from '@/lib/api';
 import { LoyaltyStatusBadge } from './LoyaltyStatusBadge';
-import { LoyaltySummary, MilestoneSchedule } from './types';
+import { LoyaltySummary, MilestoneSchedule, SUBSOURCE_GROUP, LoyaltySubsource } from './types';
 
 type LoadState = 'loading' | 'error' | 'ready';
 
@@ -43,6 +43,18 @@ function formatTenureLabel(tier: string | null, planName: string | null) {
   if (planName) return planName;
   if (tier) return tier.replace('uni_', 'Uni').replace('_', ' ');
   return 'Membership';
+}
+
+/**
+ * Stripe billing cycle convention: signup day = cycle 1 paid. So at
+ * tenureMonths=0 the member has already paid for 1 cycle and earned
+ * `monthlyAccrual` tenure entries. Use this everywhere the projection
+ * needs to mirror what BE actually grants via Stripe-cycle webhooks.
+ */
+function tenureEntriesAt(monthlyAccrual: number, tenureMonths: number): number {
+  if (monthlyAccrual <= 0) return 0;
+  const cyclesPaid = Math.max(0, tenureMonths) + 1; // +1 = signup cycle
+  return monthlyAccrual * cyclesPaid;
 }
 
 /**
@@ -70,6 +82,39 @@ function sumStreakAt(schedule: MilestoneSchedule | null, m: number): number {
     if (m >= ms) total += schedule.streak[String(ms) as keyof typeof schedule.streak] as number;
   }
   return total;
+}
+
+/**
+ * When an open Major Draw exists, the breakdown rows in
+ * currentDraws[0] are the source of truth — derived from real
+ * loyalty_grants ledger writes. Sum them by SUBSOURCE_GROUP so the
+ * three stat cards (Tenure / Anniversary / Streak) reflect what BE
+ * actually granted, not a FE formula that can drift on edge cases
+ * (signup cycle, mid-period upgrade, admin grant, etc).
+ */
+function deriveBreakdownFromLedger(summary: LoyaltySummary): {
+  tenure: number;
+  anniversary: number;
+  streak: number;
+  total: number;
+} | null {
+  const draw = summary.currentDraws?.[0];
+  if (!draw || !Array.isArray(draw.breakdown) || draw.breakdown.length === 0) {
+    return null;
+  }
+  let tenure = 0;
+  let anniversary = 0;
+  let streak = 0;
+  for (const row of draw.breakdown) {
+    const group = SUBSOURCE_GROUP[row.subsource as LoyaltySubsource];
+    if (group === 'tenure') tenure += row.entries;
+    else if (group === 'anniversary') anniversary += row.entries;
+    else if (group === 'streak') streak += row.entries;
+    // 'admin' and 'restore' fold into tenure for display — they're rare
+    // and any place we'd show them separately would noise the card.
+    else if (group === 'admin' || group === 'restore') tenure += row.entries;
+  }
+  return { tenure, anniversary, streak, total: tenure + anniversary + streak };
 }
 
 export function LoyaltyCard() {
@@ -175,18 +220,38 @@ function EligibleLoyaltyCard({ summary }: { summary: LoyaltySummary }) {
   const tierLabel = formatTenureLabel(summary.tier, summary.planName);
   const schedule = summary.milestoneSchedule;
 
-  // Today's earned totals — derived from tenureMonths × accrual + crossed milestones.
-  const tenureEarned = summary.monthlyAccrual * summary.tenureMonths;
-  const anniversaryEarned = sumAnniversariesAt(schedule, summary.tenureMonths);
-  const streakEarned = sumStreakAt(schedule, summary.streakMonths);
-  const totalEarned = tenureEarned + anniversaryEarned + streakEarned;
+  // Source-of-truth precedence:
+  //   1. Ledger sums from currentDraws[0].breakdown — reflects actual
+  //      loyalty_grants writes (signup snapshot, monthly cycles, anniv,
+  //      streak, admin grants). New members at month 0 still have a
+  //      `draw_open_snapshot` row of `monthlyAccrual` entries here.
+  //   2. Predictive formula — if no Major Draw is open yet, fall back
+  //      to the projection so the card isn't an awkward "0 entries"
+  //      for an active member.
+  const fromLedger = deriveBreakdownFromLedger(summary);
+  const tenureEarned = fromLedger
+    ? fromLedger.tenure
+    : tenureEntriesAt(summary.monthlyAccrual, summary.tenureMonths);
+  const anniversaryEarned = fromLedger
+    ? fromLedger.anniversary
+    : sumAnniversariesAt(schedule, summary.tenureMonths);
+  const streakEarned = fromLedger
+    ? fromLedger.streak
+    : sumStreakAt(schedule, summary.streakMonths);
+  const totalEarned = fromLedger
+    ? fromLedger.total
+    : tenureEarned + anniversaryEarned + streakEarned;
+
+  // Cycles paid so far — for the Tenure stat hint ("0 mo × 4" was the
+  // bug; member at signup has 1 cycle paid, not 0).
+  const cyclesPaid = Math.max(0, summary.tenureMonths) + 1;
 
   // Projection slider — initialized to "now"; member drags to see future.
   const [projectMonth, setProjectMonth] = useState<number>(summary.tenureMonths);
 
-  const projectedTenure = summary.monthlyAccrual * projectMonth;
-  // For projection we assume an unbroken streak — i.e. the streak month at
-  // projectMonth equals the projected month (caveat shown in UI).
+  // For projection: Stripe-cycle math (signup = cycle 1, every 30 days
+  // adds 1 cycle). Unbroken streak assumed (caveat shown in UI).
+  const projectedTenure = tenureEntriesAt(summary.monthlyAccrual, projectMonth);
   const projectedAnniv = sumAnniversariesAt(schedule, projectMonth);
   const projectedStreak = sumStreakAt(schedule, projectMonth);
   const projectedTotal = projectedTenure + projectedAnniv + projectedStreak;
@@ -228,7 +293,7 @@ function EligibleLoyaltyCard({ summary }: { summary: LoyaltySummary }) {
           icon={<Calendar className="h-3.5 w-3.5" aria-hidden />}
           label="Tenure"
           value={tenureEarned}
-          hint={`${summary.tenureMonths} mo × ${summary.monthlyAccrual}`}
+          hint={`${cyclesPaid} cycle${cyclesPaid === 1 ? '' : 's'} × ${summary.monthlyAccrual}`}
         />
         <BreakdownStat
           icon={<Sparkles className="h-3.5 w-3.5" aria-hidden />}
