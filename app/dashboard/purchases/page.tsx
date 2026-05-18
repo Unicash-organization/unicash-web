@@ -151,10 +151,17 @@ export default function PurchasesPage() {
       const snap = payment.metadata?.packageSnapshot || {};
       const n = payment.creditsGranted ?? snap.entryCount ?? payment.metadata?.entryCount ?? 0;
       const entryWord = n === 1 ? 'entry' : 'entries';
+      // BE snapshots the draw title at purchase time on
+      // payment.metadata.packageSnapshot.drawTitleAtPurchase, so the
+      // member sees the actual draw they bought into (e.g. "Win an iPad
+      // Pro") rather than the generic "One-time package" wrapper. If the
+      // snapshot is missing (very old payments before the field landed),
+      // fall back to the old copy so nothing renders as blank.
+      const drawTitle = snap.drawTitleAtPurchase || snap.drawTitle || null;
       return {
         icon: Icon.Gift,
-        title: 'One-time package',
-        subtitle: `${n} Major Draw ${entryWord}`,
+        title: drawTitle || 'Major Draw package',
+        subtitle: `${n.toLocaleString()} ${entryWord}`,
         iconBg: 'bg-[#ECFDF5] ring-[#A7F3D0]',
         iconText: 'text-[#10B981]',
       };
