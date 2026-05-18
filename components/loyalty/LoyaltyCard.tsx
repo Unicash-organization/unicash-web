@@ -1,36 +1,43 @@
 /**
  * LoyaltyCard — dashboard's "Loyalty Entries" panel.
  *
- * Self-contained: fetches its own data via `api.loyalty.summary()` so the
- * /dashboard/membership page just mounts it without prop-drilling.
+ * 2026-05-18 redesign: collapsed the per-draw loop (which rendered 13 nearly
+ * identical breakdowns for an active member) into a single aggregated view:
+ *   1. Hero — total entries today + tier badge
+ *   2. Three-stat breakdown — Tenure / Anniversary / Streak earned so far
+ *   3. Anniversary milestone timeline — earned vs upcoming, with bonus values
+ *   4. Streak milestone timeline
+ *   5. Projection slider — drag a month between 0 and 60 to see the entries
+ *      you'd have at that tenure point. Educational; helps members weigh the
+ *      long-term value of staying active.
  *
- * States covered (spec §E.3):
+ * Self-contained: fetches its own data via `api.loyalty.summary()`.
+ *
+ * States covered:
  *   - loading            → skeleton card
  *   - error              → soft retry banner
- *   - not-eligible       → upgrade nudge (no Membership / plan flag off)
- *   - no-major-draw-open → "no Major Draw right now" copy + next-accrual hint
- *   - eligible-empty     → eligible but 0 entries this draw yet (rare on M0)
- *   - eligible-with-data → headline number + breakdown + tenure timeline +
- *                          next-accrual + next-anniversary countdown
- *
- * Talks only to the LoyaltyEntryBadge / TenureTimeline / EntryBreakdown
- * subcomponents. No fancy state library — `useEffect + useState` keeps it
- * legible.
+ *   - not-eligible       → upgrade nudge
+ *   - eligible           → new aggregated layout (independent of "draw open"
+ *                          state — the per-draw cards lived to confirm draws
+ *                          were active, which the dedicated /dashboard/entries
+ *                          page already does much better)
  */
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Sparkles, AlertTriangle, RefreshCw, ChevronRight } from 'lucide-react';
+import { Sparkles, AlertTriangle, RefreshCw, ChevronRight, Calendar, Flame } from 'lucide-react';
 import { api } from '@/lib/api';
-import { LoyaltyEntryBadge } from './LoyaltyEntryBadge';
 import { LoyaltyStatusBadge } from './LoyaltyStatusBadge';
-import { TenureTimeline } from './TenureTimeline';
-import { EntryBreakdown } from './EntryBreakdown';
-import { LoyaltySummary } from './types';
+import { LoyaltySummary, MilestoneSchedule } from './types';
 
 type LoadState = 'loading' | 'error' | 'ready';
+
+const ANNIVERSARY_MILESTONES = [3, 6, 12, 18, 24] as const;
+const STREAK_MILESTONES = [12, 24, 36] as const;
+/** Slider range — 0 to 60 months covers all baseline milestones + yearly recurring. */
+const PROJECT_MAX_MONTHS = 60;
 
 function formatTenureLabel(tier: string | null, planName: string | null) {
   if (planName) return planName;
@@ -38,12 +45,31 @@ function formatTenureLabel(tier: string | null, planName: string | null) {
   return 'Membership';
 }
 
-function daysUntil(iso: string | null): number | null {
-  if (!iso) return null;
-  const target = new Date(iso).getTime();
-  const now = Date.now();
-  const diff = Math.max(0, target - now);
-  return Math.ceil(diff / (24 * 60 * 60 * 1000));
+/**
+ * Sum of anniversary bonuses earned by month `m`, given the schedule.
+ * Includes the recurring yearly bonus that fires every 12 months once
+ * tenure ≥ 36 (so at month 36 the yearly fires once; 48 → twice; etc).
+ */
+function sumAnniversariesAt(schedule: MilestoneSchedule | null, m: number): number {
+  if (!schedule) return 0;
+  let total = 0;
+  for (const ms of ANNIVERSARY_MILESTONES) {
+    if (m >= ms) total += schedule.anniversary[String(ms) as keyof typeof schedule.anniversary] as number;
+  }
+  if (m >= 36) {
+    const yearlies = Math.floor((m - 24) / 12); // 36→1, 48→2, 60→3
+    total += yearlies * schedule.anniversary.yearlyRecurringAfter24;
+  }
+  return total;
+}
+
+function sumStreakAt(schedule: MilestoneSchedule | null, m: number): number {
+  if (!schedule) return 0;
+  let total = 0;
+  for (const ms of STREAK_MILESTONES) {
+    if (m >= ms) total += schedule.streak[String(ms) as keyof typeof schedule.streak] as number;
+  }
+  return total;
 }
 
 export function LoyaltyCard() {
@@ -78,7 +104,6 @@ export function LoyaltyCard() {
         <div className="h-3 w-24 animate-pulse rounded-full bg-[#F4F1FB]" />
         <div className="mt-3 h-6 w-44 animate-pulse rounded-full bg-[#F4F1FB]" />
         <div className="mt-5 h-9 w-32 animate-pulse rounded-full bg-[#F4F1FB]" />
-        <div className="mt-4 h-24 w-full animate-pulse rounded-2xl bg-[#FBFAFF]" />
       </article>
     );
   }
@@ -139,123 +164,169 @@ export function LoyaltyCard() {
   }
 
   // ─── Eligible ──────────────────────────────────────────────────────
+  return <EligibleLoyaltyCard summary={summary} />;
+}
+
+/**
+ * Active eligible state — extracted so the projection slider's local state
+ * lives in a child that only mounts once the API resolves.
+ */
+function EligibleLoyaltyCard({ summary }: { summary: LoyaltySummary }) {
   const tierLabel = formatTenureLabel(summary.tier, summary.planName);
-  const accrualDays = daysUntil(summary.nextAccrualAt);
-  const anniversaryDays = summary.nextAnniversary
-    ? daysUntil(summary.nextAnniversary.at)
-    : null;
-  // V2 spec — each open Major Draw is its own independent grant cycle.
-  // No aggregate "X entries across N draws" headline because summing
-  // entries from independent lottery pools misleads members about their
-  // actual win probability. We render per-draw cards only.
-  const draws = summary.currentDraws ?? [];
-  const hasDraws = draws.length > 0;
-  // Compute the empty-cycle hint locally — no draws have any entries yet.
-  // (Replaces the old `totalEntriesAcrossDraws === 0` check.)
-  const isEmptyCycle =
-    hasDraws && draws.every((d) => (d.entries ?? 0) === 0);
+  const schedule = summary.milestoneSchedule;
+
+  // Today's earned totals — derived from tenureMonths × accrual + crossed milestones.
+  const tenureEarned = summary.monthlyAccrual * summary.tenureMonths;
+  const anniversaryEarned = sumAnniversariesAt(schedule, summary.tenureMonths);
+  const streakEarned = sumStreakAt(schedule, summary.streakMonths);
+  const totalEarned = tenureEarned + anniversaryEarned + streakEarned;
+
+  // Projection slider — initialized to "now"; member drags to see future.
+  const [projectMonth, setProjectMonth] = useState<number>(summary.tenureMonths);
+
+  const projectedTenure = summary.monthlyAccrual * projectMonth;
+  // For projection we assume an unbroken streak — i.e. the streak month at
+  // projectMonth equals the projected month (caveat shown in UI).
+  const projectedAnniv = sumAnniversariesAt(schedule, projectMonth);
+  const projectedStreak = sumStreakAt(schedule, projectMonth);
+  const projectedTotal = projectedTenure + projectedAnniv + projectedStreak;
 
   return (
     <article className="rounded-3xl border border-[#E0DAFF] bg-white p-5 shadow-[0_18px_50px_-30px_rgba(99,86,229,0.20)] sm:p-7">
-      {/* Header — full version only when user actually has entries to brag about,
-          or when no Major Draw is currently open (paused state needs explanation). */}
-      {!isEmptyCycle && (
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">
-              <Sparkles className="h-3 w-3" aria-hidden />
-              Loyalty Entries · {tierLabel}
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">
+            <Sparkles className="h-3 w-3" aria-hidden />
+            Loyalty Entries · {tierLabel}
+          </p>
+          <h2 className="mt-1 text-[20px] font-extrabold leading-tight tracking-tight text-[#0F1222] sm:text-[22px]">
+            Your stake in every open Major Draw
+          </h2>
+        </div>
+        {summary.loyaltyStatus !== 'none' && (
+          <LoyaltyStatusBadge status={summary.loyaltyStatus} />
+        )}
+      </div>
+
+      {/* Today's total — big gold block */}
+      <div className="mt-5 overflow-hidden rounded-2xl bg-gradient-to-r from-[#FFF6DA] to-[#FFE2B0] p-4 ring-1 ring-[#FFC85D]/50 sm:p-5">
+        <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#9C5410]">
+          Your entries today
+        </p>
+        <p className="mt-1 text-[36px] font-extrabold leading-none tracking-tight text-[#7C5A00] tabular-nums sm:text-[44px]">
+          {totalEarned.toLocaleString()}
+        </p>
+        <p className="mt-1 text-[12px] text-[#9C5410]/85">
+          Applied to every open Major Draw — Month {summary.tenureMonths} of {tierLabel} tenure.
+        </p>
+      </div>
+
+      {/* 3-stat breakdown */}
+      <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+        <BreakdownStat
+          icon={<Calendar className="h-3.5 w-3.5" aria-hidden />}
+          label="Tenure"
+          value={tenureEarned}
+          hint={`${summary.tenureMonths} mo × ${summary.monthlyAccrual}`}
+        />
+        <BreakdownStat
+          icon={<Sparkles className="h-3.5 w-3.5" aria-hidden />}
+          label="Anniversary"
+          value={anniversaryEarned}
+          hint={`${countCrossed(schedule, summary.tenureMonths, 'anniversary')} milestones`}
+          tone="gold"
+        />
+        <BreakdownStat
+          icon={<Flame className="h-3.5 w-3.5" aria-hidden />}
+          label="Streak"
+          value={streakEarned}
+          hint={`${summary.streakMonths} mo unbroken`}
+        />
+      </div>
+
+      {/* Anniversary milestone timeline */}
+      <MilestoneRow
+        title="Anniversary milestones"
+        kind="anniversary"
+        currentMonth={summary.tenureMonths}
+        schedule={schedule}
+      />
+
+      {/* Streak milestone timeline */}
+      <MilestoneRow
+        title="Streak milestones"
+        kind="streak"
+        currentMonth={summary.streakMonths}
+        schedule={schedule}
+        tone="streak"
+      />
+
+      {/* Projection scrubber */}
+      <div className="mt-6 overflow-hidden rounded-2xl border border-[#E0DAFF] bg-gradient-to-br from-[#FBFAFF] to-[#F4F1FB] p-4 sm:p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#6356E5]">
+            Project your earnings
+          </p>
+          <p className="text-[11px] text-[#667085]">
+            Drag the slider to see how entries grow with tenure.
+          </p>
+        </div>
+
+        <div className="mt-3 flex items-baseline gap-2">
+          <span className="text-[13px] font-semibold text-[#667085]">Month</span>
+          <span className="text-[24px] font-extrabold tabular-nums text-[#6356E5] sm:text-[28px]">
+            {projectMonth}
+          </span>
+        </div>
+
+        <input
+          type="range"
+          min={0}
+          max={PROJECT_MAX_MONTHS}
+          step={1}
+          value={projectMonth}
+          onChange={(e) => setProjectMonth(parseInt(e.target.value, 10) || 0)}
+          aria-label="Projected tenure month"
+          className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-full bg-[#E0DAFF] accent-[#6356E5] [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#6356E5] [&::-webkit-slider-thumb]:shadow-[0_2px_8px_-2px_rgba(99,86,229,0.6)] [&::-webkit-slider-thumb]:ring-2 [&::-webkit-slider-thumb]:ring-white"
+        />
+
+        <div className="mt-2 flex justify-between text-[10px] font-bold uppercase tracking-[0.08em] text-[#667085]">
+          <span>0</span>
+          <span>12mo</span>
+          <span>24mo</span>
+          <span>36mo</span>
+          <span>48mo</span>
+          <span>{PROJECT_MAX_MONTHS}mo</span>
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+          <ProjectionStat label="Tenure" value={projectedTenure} />
+          <ProjectionStat label="Anniversary" value={projectedAnniv} tone="gold" />
+          <ProjectionStat label="Streak" value={projectedStreak} />
+        </div>
+
+        <div className="mt-4 rounded-xl bg-white p-3 ring-1 ring-[#E0DAFF]">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6356E5]">
+              Projected total at month {projectMonth}
             </p>
-            <h2 className="mt-1 text-[20px] font-extrabold tracking-tight text-[#0F1222] sm:text-[22px]">
-              {hasDraws ? (
-                <>
-                  Entries in{' '}
-                  <span className="bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] bg-clip-text text-transparent">
-                    {draws.length}
-                  </span>{' '}
-                  {draws.length === 1 ? 'Major Draw' : 'Major Draws'}
-                </>
-              ) : (
-                'Earning is paused'
-              )}
-            </h2>
-            {/* V2 spec — no aggregate total. Per-draw counts live in the
-                card list below (each draw is its own independent pool). */}
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {summary.loyaltyStatus !== 'none' && (
-              <LoyaltyStatusBadge status={summary.loyaltyStatus} />
+            {projectMonth !== summary.tenureMonths && (
+              <p className="text-[11px] text-[#667085]">
+                {projectedTotal > totalEarned ? '+' : ''}
+                {(projectedTotal - totalEarned).toLocaleString()} vs today
+              </p>
             )}
           </div>
-        </div>
-      )}
-
-      {/* No major draw open */}
-      {!hasDraws && (
-        <div className="mt-4 rounded-2xl border border-[#E7E9F2] bg-[#FBFAFF] p-4">
-          <p className="text-[13px] font-semibold text-[#0F1222]">
-            No Major Draw is open right now.
-          </p>
-          <p className="mt-1 text-[12px] text-[#667085]">
-            Your next Loyalty Entries will land when the next Major Draw opens.
-            You&apos;ll still accumulate tenure in the meantime.
+          <p className="mt-0.5 text-[24px] font-extrabold tracking-tight text-[#0F1222] tabular-nums sm:text-[28px]">
+            {projectedTotal.toLocaleString()} entries
           </p>
         </div>
-      )}
 
-      {/* Per-draw cards — each open Major Draw is its own grant cycle.
-          Skipped in `isEmptyCycle`: showing "No Loyalty Entries yet" 4× is noise. */}
-      {hasDraws && !isEmptyCycle && (
-        <div className="mt-5 space-y-4">
-          {draws.map((d) => (
-            <div
-              key={d.drawId}
-              className="rounded-2xl border border-[#E7E9F2] bg-[#FBFAFF] p-4"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[13.5px] font-extrabold tracking-tight text-[#0F1222]">
-                  {d.drawTitle}
-                </p>
-                <LoyaltyEntryBadge entries={d.entries} size="sm" />
-              </div>
-              <div className="mt-3">
-                <EntryBreakdown rows={d.breakdown} total={d.entries} hideHeader />
-              </div>
-            </div>
-          ))}
-          <TenureTimeline tenureMonths={summary.tenureMonths} tierLabel={tierLabel} />
-        </div>
-      )}
-
-      {/* Empty-cycle layout — just the tenure progress so the user sees
-          their current state without the noisy per-draw "0 entries" cards. */}
-      {isEmptyCycle && (
-        <TenureTimeline tenureMonths={summary.tenureMonths} tierLabel={tierLabel} />
-      )}
-
-      {/* Next accrual + anniversary hints */}
-      <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {accrualDays !== null && (
-          <HintTile
-            label="Next monthly accrual"
-            value={
-              accrualDays === 0 ? 'Today' : `In ${accrualDays} day${accrualDays > 1 ? 's' : ''}`
-            }
-            delta={`+${summary.monthlyAccrual} entries`}
-          />
-        )}
-        {summary.nextAnniversary && anniversaryDays !== null && (
-          <HintTile
-            label={`Next anniversary · ${summary.nextAnniversary.milestoneMonths} month`}
-            value={
-              anniversaryDays === 0
-                ? 'Today'
-                : `In ${anniversaryDays} day${anniversaryDays > 1 ? 's' : ''}`
-            }
-            delta={`+${summary.nextAnniversary.bonusEntries} bonus entries`}
-            tone="gold"
-          />
-        )}
+        <p className="mt-3 text-[10.5px] leading-relaxed text-[#667085]">
+          Projection assumes an unbroken active membership at the {tierLabel} tier. A pause or
+          cancel resets the streak clock and freezes accrual until you resume.
+        </p>
       </div>
 
       <div className="mt-4 flex justify-end">
@@ -270,36 +341,201 @@ export function LoyaltyCard() {
   );
 }
 
-function HintTile({
+/* ─── Sub-components ────────────────────────────────────────────────── */
+
+function countCrossed(
+  schedule: MilestoneSchedule | null,
+  currentMonth: number,
+  kind: 'anniversary' | 'streak',
+): number {
+  if (!schedule) return 0;
+  let count = 0;
+  const milestones = kind === 'anniversary' ? ANNIVERSARY_MILESTONES : STREAK_MILESTONES;
+  for (const ms of milestones) if (currentMonth >= ms) count++;
+  if (kind === 'anniversary' && currentMonth >= 36) {
+    count += Math.floor((currentMonth - 24) / 12);
+  }
+  return count;
+}
+
+function BreakdownStat({
+  icon,
   label,
   value,
-  delta,
+  hint,
   tone = 'purple',
 }: {
+  icon: React.ReactNode;
   label: string;
-  value: string;
-  delta: string;
+  value: number;
+  hint: string;
   tone?: 'purple' | 'gold';
 }) {
   const palette =
     tone === 'gold'
-      ? {
-          bg: 'bg-[#FFF6E5]',
-          border: 'border-[#FCE6B5]',
-          eyebrow: 'text-[#9A6A00]',
-        }
-      : {
-          bg: 'bg-[#FBFAFF]',
-          border: 'border-[#E7E9F2]',
-          eyebrow: 'text-[#6356E5]',
-        };
+      ? { bg: 'bg-[#FFF6DA]', text: 'text-[#9C5410]', ring: 'ring-[#FFC85D]/40' }
+      : { bg: 'bg-[#F4F1FB]', text: 'text-[#6356E5]', ring: 'ring-[#E0DAFF]' };
   return (
-    <div className={`rounded-2xl border ${palette.border} ${palette.bg} px-3 py-2.5`}>
-      <p className={`text-[10.5px] font-bold uppercase tracking-[0.12em] ${palette.eyebrow}`}>
-        {label}
+    <div className={`rounded-2xl p-3 ring-1 ${palette.bg} ${palette.ring}`}>
+      <div className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.1em] ${palette.text}`}>
+        {icon}
+        <span>{label}</span>
+      </div>
+      <p className="mt-1 text-[20px] font-extrabold leading-none tracking-tight text-[#0F1222] tabular-nums sm:text-[22px]">
+        +{value.toLocaleString()}
       </p>
-      <p className="mt-1 text-[14px] font-extrabold tracking-tight text-[#0F1222]">{value}</p>
-      <p className="mt-0.5 text-[11.5px] font-semibold text-[#4B5563]">{delta}</p>
+      <p className="mt-1 text-[10.5px] text-[#667085]">{hint}</p>
+    </div>
+  );
+}
+
+function ProjectionStat({
+  label,
+  value,
+  tone = 'purple',
+}: {
+  label: string;
+  value: number;
+  tone?: 'purple' | 'gold';
+}) {
+  const accent = tone === 'gold' ? 'text-[#9C5410]' : 'text-[#6356E5]';
+  return (
+    <div className="rounded-xl bg-white p-2.5 ring-1 ring-[#E0DAFF]">
+      <p className={`text-[9.5px] font-bold uppercase tracking-[0.1em] ${accent}`}>{label}</p>
+      <p className="mt-0.5 text-[15px] font-extrabold leading-tight tracking-tight text-[#0F1222] tabular-nums">
+        +{value.toLocaleString()}
+      </p>
+    </div>
+  );
+}
+
+function MilestoneRow({
+  title,
+  kind,
+  currentMonth,
+  schedule,
+  tone = 'anniversary',
+}: {
+  title: string;
+  kind: 'anniversary' | 'streak';
+  currentMonth: number;
+  schedule: MilestoneSchedule | null;
+  tone?: 'anniversary' | 'streak';
+}) {
+  const milestones = kind === 'anniversary'
+    ? ANNIVERSARY_MILESTONES.map((m) => ({
+        month: m,
+        bonus: schedule?.anniversary[String(m) as keyof typeof schedule.anniversary] as number,
+      }))
+    : STREAK_MILESTONES.map((m) => ({
+        month: m,
+        bonus: schedule?.streak[String(m) as keyof typeof schedule.streak] as number,
+      }));
+
+  const accent = tone === 'anniversary' ? 'text-[#9C5410]' : 'text-[#C84B4B]';
+  const dotEarned = tone === 'anniversary' ? 'bg-[#FFC85D]' : 'bg-[#FF7A7A]';
+  const lineEarned =
+    tone === 'anniversary'
+      ? 'bg-gradient-to-r from-[#FFC85D] to-[#FFE2B0]'
+      : 'bg-gradient-to-r from-[#FF7A7A] to-[#FFC5C5]';
+
+  return (
+    <div className="mt-5">
+      <p className={`text-[11px] font-bold uppercase tracking-[0.14em] ${accent}`}>{title}</p>
+
+      <div className="mt-2.5 grid items-stretch gap-2" style={{ gridTemplateColumns: `repeat(${milestones.length}, minmax(0, 1fr))` }}>
+        {milestones.map((m) => {
+          const isEarned = currentMonth >= m.month;
+          return (
+            <div
+              key={m.month}
+              className={`rounded-xl border p-2.5 ring-1 ${
+                isEarned
+                  ? 'border-transparent bg-gradient-to-br from-[#FFF6DA] to-[#FFE2B0] ring-[#FFC85D]/60'
+                  : 'border-[#E7E9F2] bg-[#FBFAFF] ring-[#E0DAFF]/40'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1.5">
+                <span
+                  className={`inline-flex h-2.5 w-2.5 shrink-0 rounded-full ${
+                    isEarned ? dotEarned : 'bg-[#E0DAFF]'
+                  }`}
+                />
+                <span
+                  className={`text-[10.5px] font-bold uppercase tracking-[0.08em] ${
+                    isEarned ? 'text-[#7C5A00]' : 'text-[#667085]'
+                  }`}
+                >
+                  {kind === 'anniversary' && m.month === 12
+                    ? '1 yr'
+                    : kind === 'anniversary' && m.month === 24
+                      ? '2 yr'
+                      : `${m.month} mo`}
+                </span>
+              </div>
+              <p
+                className={`mt-1 text-[16px] font-extrabold leading-none tracking-tight tabular-nums ${
+                  isEarned ? 'text-[#7C5A00]' : 'text-[#667085]'
+                }`}
+              >
+                +{(m.bonus ?? 0).toLocaleString()}
+              </p>
+              <p className={`mt-1 text-[9.5px] ${isEarned ? 'text-[#9C5410]' : 'text-[#A3A8BE]'}`}>
+                {isEarned ? '✓ earned' : 'upcoming'}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Progress bar to next milestone */}
+      <MilestoneProgressBar
+        currentMonth={currentMonth}
+        milestones={milestones.map((m) => m.month)}
+        lineEarned={lineEarned}
+      />
+
+      {kind === 'anniversary' && currentMonth >= 24 && schedule?.anniversary.yearlyRecurringAfter24 && (
+        <p className="mt-2 text-[10.5px] leading-relaxed text-[#667085]">
+          After month 24, a recurring{' '}
+          <span className="font-bold text-[#9C5410]">
+            +{schedule.anniversary.yearlyRecurringAfter24}
+          </span>{' '}
+          yearly bonus fires every 12 months.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function MilestoneProgressBar({
+  currentMonth,
+  milestones,
+  lineEarned,
+}: {
+  currentMonth: number;
+  milestones: number[];
+  lineEarned: string;
+}) {
+  const max = Math.max(...milestones, 1);
+  const pct = Math.min(100, (Math.min(currentMonth, max) / max) * 100);
+  const nextMilestone = milestones.find((m) => m > currentMonth);
+  return (
+    <div className="mt-3">
+      <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-[#F4F1FB]">
+        <div
+          className={`h-full rounded-full transition-all duration-300 ${lineEarned}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      {nextMilestone && (
+        <p className="mt-1.5 text-[10.5px] text-[#667085]">
+          Next:{' '}
+          <span className="font-bold text-[#0F1222]">{nextMilestone}-month milestone</span>{' '}
+          in {nextMilestone - currentMonth} month
+          {nextMilestone - currentMonth === 1 ? '' : 's'}.
+        </p>
+      )}
     </div>
   );
 }

@@ -43,6 +43,24 @@ export interface LoyaltyNextAnniversary {
   bonusEntries: number;
 }
 
+export interface MilestoneSchedule {
+  /** Anniversary bonuses keyed by tenure-months (string keys). yearlyRecurringAfter24 fires every 12mo once tenure ≥ 36. */
+  anniversary: {
+    '3': number;
+    '6': number;
+    '12': number;
+    '18': number;
+    '24': number;
+    yearlyRecurringAfter24: number;
+  };
+  /** Streak bonuses keyed by unbroken-streak-months. */
+  streak: {
+    '12': number;
+    '24': number;
+    '36': number;
+  };
+}
+
 export interface LoyaltySummary {
   eligible: boolean;
   reason: 'no_membership' | 'plan_disabled' | null;
@@ -52,6 +70,8 @@ export interface LoyaltySummary {
   streakMonths: number;
   loyaltyStatus: LoyaltyStatus;
   monthlyAccrual: number;
+  /** 2026-05-18 — full bonus schedule from plan.loyaltyConfig. NULL when not eligible. */
+  milestoneSchedule: MilestoneSchedule | null;
   /** Per-draw snapshot, one entry per currently-OPEN Major Draw. */
   currentDraws: LoyaltyCurrentDraw[];
   /**
