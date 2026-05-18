@@ -3,6 +3,34 @@
 @tailwind utilities;
 
 /* ==========================================================================
+   iOS Safari auto-zoom fix (2026-05-18)
+
+   Mobile Safari auto-zooms into any form field whose font-size is below
+   16px when the user taps to type, then fails to zoom back out cleanly —
+   breaking responsive layouts that target small viewports.
+
+   The fix is the smallest, least invasive thing that works: force the
+   COMPUTED font-size to ≥ 16px for form fields ONLY on mobile-sized
+   viewports. Desktop sizes (12–14px) are intentional in the design
+   system and stay untouched.
+
+   `font-size: 16px !important` is the only reliable lever — Tailwind's
+   text-[Npx] utilities compile to inline-style-priority declarations on
+   the elements themselves, so a non-!important rule loses the cascade.
+
+   Pinch-to-zoom on the page body remains enabled (we do NOT use
+   user-scalable=no in viewport meta) so a11y users can still zoom the
+   page. This fix is targeted at form fields only.
+   ========================================================================== */
+@media screen and (max-width: 640px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='color']):not([type='submit']):not([type='reset']):not([type='button']):not([type='image']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* ==========================================================================
    UNICASH Design System v4 — utilities, animations, and helpers
    Used by the homepage v4 redesign. Additive — does not affect legacy classes.
    ========================================================================== */
