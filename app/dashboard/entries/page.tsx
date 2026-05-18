@@ -100,6 +100,17 @@ function resolveDrawHref(draw: DrawMeta, kind: 'major' | 'mini'): string {
 type DrawCardData = {
   draw: DrawMeta;
   userEntries: number;
+  /**
+   * Major Draw split (per 2026-05-18 design): "accumulating" = the
+   * auto-grants you keep getting just for being a member (the monthly
+   * plan quota + loyalty tenure/anniversary/streak/snapshot grants).
+   * "Purchased" = one-time top-ups bought via Stripe landing packages.
+   * For Bonus Draws both numbers are folded into `userEntries` and not
+   * rendered — every Bonus entry is Points-purchased so the breakdown
+   * doesn't carry signal.
+   */
+  accumulatingEntries: number;
+  purchasedEntries: number;
   hasLoyalty: boolean;
   hasMembership: boolean;
   latestEntryDate: string;
@@ -264,7 +275,7 @@ function DrawCard({
   nowMs: number;
   drawKind: 'major' | 'mini';
 }) {
-  const { draw, userEntries, hasLoyalty } = data;
+  const { draw, userEntries, accumulatingEntries, purchasedEntries, hasLoyalty } = data;
   const { user } = useAuth();
   const isWinner = !!(draw.winnerUserId && user?.id && draw.winnerUserId === user.id);
   const status = resolveStatus(draw, isWinner, nowMs);
@@ -357,7 +368,12 @@ function DrawCard({
           </div>
         )}
 
-        {/* Member's stake — big gold-accented count, the visual anchor. */}
+        {/* Member's stake — big gold-accented count + Major Draw breakdown.
+            Big total stays the visual anchor (it's what the member cares
+            about). Below the divider: 2-col breakdown so the member can
+            instantly see how the stake was built — auto-granted via
+            membership/loyalty vs. paid extras via Stripe landing
+            packages. Bonus Draws skip the breakdown (single source). */}
         <div className="mt-4 overflow-hidden rounded-2xl bg-gradient-to-r from-[#FFF6DA] to-[#FFE2B0] p-3 ring-1 ring-[#FFC85D]/50">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
@@ -370,6 +386,27 @@ function DrawCard({
               <Icon.Ticket className="h-4 w-4" />
             </span>
           </div>
+
+          {drawKind === 'major' && (
+            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[#FFC85D]/40 pt-2.5">
+              <div className="min-w-0">
+                <p className="truncate text-[9.5px] font-bold uppercase tracking-[0.1em] text-[#9C5410]/85">
+                  Accumulating
+                </p>
+                <p className="mt-0.5 text-[15px] font-extrabold leading-tight tracking-tight text-[#7C5A00] tabular-nums">
+                  {accumulatingEntries.toLocaleString()}
+                </p>
+              </div>
+              <div className="min-w-0 border-l border-[#FFC85D]/40 pl-2">
+                <p className="truncate text-[9.5px] font-bold uppercase tracking-[0.1em] text-[#9C5410]/85">
+                  One-time
+                </p>
+                <p className="mt-0.5 text-[15px] font-extrabold leading-tight tracking-tight text-[#7C5A00] tabular-nums">
+                  {purchasedEntries.toLocaleString()}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Link>
@@ -576,6 +613,19 @@ export default function EntriesPage() {
       if (!draw) return;
       const userEntries = rows.reduce((s: number, r: GroupedRow) => s + r.count, 0);
       if (userEntries <= 0) return;
+
+      // Major Draw breakdown (see DrawCardData comment):
+      //  accumulating = membership_credit + loyalty (auto-granted)
+      //  purchased    = external_payment (Stripe one-time landing pkg)
+      // Bonus Draws collapse both to the total; we don't render this
+      // breakdown for them but compute it anyway for type safety.
+      const accumulatingEntries = rows
+        .filter((r: GroupedRow) => r.source === 'membership_credit' || r.source === 'loyalty')
+        .reduce((s: number, r: GroupedRow) => s + r.count, 0);
+      const purchasedEntries = rows
+        .filter((r: GroupedRow) => r.source === 'external_payment')
+        .reduce((s: number, r: GroupedRow) => s + r.count, 0);
+
       const hasLoyalty = rows.some((r: GroupedRow) => r.source === 'loyalty');
       const hasMembership = rows.some((r: GroupedRow) => r.source === 'membership_credit');
       const latest = rows.reduce<string>(
@@ -587,6 +637,8 @@ export default function EntriesPage() {
       out.push({
         draw,
         userEntries,
+        accumulatingEntries,
+        purchasedEntries,
         hasLoyalty,
         hasMembership,
         latestEntryDate: latest,
