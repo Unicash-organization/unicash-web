@@ -192,6 +192,55 @@ export default function EntriesPage() {
     [total],
   );
 
+  /**
+   * Major Draws aggregation — each row in `rows` is one `entries`/
+   * `loyalty_grants` record. For Major Draws we want one ROW per draw
+   * with the SUM of entries across all sources (snapshot + cycle +
+   * anniversary + streak + membership credit) so the member sees their
+   * actual pool size, not the per-grant ledger noise.
+   *
+   * Bonus Draws (mini) stay un-aggregated — each entry there is a
+   * discrete buy + needs its own row.
+   *
+   * Source label collapses to the dominant family ('Loyalty' if any
+   * loyalty grants present, else first non-loyalty source). Sub-source
+   * detail is dropped at aggregate level — drill-down to per-grant
+   * detail is a future view.
+   */
+  const displayRows = useMemo(() => {
+    if (activeTab !== 'major') return rows;
+
+    const groups = new Map<string, GroupedRow & { _sourceCount: Set<string> }>();
+    for (const r of rows) {
+      const existing = groups.get(r.drawId);
+      if (!existing) {
+        groups.set(r.drawId, {
+          ...r,
+          // collapse subsource at aggregate level
+          subsource: null,
+          // Per-grant order/idempotency key doesn't make sense for a
+          // multi-grant aggregate; hide it.
+          orderNoSample: null,
+          // track which sources contributed for the label
+          _sourceCount: new Set<string>([r.source]),
+        });
+      } else {
+        existing.count += r.count;
+        existing._sourceCount.add(r.source);
+        // Prefer the latest date as the row's date.
+        if (new Date(r.date) > new Date(existing.date)) {
+          existing.date = r.date;
+        }
+        // Promote source to 'loyalty' if any loyalty grants are in the mix.
+        if (r.source === 'loyalty') existing.source = 'loyalty';
+      }
+    }
+    // Strip internal helper, sort newest-first by date for default order.
+    return Array.from(groups.values())
+      .map(({ _sourceCount, ...row }) => row)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [rows, activeTab]);
+
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
@@ -313,7 +362,7 @@ export default function EntriesPage() {
             <>
               {/* Mobile: card list */}
               <ul className="space-y-2.5 sm:hidden">
-                {rows.map((row) => {
+                {displayRows.map((row) => {
                   const sourceCfg = resolveSourceLabel(row.source, row.subsource);
                   return (
                     <li key={row.key}>
@@ -377,7 +426,7 @@ export default function EntriesPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#EFEDF5] bg-white">
-                      {rows.map((row) => {
+                      {displayRows.map((row) => {
                         const sourceCfg = resolveSourceLabel(row.source, row.subsource);
                         return (
                           <tr key={row.key} className="transition-colors hover:bg-[#FBFAFF]">
