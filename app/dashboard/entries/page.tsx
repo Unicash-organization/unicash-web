@@ -43,12 +43,58 @@ type DrawMeta = {
   closedAt?: string | null;
   entrants?: number;
   capacity?: number | null;
-  imageUrl?: string | null;
+  cap?: number | null;
+  // Bonus Draw image sources — gallery + single fallback
+  images?: Array<{ id?: string; url?: string; order?: number; isPrimary?: boolean }> | null;
+  prizeImage?: string | { url?: string } | null;
+  // Major Draw image sources — landing page banner doubles as card hero
+  landingBannerImage?: string | null;
+  landingBannerMobileImage?: string | null;
+  // Optional dedicated fields (future)
   heroImageUrl?: string | null;
+  imageUrl?: string | null;
+  // Major Draw live URL slug
+  landingSlug?: string | null;
   prizeTitle?: string | null;
   winnerUserId?: string | null;
   isActive?: boolean;
 };
+
+/** Resolve the best image URL for a card. Returns null if nothing usable. */
+function resolveDrawImage(draw: DrawMeta, kind: 'major' | 'mini'): string | null {
+  if (kind === 'major') {
+    // Major Draw — reuse the landing banner the admin already uploaded.
+    if (draw.landingBannerImage) return draw.landingBannerImage;
+    if (draw.heroImageUrl) return draw.heroImageUrl;
+    if (draw.imageUrl) return draw.imageUrl;
+    return null;
+  }
+  // Bonus Draw — sorted gallery, prefer isPrimary, fallback to prizeImage.
+  if (Array.isArray(draw.images) && draw.images.length > 0) {
+    const sorted = [...draw.images].sort((a, b) => {
+      if (!!b.isPrimary !== !!a.isPrimary) return b.isPrimary ? 1 : -1;
+      return (a.order || 0) - (b.order || 0);
+    });
+    const first = sorted[0];
+    if (first?.url) return first.url;
+  }
+  if (draw.prizeImage) {
+    return typeof draw.prizeImage === 'string'
+      ? draw.prizeImage
+      : draw.prizeImage.url || null;
+  }
+  if (draw.heroImageUrl) return draw.heroImageUrl;
+  if (draw.imageUrl) return draw.imageUrl;
+  return null;
+}
+
+/** Resolve the click-through URL for a card. */
+function resolveDrawHref(draw: DrawMeta, kind: 'major' | 'mini'): string {
+  if (kind === 'major') {
+    return draw.landingSlug ? `/win/${draw.landingSlug}` : `/win/${draw.id}`;
+  }
+  return `/giveaways/${draw.id}`;
+}
 
 /** Composite row used for rendering — entries joined to draw metadata. */
 type DrawCardData = {
@@ -218,44 +264,45 @@ function DrawCard({
   nowMs: number;
   drawKind: 'major' | 'mini';
 }) {
-  const { draw, userEntries, hasLoyalty, hasMembership, orderNoSample } = data;
+  const { draw, userEntries, hasLoyalty } = data;
   const { user } = useAuth();
   const isWinner = !!(draw.winnerUserId && user?.id && draw.winnerUserId === user.id);
   const status = resolveStatus(draw, isWinner, nowMs);
 
-  const capacity = Math.max(0, Number(draw.capacity ?? 0));
+  const capacity = Math.max(0, Number(draw.capacity ?? draw.cap ?? 0));
   const entrants = Math.max(0, Number(draw.entrants ?? 0));
   const pct = capacity > 0 ? Math.min(100, Math.round((entrants / capacity) * 100)) : 0;
 
-  const hasImage = !!(draw.heroImageUrl || draw.imageUrl);
+  const imageUrl = resolveDrawImage(draw, drawKind);
   const gradientClass = pickGradient(draw.id);
+  const href = resolveDrawHref(draw, drawKind);
 
-  // Source label collapsed:
-  //  - Loyalty present → "Loyalty" (purple-gold)
-  //  - else Membership credit → "Membership"
-  //  - else Booster credit / Bonus Draw → just hide source pill
-  const sourceLabel = hasLoyalty
-    ? 'Loyalty'
-    : hasMembership && drawKind === 'major'
-      ? 'Membership'
-      : null;
-
-  const detailHref = drawKind === 'mini' ? `/giveaways/${draw.id}` : `/win/${draw.id}`;
+  // Source pill: hidden on Major Draws per design lock 2026-05-18 — the
+  // crown glyph + "Major Draws" section heading already signal type, the
+  // extra pill was noise. Bonus cards show a subtle Loyalty pill only when
+  // the user has loyalty-granted entries there (rare).
+  const showSourcePill = drawKind === 'mini' && hasLoyalty;
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-3xl border border-[#E7E9F2] bg-white shadow-[0_1px_2px_rgba(15,18,34,.04)] transition-shadow hover:shadow-[0_18px_40px_-20px_rgba(99,86,229,0.25)]">
+    <Link
+      href={href}
+      className="group flex flex-col overflow-hidden rounded-3xl border border-[#E7E9F2] bg-white shadow-[0_1px_2px_rgba(15,18,34,.04)] transition-all hover:-translate-y-0.5 hover:border-[#D8D2F2] hover:shadow-[0_18px_40px_-20px_rgba(99,86,229,0.28)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2"
+    >
       {/* Hero */}
       <div className="relative aspect-[16/10] w-full overflow-hidden">
-        {hasImage ? (
+        {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={(draw.heroImageUrl || draw.imageUrl) as string}
+            src={imageUrl}
             alt={draw.title}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            loading="lazy"
           />
         ) : (
-          // Interim placeholder for draws without a hero image (Major Draws
-          // currently). Backlog: add Draw.heroImageUrl + admin upload.
+          // Gradient placeholder when no image is set on the Draw row.
+          // Major Draws reuse landingBannerImage; Bonus Draws use images[]
+          // or prizeImage. If neither is populated yet, render this glyph
+          // tile so the grid stays visually balanced.
           <div className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${gradientClass}`}>
             {drawKind === 'major' ? (
               <Icon.Crown className="h-14 w-14 text-white/90" />
@@ -265,13 +312,12 @@ function DrawCard({
           </div>
         )}
 
-        {/* Status pill — bottom-right, replaces the "Published" badge */}
+        {/* Bottom-row pills — status (right) + optional source (left). */}
         <div className="pointer-events-none absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
-          {/* Source pill — bottom-left, optional */}
-          {sourceLabel ? (
+          {showSourcePill ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-[#6356E5] ring-1 ring-[#E0DAFF] backdrop-blur">
               <Icon.Sparkle className="h-2.5 w-2.5" />
-              {sourceLabel}
+              Loyalty
             </span>
           ) : (
             <span />
@@ -285,12 +331,11 @@ function DrawCard({
 
       {/* Body */}
       <div className="flex flex-1 flex-col p-4 sm:p-5">
-        <h3 className="line-clamp-2 text-[15.5px] font-extrabold leading-snug tracking-tight text-[#0F1222] sm:text-[17px]">
+        <h3 className="line-clamp-2 text-[15.5px] font-extrabold leading-snug tracking-tight text-[#0F1222] transition-colors group-hover:text-[#6356E5] sm:text-[17px]">
           {draw.title}
         </h3>
 
-        {/* Progress — only if capacity is known. Many Bonus Draws have no
-            entrant cap so we hide cleanly in that case. */}
+        {/* Progress — only if capacity is known. */}
         {capacity > 0 && (
           <div className="mt-3">
             <div className="flex items-baseline justify-between gap-2 text-[11.5px] text-[#667085]">
@@ -312,7 +357,7 @@ function DrawCard({
           </div>
         )}
 
-        {/* Member's stake — big gold-accented count, replaces "Winner · Name" */}
+        {/* Member's stake — big gold-accented count, the visual anchor. */}
         <div className="mt-4 overflow-hidden rounded-2xl bg-gradient-to-r from-[#FFF6DA] to-[#FFE2B0] p-3 ring-1 ring-[#FFC85D]/50">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
@@ -326,28 +371,8 @@ function DrawCard({
             </span>
           </div>
         </div>
-
-        {/* Footer row — order no (Bonus only) + View link */}
-        <div className="mt-4 flex items-center justify-between gap-3">
-          {orderNoSample && drawKind === 'mini' ? (
-            <p className="truncate text-[11px] text-[#667085]">
-              Order <span className="font-mono text-[#0F1222]">{orderNoSample}</span>
-            </p>
-          ) : (
-            <span className="text-[11px] text-[#667085]">
-              {draw.prizeTitle || (drawKind === 'major' ? 'Major Draw' : 'Bonus Draw')}
-            </span>
-          )}
-          <Link
-            href={detailHref}
-            className="inline-flex shrink-0 items-center gap-1 text-[12px] font-bold text-[#6356E5] hover:text-[#5346D6]"
-          >
-            View draw
-            <Icon.ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
       </div>
-    </article>
+    </Link>
   );
 }
 
@@ -643,27 +668,43 @@ export default function EntriesPage() {
         </article>
       ) : (
         <>
-          {/* Controls — search + sort (single row across both sections) */}
-          <article className="rounded-3xl border border-[#E7E9F2] bg-white p-3 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-4">
-            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
-              <div className="relative flex-1">
-                <Icon.Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#667085]" />
+          {/* Controls — search (flex-1) + small sort dropdown on the right.
+              Compact single-row pill so mobile stays uncluttered. */}
+          <article className="overflow-hidden rounded-full border border-[#E7E9F2] bg-white shadow-[0_1px_2px_rgba(15,18,34,.04)]">
+            <div className="flex items-stretch divide-x divide-[#EFEDF5]">
+              <div className="relative flex-1 min-w-0">
+                <Icon.Search className="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#667085]" />
                 <input
                   type="text"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Search draws by title or order no…"
-                  className="h-10 w-full rounded-full border border-[#E0DAFF] bg-white pl-9 pr-3 text-[13px] text-[#0F1222] placeholder:text-[#667085] focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
+                  className="h-11 w-full rounded-l-full border-0 bg-transparent pl-10 pr-3 text-[13px] text-[#0F1222] placeholder:text-[#667085] focus:outline-none focus:ring-0"
                 />
               </div>
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
-                className="h-10 shrink-0 rounded-full border border-[#E0DAFF] bg-white px-3 text-[12.5px] font-semibold text-[#0F1222] focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
-              >
-                <option value="newest">Newest first</option>
-                <option value="oldest">Oldest first</option>
-              </select>
+              <div className="relative shrink-0">
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
+                  className="h-11 w-[124px] cursor-pointer appearance-none border-0 bg-transparent pl-3.5 pr-8 text-[12.5px] font-semibold text-[#667085] hover:text-[#0F1222] focus:outline-none focus:ring-0"
+                  aria-label="Sort order"
+                >
+                  <option value="newest">Newest</option>
+                  <option value="oldest">Oldest</option>
+                </select>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#667085]"
+                  aria-hidden
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </div>
             </div>
           </article>
 
