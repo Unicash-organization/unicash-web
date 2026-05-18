@@ -314,7 +314,13 @@ function CheckoutContent() {
   const wantsOnlyMembership = planId && !packId;
   // eslint-disable-next-line no-unused-vars
   const wantsCombo = (planId && packId) || (selectedPlan && selectedPack);
-  const requiresMembership = (isNewUser || !hasActiveMembership) && (wantsOnlyBoost || !!boostPackId);
+  // Suppress requiresMembership while either auth context OR local data
+  // fetch is still resolving. `hasActiveMembership` defaults false on first
+  // render because userMembership is null until the fetch lands — without
+  // this gate, the banner + plan selector + warning copy all flashed for
+  // ~200ms on every refresh, even for active members. See 2026-05-18 fix.
+  const isInitialLoad = authLoading || loading;
+  const requiresMembership = !isInitialLoad && (isNewUser || !hasActiveMembership) && (wantsOnlyBoost || !!boostPackId);
   const skipPlanSelection = hasActiveMembership && wantsOnlyBoost && !planId;
   const shouldPreSelectOldPlan = hasExpiredMembership && !planId;
   const shouldAutoLoadPlan = hasActiveMembership && !wantsOnlyBoost;
@@ -1155,11 +1161,9 @@ function CheckoutContent() {
                     </div>
                   )}
 
-                  {/* Gated on `!loading` — `requiresMembership` is computed from
-                      `hasActiveMembership` which is null until the membership fetch
-                      resolves. Without this guard, the warning flashes for ~1-2s on
-                      initial mount even for users who DO have active membership. */}
-                  {requiresMembership && !drawId && !loading && (
+                  {/* requiresMembership is already false during isInitialLoad
+                      (see its computation above) — no extra guard needed here. */}
+                  {requiresMembership && !drawId && (
                     <div className="mb-5 flex items-start gap-2.5 rounded-2xl border border-[#FFC85D]/50 bg-[#FFF6E2] p-3.5">
                       <Icon.AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#9C5410]" />
                       <div className="text-[13px] leading-relaxed text-[#0f1222]">
