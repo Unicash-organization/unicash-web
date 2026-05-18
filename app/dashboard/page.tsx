@@ -125,6 +125,109 @@ const V4_PLAN_BY_PRICE: Record<string, string> = {
   '99.99': 'UniMax',
 };
 
+/* -----------------------------------------------------------------------
+   PointsExpiringBanner — Points expiry PR4
+   Renders inside the Points balance card when any GRANT batch is within
+   30 days of its 12-month TTL. Calm lavender treatment + gold-edge accent,
+   not a red alert — Points expiry is a predictable cadence, not an error.
+----------------------------------------------------------------------- */
+type ExpiringBatch = {
+  grantId: string;
+  remaining: number;
+  expiresAt: string | null;
+  source: string | null;
+};
+
+function PointsExpiringBanner({
+  data,
+}: {
+  data: {
+    membership: ExpiringBatch[];
+    boost: ExpiringBatch[];
+    totalExpiringPoints: number;
+    windowDays: number;
+  };
+}) {
+  const all = useMemo(() => {
+    const labelled = [
+      ...data.membership.map((b) => ({ ...b, label: 'Membership Points' })),
+      ...data.boost.map((b) => ({ ...b, label: 'Booster Points' })),
+    ];
+    return labelled
+      .filter((b) => b.expiresAt)
+      .sort((a, b) => new Date(a.expiresAt!).getTime() - new Date(b.expiresAt!).getTime());
+  }, [data]);
+
+  const soonest = all[0];
+  if (!soonest) return null;
+
+  const soonestDays = Math.max(
+    0,
+    Math.ceil((new Date(soonest.expiresAt!).getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
+  );
+
+  const formatDate = (iso: string | null) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  return (
+    <div className="mt-4 overflow-hidden rounded-2xl border border-[#E0DAFF] bg-gradient-to-br from-[#FBFAFF] to-[#F4F1FB] p-4 ring-1 ring-[#E0DAFF]/50">
+      <div className="flex items-start gap-3">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#6356E5] ring-1 ring-[#E0DAFF] shadow-[0_2px_6px_-2px_rgba(99,86,229,0.18)]">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#6356E5]">
+            Points expiring soon
+          </p>
+          <p className="mt-1 text-[15px] font-extrabold leading-tight tracking-tight text-[#0F1222] sm:text-[16px]">
+            {data.totalExpiringPoints.toLocaleString()} Points in the next {data.windowDays} days
+          </p>
+          <p className="mt-1 text-[12px] leading-relaxed text-[#4B5563]">
+            Use them on Bonus Draws or Redeem Gift Cards before they expire.{' '}
+            <span className="font-semibold text-[#0F1222]">
+              Earliest:{' '}
+              {soonestDays === 0
+                ? 'today'
+                : soonestDays === 1
+                  ? 'tomorrow'
+                  : `in ${soonestDays} days`}
+              {' '}({formatDate(soonest.expiresAt)})
+            </span>
+          </p>
+        </div>
+      </div>
+
+      {/* Per-batch breakdown — up to 3 rows so the banner stays compact.
+          More batches surface only on the dedicated /account drilldown. */}
+      {all.length > 1 && (
+        <ul className="mt-3 divide-y divide-[#E0DAFF]/60 rounded-xl bg-white/60 ring-1 ring-[#E0DAFF]/50">
+          {all.slice(0, 3).map((b) => (
+            <li key={b.grantId} className="flex items-center justify-between gap-3 px-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate text-[12.5px] font-semibold text-[#0F1222]">
+                  {b.remaining.toLocaleString()} {b.label}
+                </p>
+                <p className="text-[11px] text-[#667085]">Expires {formatDate(b.expiresAt)}</p>
+              </div>
+            </li>
+          ))}
+          {all.length > 3 && (
+            <li className="px-3 py-2 text-[11.5px] text-[#667085]">
+              + {all.length - 3} more {all.length - 3 === 1 ? 'batch' : 'batches'} expiring within {data.windowDays} days
+            </li>
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { user, loading: authLoading, refreshUser } = useAuth();
   const router = useRouter();
@@ -132,6 +235,13 @@ export default function DashboardPage() {
   const [payments, setPayments] = useState<any[]>([]);
   const [creditLedger, setCreditLedger] = useState<any[]>([]);
   const [activeDraws, setActiveDraws] = useState<any[]>([]);
+  // Points expiry PR4 — list of batches expiring within 30 days for the dashboard banner.
+  const [expiringPoints, setExpiringPoints] = useState<{
+    membership: Array<{ grantId: string; remaining: number; expiresAt: string | null; source: string | null }>;
+    boost: Array<{ grantId: string; remaining: number; expiresAt: string | null; source: string | null }>;
+    totalExpiringPoints: number;
+    windowDays: number;
+  } | null>(null);
   const [activeEntriesTab, setActiveEntriesTab] = useState<'mini' | 'major'>('mini');
   const [loading, setLoading] = useState(true);
 
@@ -171,13 +281,15 @@ export default function DashboardPage() {
 
   const loadData = async () => {
     try {
-      const [membershipRes, paymentsRes, entryCountsRes, ledgerRes, drawsRes] = await Promise.all([
+      const [membershipRes, paymentsRes, entryCountsRes, ledgerRes, drawsRes, expiringRes] = await Promise.all([
         api.membership.getUserMembership().catch(() => ({ data: null })),
         api.payments.getPaymentsByUserId(user?.id || '').catch(() => ({ data: [] })),
         api.entries.getMyEntryCountsByDraw().catch(() => ({ data: [] })),
         api.users.getCreditLedger().catch(() => ({ data: [] })),
         api.draws.getAll({ userId: user?.id, includeMajor: true, includeFuture: true }).catch(() => ({ data: [] })),
+        api.users.getExpiringSoonPoints(30).catch(() => ({ data: null })),
       ]);
+      setExpiringPoints(expiringRes.data || null);
 
       let currentMembership = membershipRes.data;
       setMembership(currentMembership);
@@ -622,9 +734,16 @@ export default function DashboardPage() {
               <p className="mt-0.5 text-[18px] font-extrabold leading-none tracking-tight text-[#0F1222] tabular-nums sm:text-[20px]">
                 {boostPoints.toLocaleString()}
               </p>
-              <p className="mt-1 text-[10.5px] text-[#667085]">Never expire</p>
+              <p className="mt-1 text-[10.5px] text-[#667085]">Expire after 12 months</p>
             </div>
           </div>
+        )}
+
+        {/* Points expiry PR4 — "Expiring soon" banner. Renders only if any
+            batch's expiresAt falls within 30 days. Calm lavender treatment,
+            not red urgency — V2 wants "predictable cadence" feel. */}
+        {expiringPoints && expiringPoints.totalExpiringPoints > 0 && (
+          <PointsExpiringBanner data={expiringPoints} />
         )}
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:gap-3">

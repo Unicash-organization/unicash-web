@@ -206,6 +206,51 @@ export const api = {
     updateProfile: (data: any) => apiClient.put('/users/me/profile', data),
     getCredits: () => apiClient.get('/users/credits'),
     getCreditLedger: () => apiClient.get('/users/me/credit-ledger'),
+    /**
+     * Points expiry PR3 — batches whose `expiresAt` falls within the
+     * window (default 30 days). Drives the dashboard "Points expiring
+     * soon" banner. Returns {membership[], boost[], totalExpiringPoints,
+     * windowDays}.
+     */
+    getExpiringSoonPoints: (windowDays = 30) =>
+      apiClient.get<{
+        membership: Array<{
+          grantId: string;
+          remaining: number;
+          expiresAt: string | null;
+          source: string | null;
+        }>;
+        boost: Array<{
+          grantId: string;
+          remaining: number;
+          expiresAt: string | null;
+          source: string | null;
+        }>;
+        totalExpiringPoints: number;
+        windowDays: number;
+      }>(`/users/me/credits/expiring-soon?windowDays=${windowDays}`),
+    /** Full per-batch view across both credit types. Used by account drilldown. */
+    getCreditBatches: () =>
+      apiClient.get<{
+        membership: Array<{
+          grantId: string;
+          amount: number;
+          remaining: number;
+          createdAt: string;
+          expiresAt: string | null;
+          source: string | null;
+          description: string | null;
+        }>;
+        boost: Array<{
+          grantId: string;
+          amount: number;
+          remaining: number;
+          createdAt: string;
+          expiresAt: string | null;
+          source: string | null;
+          description: string | null;
+        }>;
+      }>('/users/me/credits/batches'),
           updatePassword: (data: { currentPassword?: string; newPassword: string; skipCurrentPasswordCheck?: boolean }) =>
             apiClient.put('/users/me/password', data),
     /** Phase U1 — stamp onboardingCompletedAt server-side. Idempotent. */
