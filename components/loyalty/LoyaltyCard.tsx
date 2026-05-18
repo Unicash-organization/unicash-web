@@ -283,7 +283,7 @@ function EligibleLoyaltyCard({ summary }: { summary: LoyaltySummary }) {
           {totalEarned.toLocaleString()}
         </p>
         <p className="mt-1 text-[12px] text-[#9C5410]/85">
-          Applied to every open Major Draw — Month {summary.tenureMonths} of {tierLabel} tenure.
+          Applied to every open Major Draw — Month {summary.tenureMonths + 1} of {tierLabel} tenure.
         </p>
       </div>
 
@@ -341,7 +341,7 @@ function EligibleLoyaltyCard({ summary }: { summary: LoyaltySummary }) {
         <div className="mt-3 flex items-baseline gap-2">
           <span className="text-[13px] font-semibold text-[#667085]">Month</span>
           <span className="text-[24px] font-extrabold tabular-nums text-[#6356E5] sm:text-[28px]">
-            {projectMonth}
+            {projectMonth + 1}
           </span>
         </div>
 
@@ -357,12 +357,12 @@ function EligibleLoyaltyCard({ summary }: { summary: LoyaltySummary }) {
         />
 
         <div className="mt-2 flex justify-between text-[10px] font-bold uppercase tracking-[0.08em] text-[#667085]">
-          <span>0</span>
-          <span>12mo</span>
-          <span>24mo</span>
-          <span>36mo</span>
-          <span>48mo</span>
-          <span>{PROJECT_MAX_MONTHS}mo</span>
+          <span>Start</span>
+          <span>Year 1</span>
+          <span>Year 2</span>
+          <span>Year 3</span>
+          <span>Year 4</span>
+          <span>Year 5</span>
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
@@ -374,7 +374,7 @@ function EligibleLoyaltyCard({ summary }: { summary: LoyaltySummary }) {
         <div className="mt-4 rounded-xl bg-white p-3 ring-1 ring-[#E0DAFF]">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6356E5]">
-              Projected total at month {projectMonth}
+              Projected total at month {projectMonth + 1}
             </p>
             {projectMonth !== summary.tenureMonths && (
               <p className="text-[11px] text-[#667085]">
