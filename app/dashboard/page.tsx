@@ -186,18 +186,13 @@ function PointsExpiringBanner({
             Points expiring soon
           </p>
           <p className="mt-1 text-[15px] font-extrabold leading-tight tracking-tight text-[#0F1222] sm:text-[16px]">
-            {data.totalExpiringPoints.toLocaleString()} Points in the next {data.windowDays} days
+            {data.totalExpiringPoints.toLocaleString()} Points if you stay inactive
           </p>
           <p className="mt-1 text-[12px] leading-relaxed text-[#4B5563]">
-            Use them on Bonus Draws or Redeem Gift Cards before they expire.{' '}
+            Earn, spend or stay an active member to keep your Points alive — any
+            activity resets the 18-month clock. Earliest scheduled retire-by:{' '}
             <span className="font-semibold text-[#0F1222]">
-              Earliest:{' '}
-              {soonestDays === 0
-                ? 'today'
-                : soonestDays === 1
-                  ? 'tomorrow'
-                  : `in ${soonestDays} days`}
-              {' '}({formatDate(soonest.expiresAt)})
+              {formatDate(soonest.expiresAt)}
             </span>
           </p>
         </div>
@@ -734,7 +729,7 @@ export default function DashboardPage() {
               <p className="mt-0.5 text-[18px] font-extrabold leading-none tracking-tight text-[#0F1222] tabular-nums sm:text-[20px]">
                 {boostPoints.toLocaleString()}
               </p>
-              <p className="mt-1 text-[10.5px] text-[#667085]">Expire after 12 months</p>
+              <p className="mt-1 text-[10.5px] text-[#667085]">Active = never expire</p>
             </div>
           </div>
         )}
