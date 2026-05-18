@@ -492,41 +492,46 @@ export default function MajorDrawWinPage() {
           className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#FFC85D]/30 to-transparent"
         />
 
-        <div className="relative inline-flex items-center gap-2.5 sm:gap-3.5 text-[12px] sm:text-[13.5px] md:text-[14px] font-semibold leading-none">
+        <div className="relative inline-flex items-center gap-2.5 sm:gap-3.5 text-[12.5px] sm:text-[14px] md:text-[15px] leading-none">
           {/* Live pulse dot */}
           <span
             aria-hidden
             className="inline-flex h-1.5 w-1.5 rounded-full bg-[#FFC85D] shadow-[0_0_10px_rgba(255,200,93,0.7)] animate-pulse"
           />
 
-          {/* Label — full on desktop, compact on mobile */}
-          <span className="hidden sm:inline uppercase tracking-[0.18em] text-white/85">
+          {/* Label — full on desktop, compact on mobile. Bumped to extrabold
+              tracked so it sits with the same visual weight as the digits
+              and doesn't recede into the gradient background. */}
+          <span className="hidden sm:inline font-extrabold uppercase tracking-[0.18em] text-white">
             {countdownLabel}
           </span>
-          <span className="sm:hidden uppercase tracking-[0.14em] text-white/85">
+          <span className="sm:hidden font-extrabold uppercase tracking-[0.14em] text-white">
             Ends in
           </span>
 
-          {/* Time — gold digits inline, no pill */}
-          <span className="inline-flex items-baseline gap-2 sm:gap-3 font-mono tabular-nums text-[15px] sm:text-[17px] md:text-[18px]">
+          {/* Time — gold digits inline, no pill. Dropped font-mono because
+              the system mono fallback rendered visibly thinner than the
+              sans extrabold; default sans + tabular-nums gives heavier
+              glyphs and still keeps columns aligned. */}
+          <span className="inline-flex items-baseline gap-2 sm:gap-3 tabular-nums text-[16px] sm:text-[18px] md:text-[20px]">
             <span className="inline-flex items-baseline">
               <span className="text-[#FFE2B0] font-extrabold tracking-tight">{cd.d}</span>
-              <span className="text-[#FFE2B0] ml-0.5 text-[10px] sm:text-[11px] font-bold">D</span>
+              <span className="text-[#FFE2B0] ml-0.5 text-[11px] sm:text-[12px] font-extrabold">D</span>
             </span>
-            <span aria-hidden className="text-white/35 text-[12px]">·</span>
+            <span aria-hidden className="text-white/40 text-[13px] font-bold">·</span>
             <span className="inline-flex items-baseline">
               <span className="text-[#FFE2B0] font-extrabold tracking-tight">{pad2(cd.h)}</span>
-              <span className="text-[#FFE2B0] ml-0.5 text-[10px] sm:text-[11px] font-bold">H</span>
+              <span className="text-[#FFE2B0] ml-0.5 text-[11px] sm:text-[12px] font-extrabold">H</span>
             </span>
-            <span aria-hidden className="text-white/35 text-[12px]">·</span>
+            <span aria-hidden className="text-white/40 text-[13px] font-bold">·</span>
             <span className="inline-flex items-baseline">
               <span className="text-[#FFE2B0] font-extrabold tracking-tight">{pad2(cd.m)}</span>
-              <span className="text-[#FFE2B0] ml-0.5 text-[10px] sm:text-[11px] font-bold">M</span>
+              <span className="text-[#FFE2B0] ml-0.5 text-[11px] sm:text-[12px] font-extrabold">M</span>
             </span>
-            <span aria-hidden className="text-white/35 text-[12px]">·</span>
+            <span aria-hidden className="text-white/40 text-[13px] font-bold">·</span>
             <span className="inline-flex items-baseline">
               <span className="text-[#FFE2B0] font-extrabold tracking-tight">{pad2(cd.s)}</span>
-              <span className="text-[#FFE2B0] ml-0.5 text-[10px] sm:text-[11px] font-bold">S</span>
+              <span className="text-[#FFE2B0] ml-0.5 text-[11px] sm:text-[12px] font-extrabold">S</span>
             </span>
           </span>
         </div>
