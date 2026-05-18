@@ -622,11 +622,8 @@ export default function EntriesPage() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <header className="flex flex-col gap-1">
+      <header>
         <h1 className="text-[24px] font-extrabold tracking-tight text-[#0F1222] sm:text-[30px]">My Entries</h1>
-        <p className="text-[13px] text-[#4B5563] sm:text-[13.5px]">
-          Your active draws — Major Draws on top, Bonus Draws below.
-        </p>
       </header>
 
       {!user ? (
