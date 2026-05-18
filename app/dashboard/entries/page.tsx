@@ -6,68 +6,61 @@ import api from '@/lib/api';
 import Link from 'next/link';
 import LoadingRing from '@/components/LoadingRing';
 
-const PAGE_SIZE = 30;
+/* -----------------------------------------------------------------------
+   /dashboard/entries — redesigned 2026-05-18
+
+   Layout: Major Draws section (top) + Bonus Draws section (bottom),
+   each rendered as a responsive 3-col card grid (1col mobile / 2col md /
+   3col lg). Matches the public /winners page card pattern but adapted
+   for the member's perspective — replaces "Winner: Logan T." with the
+   member's own entry count (large, bold) so they immediately see their
+   stake in each draw.
+
+   Major Draw hero images don't yet have a dedicated upload (admin only
+   has landing-page packages). We use a gradient placeholder + crown
+   glyph as interim — backlog task to add Draw.heroImageUrl + admin
+   upload UI.
+----------------------------------------------------------------------- */
 
 type GroupedRow = {
   key: string;
   drawId: string;
-  draw: { id: string; title: string; drawType: string };
   drawType: string;
   source: string;
   subsource: string | null;
   creditsSpent: number;
-  date: string;
+  latestCreatedAt: string;
   count: number;
   orderNoSample: string | null;
 };
 
-/* -----------------------------------------------------------------------
-   Source label mapping — UNICASH v4 terminology.
-   Internal field names ('boost_credit', 'membership_credit') stay as-is;
-   only the display label is mapped.
------------------------------------------------------------------------ */
-const SOURCE_LABEL: Record<string, { label: string; bg: string; text: string; ring: string }> = {
-  membership_credit: { label: 'Membership',       bg: 'bg-[#F4F1FB]', text: 'text-[#6356E5]', ring: 'ring-[#E0DAFF]' },
-  boost_credit:      { label: 'Point Booster',    bg: 'bg-[#FFF6DA]', text: 'text-[#9C5410]', ring: 'ring-[#FFC85D]/40' },
-  external_payment:  { label: 'One-time package', bg: 'bg-[#ECFDF5]', text: 'text-[#10B981]', ring: 'ring-[#A7F3D0]' },
-  loyalty:           { label: 'Loyalty',          bg: 'bg-[#FFF6E5]', text: 'text-[#9A6A00]', ring: 'ring-[#FCE6B5]' },
+type DrawMeta = {
+  id: string;
+  title: string;
+  drawType: 'mini' | 'major' | string;
+  state: 'open' | 'soldOut' | 'closed' | 'pending' | 'draft' | string;
+  openAt?: string | null;
+  closedAt?: string | null;
+  entrants?: number;
+  capacity?: number | null;
+  imageUrl?: string | null;
+  heroImageUrl?: string | null;
+  prizeTitle?: string | null;
+  winnerUserId?: string | null;
+  isActive?: boolean;
 };
 
-/* Loyalty V2 — friendly label for each subsource. Keep parallel with
-   unicash-api/src/entries/entities/entry.entity.ts LoyaltySubsource enum. */
-const LOYALTY_SUBSOURCE_LABEL: Record<string, string> = {
-  draw_open_snapshot:  'Draw-open snapshot',
-  signup_bonus:        'Sign-up bonus',
-  tier_quota:          'Tier quota',
-  tenure_monthly:      'Monthly tenure',
-  upgrade_delta:       'Tier upgrade bonus',
-  anniversary_3m:      '3-month anniversary',
-  anniversary_6m:      '6-month anniversary',
-  anniversary_12m:     '12-month anniversary',
-  anniversary_18m:     '18-month anniversary',
-  anniversary_24m:     '24-month anniversary',
-  anniversary_yearly:  'Yearly anniversary',
-  streak_12:           '12-month streak',
-  streak_24:           '24-month streak',
-  streak_36:           '36-month streak',
-  admin_grant:         'Admin grant',
-  restore_full:        'Restored (full)',
-  restore_partial:     'Restored (partial)',
+/** Composite row used for rendering — entries joined to draw metadata. */
+type DrawCardData = {
+  draw: DrawMeta;
+  userEntries: number;
+  hasLoyalty: boolean;
+  hasMembership: boolean;
+  latestEntryDate: string;
+  orderNoSample: string | null;
 };
 
-function resolveSourceLabel(source: string, subsource: string | null): {
-  label: string;
-  bg: string;
-  text: string;
-  ring: string;
-} {
-  const base = SOURCE_LABEL[source] || { label: source, bg: 'bg-[#F4F1FB]', text: 'text-[#6356E5]', ring: 'ring-[#E0DAFF]' };
-  if (source === 'loyalty' && subsource && LOYALTY_SUBSOURCE_LABEL[subsource]) {
-    return { ...base, label: `${base.label} · ${LOYALTY_SUBSOURCE_LABEL[subsource]}` };
-  }
-  return base;
-}
-
+/* ─── Icons ───────────────────────────────────────────────────────────── */
 const Icon = {
   ArrowRight: ({ className = '' }: { className?: string }) => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
@@ -91,165 +84,524 @@ const Icon = {
       <path d="M5 21h14" />
     </svg>
   ),
+  Clock: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+  Sparkle: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="M12 2l1.7 5.5L19 9l-5.3 1.5L12 16l-1.7-5.5L5 9l5.3-1.5L12 2z" />
+    </svg>
+  ),
+  Ticket: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M2 9a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V9z" />
+      <path d="M9 7v10" strokeDasharray="2 2" />
+    </svg>
+  ),
 };
+
+/* ─── Helpers ─────────────────────────────────────────────────────────── */
+
+/**
+ * Countdown string: returns a compact "Closes in 3d 14h" / "Closes in 2h 15m"
+ * style label. Null when there's no countdown to render (closed, no closedAt).
+ */
+function formatCountdown(closedAt: string | null | undefined, nowMs: number): string | null {
+  if (!closedAt) return null;
+  const ms = new Date(closedAt).getTime() - nowMs;
+  if (ms <= 0) return null;
+  const sec = Math.floor(ms / 1000);
+  const days = Math.floor(sec / 86400);
+  const hours = Math.floor((sec % 86400) / 3600);
+  const minutes = Math.floor((sec % 3600) / 60);
+  if (days >= 1) return `Closes in ${days}d ${hours}h`;
+  if (hours >= 1) return `Closes in ${hours}h ${minutes}m`;
+  return `Closes in ${minutes}m`;
+}
+
+/** "Closed 2 May" / "Closed 2 May · 12:52 pm". Uses Sydney timezone. */
+function formatClosedAt(closedAt: string | null | undefined): string {
+  if (!closedAt) return '';
+  try {
+    const d = new Date(closedAt);
+    return d.toLocaleString('en-AU', {
+      day: 'numeric',
+      month: 'short',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Australia/Sydney',
+    });
+  } catch {
+    return '';
+  }
+}
+
+function formatOpensAt(openAt: string | null | undefined): string {
+  if (!openAt) return '';
+  try {
+    const d = new Date(openAt);
+    return d.toLocaleDateString('en-AU', {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'Australia/Sydney',
+    });
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Status pill content + tone resolver. Drives both Major and Bonus cards.
+ * Tones: 'open' (purple), 'closing' (amber), 'won' (gold), 'closed' (neutral),
+ * 'upcoming' (lavender outline).
+ */
+type StatusTone = 'open' | 'closing' | 'won' | 'closed' | 'upcoming';
+function resolveStatus(
+  draw: DrawMeta,
+  isWinner: boolean,
+  nowMs: number,
+): { label: string; tone: StatusTone } {
+  if (isWinner) return { label: '🎉 You won', tone: 'won' };
+  if (draw.state === 'closed') return { label: `Closed ${formatClosedAt(draw.closedAt)}`, tone: 'closed' };
+  if (draw.state === 'soldOut') return { label: 'Sold out · Drawing soon', tone: 'closing' };
+  if (draw.state === 'pending' || draw.state === 'draft') return { label: 'Awaiting open', tone: 'upcoming' };
+
+  const openMs = draw.openAt ? new Date(draw.openAt).getTime() : 0;
+  if (openMs > nowMs) return { label: `Opens ${formatOpensAt(draw.openAt)}`, tone: 'upcoming' };
+
+  const cd = formatCountdown(draw.closedAt, nowMs);
+  if (cd) {
+    const tone: StatusTone = cd.startsWith('Closes in ') && cd.includes('m') && !cd.includes('h') && !cd.includes('d')
+      ? 'closing'
+      : 'open';
+    return { label: cd, tone };
+  }
+  return { label: 'Drawing soon', tone: 'closing' };
+}
+
+const STATUS_PILL_STYLES: Record<StatusTone, string> = {
+  open:     'bg-white/95 text-[#0F1222] ring-1 ring-[#E7E9F2]',
+  closing:  'bg-[#FFF6DA] text-[#9C5410] ring-1 ring-[#FFC85D]/40',
+  won:      'bg-gradient-to-r from-[#FFC85D] to-[#FFE2B0] text-[#7C5A00] ring-1 ring-[#FFC85D]',
+  closed:   'bg-white/95 text-[#667085] ring-1 ring-[#E7E9F2]',
+  upcoming: 'bg-[#F4F1FB] text-[#6356E5] ring-1 ring-[#E0DAFF]',
+};
+
+/* Title gradient family — rotates by draw id hash so cards don't all look same. */
+function pickGradient(seed: string): string {
+  const variants = [
+    'from-[#6356E5] via-[#7C6BE8] to-[#8B7BFF]',
+    'from-[#5346D6] via-[#6F62E0] to-[#8B7BFF]',
+    'from-[#6356E5] via-[#9080F0] to-[#FFC85D]',
+    'from-[#534AB7] via-[#6356E5] to-[#8B7BFF]',
+    'from-[#3C3489] via-[#6356E5] to-[#7C6BE8]',
+  ];
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = (h * 31 + seed.charCodeAt(i)) | 0;
+  }
+  return variants[Math.abs(h) % variants.length];
+}
+
+/* ─── Sub-components ──────────────────────────────────────────────────── */
+
+function DrawCard({
+  data,
+  nowMs,
+  drawKind,
+}: {
+  data: DrawCardData;
+  nowMs: number;
+  drawKind: 'major' | 'mini';
+}) {
+  const { draw, userEntries, hasLoyalty, hasMembership, orderNoSample } = data;
+  const { user } = useAuth();
+  const isWinner = !!(draw.winnerUserId && user?.id && draw.winnerUserId === user.id);
+  const status = resolveStatus(draw, isWinner, nowMs);
+
+  const capacity = Math.max(0, Number(draw.capacity ?? 0));
+  const entrants = Math.max(0, Number(draw.entrants ?? 0));
+  const pct = capacity > 0 ? Math.min(100, Math.round((entrants / capacity) * 100)) : 0;
+
+  const hasImage = !!(draw.heroImageUrl || draw.imageUrl);
+  const gradientClass = pickGradient(draw.id);
+
+  // Source label collapsed:
+  //  - Loyalty present → "Loyalty" (purple-gold)
+  //  - else Membership credit → "Membership"
+  //  - else Booster credit / Bonus Draw → just hide source pill
+  const sourceLabel = hasLoyalty
+    ? 'Loyalty'
+    : hasMembership && drawKind === 'major'
+      ? 'Membership'
+      : null;
+
+  const detailHref = drawKind === 'mini' ? `/giveaways/${draw.id}` : `/win/${draw.id}`;
+
+  return (
+    <article className="group flex flex-col overflow-hidden rounded-3xl border border-[#E7E9F2] bg-white shadow-[0_1px_2px_rgba(15,18,34,.04)] transition-shadow hover:shadow-[0_18px_40px_-20px_rgba(99,86,229,0.25)]">
+      {/* Hero */}
+      <div className="relative aspect-[16/10] w-full overflow-hidden">
+        {hasImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={(draw.heroImageUrl || draw.imageUrl) as string}
+            alt={draw.title}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          />
+        ) : (
+          // Interim placeholder for draws without a hero image (Major Draws
+          // currently). Backlog: add Draw.heroImageUrl + admin upload.
+          <div className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${gradientClass}`}>
+            {drawKind === 'major' ? (
+              <Icon.Crown className="h-14 w-14 text-white/90" />
+            ) : (
+              <Icon.Trophy className="h-14 w-14 text-white/90" />
+            )}
+          </div>
+        )}
+
+        {/* Status pill — bottom-right, replaces the "Published" badge */}
+        <div className="pointer-events-none absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
+          {/* Source pill — bottom-left, optional */}
+          {sourceLabel ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-[#6356E5] ring-1 ring-[#E0DAFF] backdrop-blur">
+              <Icon.Sparkle className="h-2.5 w-2.5" />
+              {sourceLabel}
+            </span>
+          ) : (
+            <span />
+          )}
+          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold backdrop-blur ${STATUS_PILL_STYLES[status.tone]}`}>
+            {status.tone !== 'won' && <Icon.Clock className="h-3 w-3" />}
+            {status.label}
+          </span>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="flex flex-1 flex-col p-4 sm:p-5">
+        <h3 className="line-clamp-2 text-[15.5px] font-extrabold leading-snug tracking-tight text-[#0F1222] sm:text-[17px]">
+          {draw.title}
+        </h3>
+
+        {/* Progress — only if capacity is known. Many Bonus Draws have no
+            entrant cap so we hide cleanly in that case. */}
+        {capacity > 0 && (
+          <div className="mt-3">
+            <div className="flex items-baseline justify-between gap-2 text-[11.5px] text-[#667085]">
+              <span>
+                <span className="font-bold text-[#0F1222] tabular-nums">{entrants.toLocaleString()}</span>
+                {' / '}
+                {capacity.toLocaleString()} members joined
+              </span>
+              <span className="rounded-full bg-[#F4F1FB] px-2 py-0.5 text-[10.5px] font-bold text-[#6356E5] ring-1 ring-[#E0DAFF] tabular-nums">
+                {pct}%
+              </span>
+            </div>
+            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[#F4F1FB]">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF]"
+                style={{ width: `${Math.max(2, pct)}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Member's stake — big gold-accented count, replaces "Winner · Name" */}
+        <div className="mt-4 overflow-hidden rounded-2xl bg-gradient-to-r from-[#FFF6DA] to-[#FFE2B0] p-3 ring-1 ring-[#FFC85D]/50">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9C5410]">Your entries</p>
+              <p className="mt-0.5 text-[28px] font-extrabold leading-none tracking-tight text-[#7C5A00] tabular-nums sm:text-[32px]">
+                {userEntries.toLocaleString()}
+              </p>
+            </div>
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/70 text-[#9C5410] ring-1 ring-[#FFC85D]/50">
+              <Icon.Ticket className="h-4 w-4" />
+            </span>
+          </div>
+        </div>
+
+        {/* Footer row — order no (Bonus only) + View link */}
+        <div className="mt-4 flex items-center justify-between gap-3">
+          {orderNoSample && drawKind === 'mini' ? (
+            <p className="truncate text-[11px] text-[#667085]">
+              Order <span className="font-mono text-[#0F1222]">{orderNoSample}</span>
+            </p>
+          ) : (
+            <span className="text-[11px] text-[#667085]">
+              {draw.prizeTitle || (drawKind === 'major' ? 'Major Draw' : 'Bonus Draw')}
+            </span>
+          )}
+          <Link
+            href={detailHref}
+            className="inline-flex shrink-0 items-center gap-1 text-[12px] font-bold text-[#6356E5] hover:text-[#5346D6]"
+          >
+            View draw
+            <Icon.ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function SectionEmpty({
+  kind,
+  searchActive,
+}: {
+  kind: 'major' | 'mini';
+  searchActive: boolean;
+}) {
+  if (searchActive) {
+    return (
+      <article className="rounded-3xl border border-dashed border-[#E0DAFF] bg-[#FBFAFF] px-5 py-8 text-center">
+        <p className="text-[13.5px] font-extrabold tracking-tight text-[#0F1222]">No match in this section</p>
+        <p className="mt-1 text-[12px] leading-relaxed text-[#4B5563]">
+          Try a different search term or clear the search to see everything.
+        </p>
+      </article>
+    );
+  }
+
+  if (kind === 'major') {
+    return (
+      <article className="overflow-hidden rounded-3xl border border-dashed border-[#E0DAFF] bg-[#FBFAFF] px-5 py-10 text-center sm:py-12">
+        <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#6356E5] ring-1 ring-[#E0DAFF]">
+          <Icon.Crown className="h-5 w-5" />
+        </span>
+        <p className="mt-3 text-[15px] font-extrabold tracking-tight text-[#0F1222] sm:text-[16px]">
+          No active Major Draw yet
+        </p>
+        <p className="mt-1 text-[12.5px] leading-relaxed text-[#4B5563]">
+          A new Major Draw opens every month. Active Members get free entries automatically.
+        </p>
+        <Link
+          href="/membership"
+          className="mt-4 inline-flex h-11 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[13.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.55)] transition-all hover:from-[#5346D6] hover:to-[#7867EC]"
+        >
+          View Membership
+          <Icon.ArrowRight className="h-4 w-4" />
+        </Link>
+      </article>
+    );
+  }
+
+  return (
+    <article className="overflow-hidden rounded-3xl border border-dashed border-[#E0DAFF] bg-[#FBFAFF] px-5 py-10 text-center sm:py-12">
+      <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#6356E5] ring-1 ring-[#E0DAFF]">
+        <Icon.Trophy className="h-5 w-5" />
+      </span>
+      <p className="mt-3 text-[15px] font-extrabold tracking-tight text-[#0F1222] sm:text-[16px]">
+        No Bonus Draw entries yet
+      </p>
+      <p className="mt-1 text-[12.5px] leading-relaxed text-[#4B5563]">
+        Use your Points to enter Bonus Draws between Major Draws.
+      </p>
+      <Link
+        href="/giveaways"
+        className="mt-4 inline-flex h-11 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[13.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.55)] transition-all hover:from-[#5346D6] hover:to-[#7867EC]"
+      >
+        View Bonus Draws
+        <Icon.ArrowRight className="h-4 w-4" />
+      </Link>
+    </article>
+  );
+}
+
+function Section({
+  title,
+  count,
+  kind,
+  cards,
+  nowMs,
+  searchActive,
+}: {
+  title: string;
+  count: number;
+  kind: 'major' | 'mini';
+  cards: DrawCardData[];
+  nowMs: number;
+  searchActive: boolean;
+}) {
+  return (
+    <section className="space-y-3 sm:space-y-4">
+      <header className="flex items-baseline justify-between gap-3">
+        <h2 className="text-[18px] font-extrabold tracking-tight text-[#0F1222] sm:text-[22px]">
+          {title}
+        </h2>
+        {count > 0 && (
+          <span className="rounded-full bg-[#F4F1FB] px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.1em] text-[#6356E5] ring-1 ring-[#E0DAFF] tabular-nums">
+            {count} {count === 1 ? 'draw' : 'draws'}
+          </span>
+        )}
+      </header>
+
+      {cards.length === 0 ? (
+        <SectionEmpty kind={kind} searchActive={searchActive} />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {cards.map((c) => (
+            <DrawCard key={c.draw.id} data={c} nowMs={nowMs} drawKind={kind} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ─── Page ────────────────────────────────────────────────────────────── */
 
 export default function EntriesPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [hasAnyEntries, setHasAnyEntries] = useState(false);
-  const [rows, setRows] = useState<GroupedRow[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<'mini' | 'major'>('mini');
+  const [drawsById, setDrawsById] = useState<Map<string, DrawMeta>>(new Map());
+  const [entriesByDraw, setEntriesByDraw] = useState<Map<string, GroupedRow[]>>(new Map());
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
-  const formatDate = useCallback((date: string | Date) => {
-    const { formatSydneyDateOnly } = require('@/lib/timezone');
-    return formatSydneyDateOnly(date);
+  // Live countdown — refresh every 30s. Cheap because each card is pure.
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => clearInterval(t);
   }, []);
 
-  const loadPage = useCallback(async () => {
+  const loadData = useCallback(async () => {
     if (!user) {
       setLoading(false);
-      setHasAnyEntries(false);
-      setRows([]);
-      setTotal(0);
+      setDrawsById(new Map());
+      setEntriesByDraw(new Map());
       return;
     }
     setLoading(true);
     try {
-      const countsRes = await api.entries.getMyEntryCountsByDraw().catch(() => ({ data: [] }));
-      const countsList = (countsRes.data || []) as { drawId: string; count: number }[];
-      const any = countsList.reduce((acc, x) => acc + (Number(x.count) || 0), 0) > 0;
-      setHasAnyEntries(any);
-      if (!any) {
-        setRows([]);
-        setTotal(0);
-        return;
-      }
-      const res = await api.entries
-        .getMyEntriesGrouped({
-          page,
-          limit: PAGE_SIZE,
-          drawType: activeTab,
-          search: search.trim() || undefined,
+      const [drawsRes, miniRes, majorRes] = await Promise.all([
+        api.draws.getAll({ userId: user.id, includeMajor: true, includeFuture: true }).catch(() => ({ data: [] })),
+        api.entries.getMyEntriesGrouped({
+          page: 1,
+          limit: 200,
+          drawType: 'mini',
           sort: sortOrder,
-        })
-        .catch(() => ({ data: { data: [], total: 0, page: 1, limit: PAGE_SIZE, totalPages: 0 } }));
-      const payload = res.data as {
-        data: Array<{
-          drawId: string;
-          source: string;
-          subsource?: string | null;
-          dayUtc: string;
-          count: number;
-          latestCreatedAt: string;
-          sampleOrderNo: string | null;
-          creditsSpent: number;
-          draw: { id: string; title: string; drawType: string };
-        }>;
-        total: number;
+        }).catch(() => ({ data: { data: [], total: 0 } })),
+        api.entries.getMyEntriesGrouped({
+          page: 1,
+          limit: 200,
+          drawType: 'major',
+          sort: sortOrder,
+        }).catch(() => ({ data: { data: [], total: 0 } })),
+      ]);
+
+      // Index draws by id for cheap lookup
+      const drawList = ((drawsRes.data || []) as DrawMeta[]) || [];
+      const byId = new Map<string, DrawMeta>();
+      for (const d of drawList) {
+        if (d?.id) byId.set(d.id, d);
+      }
+      setDrawsById(byId);
+
+      // Group entries by drawId — aggregate count + flags across sources.
+      const grouped = new Map<string, GroupedRow[]>();
+      const collect = (payload: any) => {
+        const list = ((payload?.data?.data || []) as Array<any>) || [];
+        for (const r of list) {
+          const row: GroupedRow = {
+            key: `${r.drawId}-${r.source}-${r.subsource ?? ''}-${r.dayUtc}`,
+            drawId: r.drawId,
+            drawType: r.draw?.drawType || 'mini',
+            source: r.source,
+            subsource: r.subsource ?? null,
+            creditsSpent: Number(r.creditsSpent) || 0,
+            latestCreatedAt: r.latestCreatedAt,
+            count: Number(r.count) || 0,
+            orderNoSample: r.sampleOrderNo ? String(r.sampleOrderNo).trim() : null,
+          };
+          const list2 = grouped.get(row.drawId) || [];
+          list2.push(row);
+          grouped.set(row.drawId, list2);
+        }
       };
-      const list = payload?.data || [];
-      const mapped: GroupedRow[] = list.map((r) => {
-        const count = Number(r.count) || 0;
-        const rawOrder = r.sampleOrderNo != null ? String(r.sampleOrderNo).trim() : '';
-        const sub = r.subsource ?? null;
-        return {
-          key: `${r.drawId}-${r.source}-${sub ?? ''}-${r.dayUtc}`,
-          drawId: r.drawId,
-          draw: r.draw,
-          drawType: r.draw?.drawType || 'mini',
-          source: r.source,
-          subsource: sub,
-          creditsSpent: Number(r.creditsSpent) || 0,
-          date: formatDate(r.latestCreatedAt),
-          count,
-          orderNoSample: rawOrder.length > 0 ? rawOrder : null,
-        };
-      });
-      setRows(mapped);
-      setTotal(typeof payload?.total === 'number' ? payload.total : 0);
+      collect(miniRes);
+      collect(majorRes);
+      setEntriesByDraw(grouped);
     } finally {
       setLoading(false);
     }
-  }, [user, page, activeTab, search, sortOrder, formatDate]);
+  }, [user, sortOrder]);
 
-  useEffect(() => { loadPage(); }, [loadPage]);
+  useEffect(() => { loadData(); }, [loadData]);
 
+  // Debounced search
   useEffect(() => {
-    const t = setTimeout(() => {
-      setSearch(searchInput);
-      setPage(1);
-    }, 350);
+    const t = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const totalPages = useMemo(
-    () => (total <= 0 ? 1 : Math.max(1, Math.ceil(total / PAGE_SIZE))),
-    [total],
-  );
+  /** Composite cards = one per draw, joined with entries the user has there. */
+  const cards: DrawCardData[] = useMemo(() => {
+    const out: DrawCardData[] = [];
+    Array.from(entriesByDraw.entries()).forEach(([drawId, rows]: [string, GroupedRow[]]) => {
+      const draw = drawsById.get(drawId);
+      if (!draw) return;
+      const userEntries = rows.reduce((s: number, r: GroupedRow) => s + r.count, 0);
+      if (userEntries <= 0) return;
+      const hasLoyalty = rows.some((r: GroupedRow) => r.source === 'loyalty');
+      const hasMembership = rows.some((r: GroupedRow) => r.source === 'membership_credit');
+      const latest = rows.reduce<string>(
+        (acc: string, r: GroupedRow) =>
+          new Date(r.latestCreatedAt).getTime() > new Date(acc).getTime() ? r.latestCreatedAt : acc,
+        rows[0]?.latestCreatedAt || new Date(0).toISOString(),
+      );
+      const orderNoSample = rows.find((r: GroupedRow) => r.orderNoSample)?.orderNoSample ?? null;
+      out.push({
+        draw,
+        userEntries,
+        hasLoyalty,
+        hasMembership,
+        latestEntryDate: latest,
+        orderNoSample,
+      });
+    });
+    return out;
+  }, [entriesByDraw, drawsById]);
 
-  /**
-   * Major Draws aggregation — each row in `rows` is one `entries`/
-   * `loyalty_grants` record. For Major Draws we want one ROW per draw
-   * with the SUM of entries across all sources (snapshot + cycle +
-   * anniversary + streak + membership credit) so the member sees their
-   * actual pool size, not the per-grant ledger noise.
-   *
-   * Bonus Draws (mini) stay un-aggregated — each entry there is a
-   * discrete buy + needs its own row.
-   *
-   * Source label collapses to the dominant family ('Loyalty' if any
-   * loyalty grants present, else first non-loyalty source). Sub-source
-   * detail is dropped at aggregate level — drill-down to per-grant
-   * detail is a future view.
-   */
-  const displayRows = useMemo(() => {
-    if (activeTab !== 'major') return rows;
+  /** Split by drawType, then filter by search, then sort. */
+  const { majorCards, miniCards } = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const matches = (c: DrawCardData) =>
+      !q ||
+      c.draw.title?.toLowerCase().includes(q) ||
+      c.orderNoSample?.toLowerCase().includes(q);
 
-    const groups = new Map<string, GroupedRow & { _sourceCount: Set<string> }>();
-    for (const r of rows) {
-      const existing = groups.get(r.drawId);
-      if (!existing) {
-        groups.set(r.drawId, {
-          ...r,
-          // collapse subsource at aggregate level
-          subsource: null,
-          // Per-grant order/idempotency key doesn't make sense for a
-          // multi-grant aggregate; hide it.
-          orderNoSample: null,
-          // track which sources contributed for the label
-          _sourceCount: new Set<string>([r.source]),
-        });
-      } else {
-        existing.count += r.count;
-        existing._sourceCount.add(r.source);
-        // Prefer the latest date as the row's date.
-        if (new Date(r.date) > new Date(existing.date)) {
-          existing.date = r.date;
-        }
-        // Promote source to 'loyalty' if any loyalty grants are in the mix.
-        if (r.source === 'loyalty') existing.source = 'loyalty';
-      }
-    }
-    // Strip internal helper, sort newest-first by date for default order.
-    return Array.from(groups.values())
-      .map(({ _sourceCount, ...row }) => row)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [rows, activeTab]);
+    const filter = (c: DrawCardData) => matches(c);
 
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
+    const sortFn = (a: DrawCardData, b: DrawCardData) => {
+      const aT = new Date(a.latestEntryDate).getTime();
+      const bT = new Date(b.latestEntryDate).getTime();
+      return sortOrder === 'newest' ? bT - aT : aT - bT;
+    };
+
+    return {
+      majorCards: cards.filter((c) => c.draw.drawType === 'major').filter(filter).sort(sortFn),
+      miniCards: cards.filter((c) => c.draw.drawType === 'mini').filter(filter).sort(sortFn),
+    };
+  }, [cards, search, sortOrder]);
+
+  const hasAnyEntries = cards.length > 0;
 
   return (
-    <div className="space-y-5 sm:space-y-6">
-      {/* Page header — simple H1, no eyebrow (sidebar active state is breadcrumb) */}
-      <header>
-        <h1 className="text-[24px] font-extrabold tracking-tight text-[#0F1222] sm:text-[28px]">My Entries</h1>
+    <div className="space-y-6 sm:space-y-8">
+      <header className="flex flex-col gap-1">
+        <h1 className="text-[24px] font-extrabold tracking-tight text-[#0F1222] sm:text-[30px]">My Entries</h1>
+        <p className="text-[13px] text-[#4B5563] sm:text-[13.5px]">
+          Your active draws — Major Draws on top, Bonus Draws below.
+        </p>
       </header>
 
       {!user ? (
@@ -257,237 +609,81 @@ export default function EntriesPage() {
           <p className="text-[13.5px] text-[#4B5563]">Sign in to view your entries.</p>
         </article>
       ) : loading ? (
-        <>
-          {/* Controls skeleton */}
-          <article className="rounded-3xl border border-[#E7E9F2] bg-white p-4 sm:p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="h-9 w-48 animate-pulse rounded-full bg-[#F4F1FB]" />
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="h-10 w-full animate-pulse rounded-full bg-[#F4F1FB] sm:w-60" />
-                <div className="h-10 w-24 shrink-0 animate-pulse rounded-full bg-[#F4F1FB]" />
-              </div>
-            </div>
-          </article>
-          {/* Data list skeleton */}
-          <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 sm:p-6">
-            <ul className="space-y-3">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <li key={i} className="flex items-center gap-3">
-                  <div className="h-10 w-10 shrink-0 animate-pulse rounded-xl bg-[#F4F1FB]" />
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <div className="h-4 w-48 max-w-full animate-pulse rounded bg-[#F4F1FB]" />
-                    <div className="h-3 w-32 animate-pulse rounded bg-[#F4F1FB]" />
-                  </div>
-                  <div className="h-5 w-20 shrink-0 animate-pulse rounded bg-[#F4F1FB]" />
-                </li>
-              ))}
-            </ul>
-          </article>
-        </>
+        <div className="flex justify-center py-16">
+          <LoadingRing size="md" label="Loading your entries" />
+        </div>
       ) : !hasAnyEntries ? (
-        <article className="overflow-hidden rounded-3xl border border-dashed border-[#E0DAFF] bg-[#FBFAFF] px-5 py-10 text-center sm:py-12">
-          <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#6356E5] ring-1 ring-[#E0DAFF]">
-            <Icon.Trophy className="h-5 w-5" />
+        <article className="overflow-hidden rounded-3xl border border-dashed border-[#E0DAFF] bg-[#FBFAFF] px-5 py-12 text-center sm:py-14">
+          <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#6356E5] ring-1 ring-[#E0DAFF]">
+            <Icon.Trophy className="h-6 w-6" />
           </span>
-          <p className="mt-3 text-[15px] font-extrabold tracking-tight text-[#0F1222] sm:text-[16px]">No entries yet</p>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-[#4B5563]">
-            Use your Points to access member-only Bonus Draws or join the Major Draw with your Membership.
+          <p className="mt-4 text-[16px] font-extrabold tracking-tight text-[#0F1222] sm:text-[17px]">
+            No entries yet
           </p>
-          <Link
-            href="/giveaways"
-            className="mt-4 inline-flex h-11 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[13.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.55)] transition-all hover:from-[#5346D6] hover:to-[#7867EC]"
-          >
-            View Bonus Draws
-            <Icon.ArrowRight className="h-4 w-4" />
-          </Link>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-[#4B5563] sm:text-[13.5px]">
+            Your Membership unlocks free Major Draw entries.<br />
+            Use your Points to enter Bonus Draws anytime.
+          </p>
+          <div className="mt-5 flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
+            <Link
+              href="/membership"
+              className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[13.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.55)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] sm:w-auto"
+            >
+              View Membership
+              <Icon.ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/giveaways"
+              className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full border border-[#E0DAFF] bg-white px-5 text-[13.5px] font-bold text-[#0F1222] hover:bg-[#FBFAFF] sm:w-auto"
+            >
+              Browse Bonus Draws
+              <Icon.ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </article>
       ) : (
         <>
-          {/* Tabs + Controls */}
-          <article className="rounded-3xl border border-[#E7E9F2] bg-white p-4 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              {/* Tabs */}
-              <div className="inline-flex rounded-full bg-[#F4F1FB] p-0.5 ring-1 ring-[#E0DAFF]">
-                {(['mini', 'major'] as const).map((tab) => {
-                  const active = activeTab === tab;
-                  return (
-                    <button
-                      key={tab}
-                      type="button"
-                      onClick={() => { setActiveTab(tab); setPage(1); }}
-                      aria-pressed={active}
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-bold transition-colors ${
-                        active ? 'bg-white text-[#0F1222] shadow-[0_1px_2px_rgba(15,18,34,.06)]' : 'text-[#667085] hover:text-[#0F1222]'
-                      }`}
-                    >
-                      {tab === 'mini' ? 'Bonus Draws' : 'Major Draws'}
-                    </button>
-                  );
-                })}
+          {/* Controls — search + sort (single row across both sections) */}
+          <article className="rounded-3xl border border-[#E7E9F2] bg-white p-3 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-4">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
+              <div className="relative flex-1">
+                <Icon.Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#667085]" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Search draws by title or order no…"
+                  className="h-10 w-full rounded-full border border-[#E0DAFF] bg-white pl-9 pr-3 text-[13px] text-[#0F1222] placeholder:text-[#667085] focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
+                />
               </div>
-
-              {/* Controls */}
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="relative flex-1 sm:flex-initial">
-                  <Icon.Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#667085]" />
-                  <input
-                    type="text"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    placeholder="Search draw or order no…"
-                    className="h-10 w-full rounded-full border border-[#E0DAFF] bg-white pl-9 pr-3 text-[12.5px] text-[#0F1222] placeholder:text-[#667085] focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20 sm:w-60"
-                  />
-                </div>
-                <select
-                  value={sortOrder}
-                  onChange={(e) => { setSortOrder(e.target.value as 'newest' | 'oldest'); setPage(1); }}
-                  className="h-10 shrink-0 rounded-full border border-[#E0DAFF] bg-white px-3 text-[12.5px] font-semibold text-[#0F1222] focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
-                >
-                  <option value="newest">Newest</option>
-                  <option value="oldest">Oldest</option>
-                </select>
-              </div>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
+                className="h-10 shrink-0 rounded-full border border-[#E0DAFF] bg-white px-3 text-[12.5px] font-semibold text-[#0F1222] focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+              </select>
             </div>
           </article>
 
-          {/* Mobile cards / Desktop table */}
-          {rows.length === 0 ? (
-            <article className="rounded-3xl border border-dashed border-[#E0DAFF] bg-[#FBFAFF] px-5 py-10 text-center">
-              <p className="text-[13.5px] font-extrabold tracking-tight text-[#0F1222]">No entries found</p>
-              <p className="mt-1 text-[12px] leading-relaxed text-[#4B5563]">
-                Try adjusting your search or switching tabs.
-              </p>
-            </article>
-          ) : (
-            <>
-              {/* Mobile: card list */}
-              <ul className="space-y-2.5 sm:hidden">
-                {displayRows.map((row) => {
-                  const sourceCfg = resolveSourceLabel(row.source, row.subsource);
-                  return (
-                    <li key={row.key}>
-                      <article className="rounded-2xl border border-[#E7E9F2] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,18,34,.04)]">
-                        <div className="flex items-start gap-3">
-                          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F4F1FB] text-[#6356E5] ring-1 ring-[#E0DAFF]">
-                            {row.drawType === 'major' ? <Icon.Crown className="h-4 w-4" /> : <Icon.Trophy className="h-4 w-4" />}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-[13.5px] font-extrabold tracking-tight text-[#0F1222]">{row.draw?.title || 'Draw'}</p>
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${sourceCfg.bg} ${sourceCfg.text} ${sourceCfg.ring}`}>
-                                {sourceCfg.label}
-                              </span>
-                              <span className="text-[11px] text-[#667085]">{row.date}</span>
-                            </div>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <p className="text-[15px] font-extrabold tracking-tight text-[#0F1222] tabular-nums">×{row.count}</p>
-                            <p className="text-[10.5px] font-semibold text-[#667085]">{row.creditsSpent} Pts</p>
-                          </div>
-                        </div>
+          <Section
+            title="Major Draws"
+            count={majorCards.length}
+            kind="major"
+            cards={majorCards}
+            nowMs={nowMs}
+            searchActive={!!search.trim()}
+          />
 
-                        {(row.orderNoSample || activeTab === 'mini') && (
-                          <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#EFEDF5] pt-2.5">
-                            {row.orderNoSample ? (
-                              <p className="truncate text-[10.5px] text-[#667085]">
-                                Order: <span className="font-mono text-[#0F1222]">{row.orderNoSample}</span>
-                              </p>
-                            ) : <span />}
-                            {activeTab === 'mini' && (
-                              <Link
-                                href={`/giveaways/${row.drawId}`}
-                                className="inline-flex shrink-0 items-center gap-1 text-[11.5px] font-bold text-[#6356E5] hover:text-[#5346D6]"
-                              >
-                                View Draw
-                                <Icon.ArrowRight className="h-3 w-3" />
-                              </Link>
-                            )}
-                          </div>
-                        )}
-                      </article>
-                    </li>
-                  );
-                })}
-              </ul>
-
-              {/* Desktop: table */}
-              <article className="hidden overflow-hidden rounded-3xl border border-[#E7E9F2] bg-white shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:block">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-[#EFEDF5]">
-                    <thead className="bg-[#FBFAFF]">
-                      <tr>
-                        <th className="px-5 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Order No</th>
-                        <th className="px-5 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Draw</th>
-                        <th className="px-5 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Points</th>
-                        <th className="px-5 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Source</th>
-                        <th className="px-5 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Date</th>
-                        <th className="px-5 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Entries</th>
-                        {activeTab === 'mini' && <th className="px-5 py-3" />}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#EFEDF5] bg-white">
-                      {displayRows.map((row) => {
-                        const sourceCfg = resolveSourceLabel(row.source, row.subsource);
-                        return (
-                          <tr key={row.key} className="transition-colors hover:bg-[#FBFAFF]">
-                            <td className="whitespace-nowrap px-5 py-3.5 font-mono text-[12px] text-[#0F1222]">{row.orderNoSample ?? '—'}</td>
-                            <td className="whitespace-nowrap px-5 py-3.5 text-[13px] font-semibold text-[#0F1222]">{row.draw?.title || '—'}</td>
-                            <td className="whitespace-nowrap px-5 py-3.5 text-[13px] font-extrabold text-[#0F1222] tabular-nums">{row.creditsSpent}</td>
-                            <td className="whitespace-nowrap px-5 py-3.5">
-                              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10.5px] font-bold ring-1 ${sourceCfg.bg} ${sourceCfg.text} ${sourceCfg.ring}`}>
-                                {sourceCfg.label}
-                              </span>
-                            </td>
-                            <td className="whitespace-nowrap px-5 py-3.5 text-[12.5px] text-[#667085]">{row.date}</td>
-                            <td className="whitespace-nowrap px-5 py-3.5 text-[13px] font-extrabold text-[#0F1222] tabular-nums">{row.count}</td>
-                            {activeTab === 'mini' && (
-                              <td className="whitespace-nowrap px-5 py-3.5 text-right">
-                                <Link
-                                  href={`/giveaways/${row.drawId}`}
-                                  className="inline-flex items-center gap-1 text-[12px] font-bold text-[#6356E5] hover:text-[#5346D6]"
-                                >
-                                  View Draw
-                                  <Icon.ArrowRight className="h-3 w-3" />
-                                </Link>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </article>
-            </>
-          )}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between rounded-2xl border border-[#E7E9F2] bg-white px-4 py-3 sm:px-5">
-              <span className="text-[12px] text-[#667085]">
-                Page {page} of {totalPages}{' '}
-                <span className="hidden sm:inline">({total} groups)</span>
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={page <= 1 || loading}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="inline-flex h-9 items-center rounded-full border border-[#E0DAFF] bg-white px-3.5 text-[12px] font-bold text-[#0F1222] disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  disabled={page >= totalPages || loading}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="inline-flex h-9 items-center rounded-full border border-[#E0DAFF] bg-white px-3.5 text-[12px] font-bold text-[#0F1222] disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
+          <Section
+            title="Bonus Draws"
+            count={miniCards.length}
+            kind="mini"
+            cards={miniCards}
+            nowMs={nowMs}
+            searchActive={!!search.trim()}
+          />
         </>
       )}
     </div>
