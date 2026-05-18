@@ -1150,7 +1150,13 @@ export default function MembershipPage() {
         onClose={() => setShowPauseConfirm(false)}
         onConfirm={handlePause}
         title="Pause Membership"
-        message="Pause your Membership? You can resume anytime. While paused, your Monthly Points and Major Draw entries are not issued."
+        message={
+          'Pause your Membership for up to 30 days? You can resume anytime.\n\n' +
+          '✓ Bonus Draw entries you already bought stay valid\n' +
+          '✓ Your unspent Points stay in your balance\n' +
+          '✗ No new Monthly Points or Major Draw entries until you resume\n' +
+          '✗ No receipt scanning or new Bonus Draw entries while paused'
+        }
         confirmText="Pause Membership"
         cancelText="Keep Active"
         type="warning"
