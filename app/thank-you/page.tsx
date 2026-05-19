@@ -321,10 +321,24 @@ function resolveBooster(payment: any): { name: string; tagline: string; isGeneri
    Type detection — scenario resolver from existing payment/membership data.
    No backend changes. Reads existing fields only.
 ----------------------------------------------------------------------- */
-type SuccessKind = 'membership' | 'booster' | 'combo' | 'reactivated' | 'fallback';
+type SuccessKind =
+  | 'membership'
+  | 'booster'
+  | 'booster_member' // 2026-05-19: existing active member buying a booster — diff copy from cold booster
+  | 'combo'
+  | 'reactivated'
+  | 'major_draw_entry' // 2026-05-19: active member bought a Major Draw landing package
+  | 'fallback';
 
 function resolveSuccessKind(payment: any, membership: any): SuccessKind {
   if (!payment) return 'fallback';
+
+  // 2026-05-19 — Major Draw landing one-time package (e.g. /win/[slug] "5×
+  // ENTRIES" promo). BE stores payment.metadata.majorDrawLanding=true; guest
+  // path lands on /win/purchase-success, but logged-in members land here.
+  // Detect first because the dollar amount can be huge ($500+) which would
+  // otherwise fall to 'fallback'.
+  if (payment.metadata?.majorDrawLanding === true) return 'major_draw_entry';
 
   // Membership signals — ANY of these strongly indicates a membership purchase.
   // Backend may not always populate `payment.plan` directly, so we cross-reference
@@ -362,10 +376,17 @@ function resolveSuccessKind(payment: any, membership: any): SuccessKind {
     payment.metadata?.isReactivation === true ||
     payment.metadata?.scenario === 'reactivation';
 
+  // 2026-05-19 — existing active member buying a standalone booster. The
+  // generic 'booster' copy ("Your Points top-up is complete") reads wrong
+  // for someone who's been a UNICASH member for months. Detect by checking
+  // membership API state.
+  const memberIsActive = membership?.status === 'active' || membership?.status === 'pending_cancel';
+
   // Combo — both membership and booster in same checkout
   if (hasPlan && hasBoostExplicit) return 'combo';
   if (hasPlan && isReactivated) return 'reactivated';
   if (hasPlan) return 'membership';
+  if ((hasBoost || hasBoostFallback) && memberIsActive) return 'booster_member';
   if (hasBoost || hasBoostFallback) return 'booster';
   return 'fallback';
 }
@@ -457,6 +478,45 @@ function ThankYouContent() {
     return <LoadingRing fullscreen label="Loading" />;
   }
 
+  /* L2 (2026-05-19) — missing paymentId AND no payment data at all means
+     the user landed here without going through checkout (deep-link, stale
+     bookmark, refresh after sessionStorage cleared). Previously rendered
+     a blank page. Now shows a calm fallback with CTAs so they're never
+     stranded. */
+  if (!paymentId && !payment) {
+    return (
+      <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-[#F4F1FB] via-[#FBFAFF] to-white">
+        <div className="relative mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center px-5 py-12 text-center sm:px-6">
+          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#6356E5] ring-1 ring-[#E0DAFF] shadow-sm">
+            <Icon.Crown className="h-6 w-6" />
+          </span>
+          <h1 className="mt-5 text-[24px] font-extrabold tracking-tight text-[#0F1222] sm:text-[28px]">
+            Nothing to confirm yet
+          </h1>
+          <p className="mt-2 max-w-md text-[13.5px] leading-relaxed text-[#4B5563] sm:text-[14.5px]">
+            We couldn&apos;t find a recent purchase tied to this link. If you just
+            completed a checkout, your receipt will arrive shortly. Otherwise
+            head back to your account or browse Bonus Draws.
+          </p>
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:gap-3">
+            <a
+              href="/dashboard"
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[13.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.55)] transition-all hover:from-[#5346D6] hover:to-[#7867EC]"
+            >
+              Go to My Account
+            </a>
+            <a
+              href="/giveaways"
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-full border border-[#E0DAFF] bg-white px-5 text-[13.5px] font-bold text-[#0F1222] hover:border-[#6356E5] hover:text-[#6356E5]"
+            >
+              View Bonus Draws
+            </a>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   /* ===== Derived display data — read-only from existing fields ===== */
   const successKind = resolveSuccessKind(payment, membership);
   const resolvedPlan = resolvePlan(payment, membership);
@@ -495,6 +555,24 @@ function ThankYouContent() {
       sub: 'Your Point Booster has been added to your UNICASH balance. You can use Points for eligible member-only Bonus Draws.',
       iconTone: 'green',
     },
+    // 2026-05-19 — existing member buying a Booster. Headline focuses on
+    // the boost being added on TOP of what they already have, not on a
+    // fresh "your Points top-up is complete" framing that sounds cold.
+    booster_member: {
+      eyebrow: 'Points Topped Up',
+      headline: <>Your Points balance just <span className="uc-gold-gradient">grew.</span></>,
+      sub: 'Your Point Booster has been added on top of your existing Membership Points. Use them anytime on member-only Bonus Draws.',
+      iconTone: 'green',
+    },
+    // 2026-05-19 — Major Draw landing one-time package purchase. Could be
+    // a brand-new member (auto-account-created) or an existing active
+    // member topping up entries on a specific Major Draw.
+    major_draw_entry: {
+      eyebrow: 'Major Draw Entries Added',
+      headline: <>You&rsquo;re in the <span className="uc-gold-gradient">Major Draw.</span></>,
+      sub: 'Your entries are locked into the Major Draw pool. Watch the draw close on the live page — Winners are published for transparency.',
+      iconTone: 'gold',
+    },
     reactivated: {
       eyebrow: 'Membership Reactivated',
       headline: <>Welcome back to <span className="uc-gold-gradient">UNICASH.</span></>,
@@ -528,6 +606,16 @@ function ThankYouContent() {
       { Icon: Icon.Coins, iconBg: 'bg-[#ECFDF5] ring-[#A7F3D0]', iconColor: 'text-[#10B981]', title: 'Check Points balance', body: 'See your updated Points and reward activity.', href: '/dashboard' },
       { Icon: Icon.Receipt, iconBg: 'bg-[#FFF6DA] ring-[#FFC85D]/40', iconColor: 'text-[#C49A2C]', title: 'Scan Receipts', body: 'Earn more Points from eligible receipts.', href: '/scan-receipts' },
     ],
+    booster_member: [
+      { Icon: Icon.Trophy, iconBg: 'bg-[#F4F1FB] ring-[#E0DAFF]', iconColor: 'text-[#6356E5]', title: 'View Bonus Draws', body: 'Use your topped-up Points on member-only Bonus Draws.', href: '/giveaways' },
+      { Icon: Icon.Coins, iconBg: 'bg-[#ECFDF5] ring-[#A7F3D0]', iconColor: 'text-[#10B981]', title: 'Check Points balance', body: 'See your Membership + Booster Points combined.', href: '/dashboard' },
+      { Icon: Icon.Crown, iconBg: 'bg-[#FFF6DA] ring-[#FFC85D]/40', iconColor: 'text-[#C49A2C]', title: 'Manage Membership', body: 'View your plan, billing, and reward activity.', href: '/dashboard/membership' },
+    ],
+    major_draw_entry: [
+      { Icon: Icon.Trophy, iconBg: 'bg-[#FFF6DA] ring-[#FFC85D]/40', iconColor: 'text-[#C49A2C]', title: 'View My Entries', body: 'See your Major Draw + Bonus Draw entries.', href: '/dashboard/entries' },
+      { Icon: Icon.Crown, iconBg: 'bg-[#F4F1FB] ring-[#E0DAFF]', iconColor: 'text-[#6356E5]', title: 'Go to My Account', body: 'Check your Membership, Points, and reward activity.', href: '/dashboard' },
+      { Icon: Icon.Receipt, iconBg: 'bg-[#ECFDF5] ring-[#A7F3D0]', iconColor: 'text-[#10B981]', title: 'Browse Bonus Draws', body: 'Use Points to enter member-only Bonus Draws.', href: '/giveaways' },
+    ],
     reactivated: [
       { Icon: Icon.Crown, iconBg: 'bg-[#F4F1FB] ring-[#E0DAFF]', iconColor: 'text-[#6356E5]', title: 'Continue to My Account', body: 'Review your active Membership and Points.', href: '/dashboard' },
       { Icon: Icon.Trophy, iconBg: 'bg-[#FFF6DA] ring-[#FFC85D]/40', iconColor: 'text-[#C49A2C]', title: 'View Bonus Draws', body: 'Use Points for member-only Bonus Draws.', href: '/giveaways' },
@@ -544,13 +632,17 @@ function ThankYouContent() {
 
   /* Primary + secondary CTA based on scenario */
   const primaryCta =
-    successKind === 'booster'
-      ? { label: 'View Bonus Draws', href: '/giveaways' }
-      : { label: 'Go to My Account', href: '/dashboard' };
+    successKind === 'major_draw_entry'
+      ? { label: 'View My Entries', href: '/dashboard/entries' }
+      : successKind === 'booster' || successKind === 'booster_member'
+        ? { label: 'View Bonus Draws', href: '/giveaways' }
+        : { label: 'Go to My Account', href: '/dashboard' };
   const secondaryCta =
-    successKind === 'booster'
+    successKind === 'major_draw_entry'
       ? { label: 'Go to My Account', href: '/dashboard' }
-      : { label: 'View Bonus Draws', href: '/giveaways' };
+      : successKind === 'booster' || successKind === 'booster_member'
+        ? { label: 'Go to My Account', href: '/dashboard' }
+        : { label: 'View Bonus Draws', href: '/giveaways' };
 
   /* Receipt note per scenario */
   const receiptPrefix = userEmail ? `A receipt has been sent to ${userEmail}.` : 'Your receipt will be sent to your registered email address.';
@@ -559,19 +651,25 @@ function ThankYouContent() {
       ? `${receiptPrefix} Your Membership renews monthly until cancelled.`
       : successKind === 'booster'
         ? `${receiptPrefix} This Point Booster is a one-time purchase and does not auto-renew.`
-        : successKind === 'combo'
-          ? `${receiptPrefix} Your Membership renews monthly. Your Point Booster is a one-time purchase and does not auto-renew.`
-          : 'Your receipt will be sent to your registered email address.';
+        : successKind === 'booster_member'
+          ? `${receiptPrefix} This Point Booster is a one-time top-up and does not affect your Membership renewal.`
+          : successKind === 'combo'
+            ? `${receiptPrefix} Your Membership renews monthly. Your Point Booster is a one-time purchase and does not auto-renew.`
+            : successKind === 'major_draw_entry'
+              ? `${receiptPrefix} This Major Draw entry package is a one-time purchase and does not auto-renew.`
+              : 'Your receipt will be sent to your registered email address.';
 
   /* Trust line per scenario */
   const trustLine =
-    successKind === 'booster'
+    successKind === 'booster' || successKind === 'booster_member'
       ? ['One-time purchase', 'No auto-renew', 'Points added to your balance']
       : successKind === 'reactivated'
         ? ['Membership active', 'Secure checkout', 'Cancel anytime']
         : successKind === 'combo'
           ? ['Membership active', 'Booster added', 'Cancel anytime']
-          : ['Secure checkout', 'Membership active', 'Winners published'];
+          : successKind === 'major_draw_entry'
+            ? ['Entries locked in', 'Winners published', 'Transparent outcomes']
+            : ['Secure checkout', 'Membership active', 'Winners published'];
 
   /* =====================================================================
      JSX — v4 redesigned thank you page
