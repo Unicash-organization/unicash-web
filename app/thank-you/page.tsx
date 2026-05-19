@@ -351,14 +351,20 @@ function resolveSuccessKind(payment: any, membership: any): SuccessKind {
 
   const hasSubscription = !!(payment.subscriptionId || payment.stripeSubscriptionId);
   const hasPlanData = !!(payment.plan?.name || payment.planId);
-  const membershipPlanMatch = !!membership?.plan?.name;
   // Amount matches a plan price BUT not a booster price (avoid false-positive
   // for Booster Pulse which is also $19.99)
   const amountMatchesPlan =
     KNOWN_PLAN_PRICES.includes(amount) &&
     !KNOWN_BOOSTER_PRICES.includes(amount);
 
-  const hasPlan = hasSubscription || hasPlanData || membershipPlanMatch || amountMatchesPlan;
+  // hasPlan reflects whether THIS payment touched a membership subscription.
+  // 2026-05-19 fix — previously included `!!membership?.plan?.name` which
+  // tested account state, so EVERY purchase made by an active member fell
+  // into the 'combo' branch (e.g. existing UniPlus member topping up a
+  // Booster saw the full "Membership + Booster Active" UI even though the
+  // checkout was booster-only). Account state is now read separately as
+  // `memberIsActive` and only used to split booster vs booster_member.
+  const hasPlan = hasSubscription || hasPlanData || amountMatchesPlan;
 
   // Strict booster signal — explicit boostPack reference
   const hasBoostExplicit = !!(payment.boostPack?.name || payment.boostPackId);
@@ -807,7 +813,98 @@ function ThankYouContent() {
             </>
           )}
 
-          {successKind === 'booster' && (
+          {successKind === 'major_draw_entry' && (
+            <>
+              {(() => {
+                // Pull the package snapshot the BE stored at purchase time
+                // (set in payments.service.ts on the major-draw-landing path).
+                const snap = payment?.metadata?.packageSnapshot ?? {};
+                const drawTitle: string =
+                  snap.drawTitleAtPurchase ||
+                  snap.drawTitle ||
+                  payment?.metadata?.drawTitle ||
+                  'Major Draw entry package';
+                const packageName: string =
+                  snap.packageName ||
+                  snap.tierName ||
+                  payment?.metadata?.packageName ||
+                  '';
+                const entriesEarned: number =
+                  Number(
+                    snap.entryCount ??
+                      payment?.metadata?.entryCount ??
+                      payment?.creditsGranted ??
+                      0,
+                  ) || 0;
+                const entryWord = entriesEarned === 1 ? 'entry' : 'entries';
+                return (
+                  <>
+                    {/* Hero row — package name + amount */}
+                    <div className="flex items-start justify-between gap-3 sm:gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">
+                          Your Major Draw entries
+                        </p>
+                        <h2 className="mt-1 text-[20px] font-extrabold leading-[1.2] tracking-tight text-[#0F1222] sm:text-[24px]">
+                          {drawTitle}
+                        </h2>
+                        {packageName && (
+                          <p className="mt-1.5 text-[12.5px] leading-relaxed text-[#4B5563] sm:text-[13px]">
+                            Package: <span className="font-semibold text-[#0F1222]">{packageName}</span>
+                          </p>
+                        )}
+                      </div>
+                      {amount && (
+                        <p className="shrink-0 whitespace-nowrap text-right text-[16px] font-extrabold tracking-tight text-[#0F1222] sm:text-[18px]">
+                          {formatAUD(parseFloat(amount.toString()))}
+                          <span className="ml-0.5 text-[11.5px] font-semibold text-[#667085] sm:text-[12px]">
+                            one-time
+                          </span>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Big gold entries block */}
+                    {entriesEarned > 0 && (
+                      <div className="mt-4 overflow-hidden rounded-2xl bg-gradient-to-br from-[#FFF6DA] to-[#FFE2B0] p-4 ring-1 ring-[#FFC85D]/55 sm:mt-5 sm:p-5">
+                        <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#9C5410] sm:text-[11px]">
+                          Entries added
+                        </p>
+                        <p className="mt-1 text-[34px] font-extrabold leading-none tracking-tight text-[#7C5A00] tabular-nums sm:text-[40px]">
+                          {entriesEarned.toLocaleString()}
+                          <span className="ml-2 text-[13px] font-semibold text-[#9C5410] sm:text-[14px]">
+                            {entryWord}
+                          </span>
+                        </p>
+                        <p className="mt-1.5 text-[12px] leading-relaxed text-[#9C5410]/85">
+                          Locked into the Major Draw pool. Each entry is a single
+                          chance — Winners are drawn when the Major Draw closes.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* What's included */}
+                    <ul className="mt-4 space-y-1.5 text-[13px] leading-relaxed text-[#4B5563] sm:mt-5 sm:text-[13.5px]">
+                      <li className="flex items-start gap-2">
+                        <Icon.Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#10B981]" />
+                        <span>Entries locked into the Major Draw pool</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Icon.Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#10B981]" />
+                        <span>One-time purchase · No auto-renew</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Icon.Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#10B981]" />
+                        <span>Winners published for transparency</span>
+                      </li>
+                    </ul>
+                  </>
+                );
+              })()}
+            </>
+          )}
+
+          {(successKind === 'booster' || successKind === 'booster_member') && (
             <>
               <div className="flex items-start justify-between gap-3 sm:gap-4">
                 <div className="min-w-0 flex-1">
