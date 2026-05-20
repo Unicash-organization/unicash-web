@@ -39,8 +39,8 @@ type ViewState = 'ready' | 'loading' | 'error';
 const FILTER_PILLS: { value: FilterKey; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'completed', label: 'Completed' },
-  { value: 'processing', label: 'Processing' },
-  { value: 'on_hold', label: 'On hold' },
+  { value: 'prezzee_pending', label: 'Sending' },
+  { value: 'pending_delivery', label: 'Delivery issue' },
   { value: 'failed', label: 'Failed' },
   { value: 'refunded', label: 'Refunded' },
 ];

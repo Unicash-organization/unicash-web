@@ -38,11 +38,11 @@ import {
   Loader2,
   Mail,
   ReceiptText,
+  Send,
   ShieldAlert,
-  Wallet,
   XCircle,
 } from 'lucide-react';
-import { BalanceRow, CodeCard } from '@/components/gift-cards';
+import { BalanceRow } from '@/components/gift-cards';
 import api from '@/lib/api';
 import type {
   Brand,
@@ -118,6 +118,12 @@ export default function CheckoutFlow({
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [failureReason, setFailureReason] = useState<RedemptionFailureReason | null>(null);
 
+  /* 2026-05-20 — Prezzee-delivers mode: capture where the gift goes.
+     Blank = send to member's own email (server defaults from JWT). */
+  const [recipientEmail, setRecipientEmail] = useState('');
+  const [giftMessage, setGiftMessage] = useState('');
+  const [confirmedRecipient, setConfirmedRecipient] = useState<string>('');
+
   // Minted redemption id (assigned at confirm so the member can deep-link
   // even if the modal is dismissed). 8-digit random suffix for the mock.
   const redemptionId = useMemo(
@@ -125,15 +131,6 @@ export default function CheckoutFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
-
-  // Mock code generated only when success branch resolves.
-  const mockCode = useMemo(() => {
-    const seg = () =>
-      Math.floor(Math.random() * 10000)
-        .toString()
-        .padStart(4, '0');
-    return `${brand.id.split('-')[1]}-${seg()}-${seg()}-${seg()}`;
-  }, [brand.id]);
 
   const timerRef = useRef<number | null>(null);
   const holdTimerRef = useRef<number | null>(null);
@@ -197,6 +194,7 @@ export default function CheckoutFlow({
 
     // Real call — POST /redemptions
     try {
+      const trimmedRecipient = recipientEmail.trim();
       const res = await api.redemptions.create({
         brandId: brand.id,
         brandName: brand.name,
@@ -208,14 +206,30 @@ export default function CheckoutFlow({
         quantity,
         idempotencyKey: redemptionId,
         channel: 'web',
+        recipientEmail: trimmedRecipient || undefined,
+        giftMessage: giftMessage.trim() || undefined,
       });
       if (holdTimerRef.current != null) window.clearTimeout(holdTimerRef.current);
       const status = res.data?.status;
+      const resolvedRecipient: string = res.data?.recipientEmail ?? trimmedRecipient ?? '';
+      setConfirmedRecipient(resolvedRecipient);
+      // 2026-05-20 — 10-state machine: only `completed` is terminal-success.
+      // submitting/prezzee_pending/pending_payment/pending_fulfillment/pending_delivery
+      // all map to UI "on_hold". failed/refunded/cancelled → failure.
       if (status === 'completed') {
         onIssued?.(res.data.id ?? redemptionId);
         setStep('success');
-      } else if (status === 'on_hold' || status === 'processing') {
+      } else if (
+        status === 'submitting' ||
+        status === 'prezzee_pending' ||
+        status === 'pending_payment' ||
+        status === 'pending_fulfillment' ||
+        status === 'pending_delivery'
+      ) {
         setStep('on_hold');
+      } else if (status === 'failed' || status === 'refunded' || status === 'cancelled') {
+        setFailureReason((res.data?.failureReason as RedemptionFailureReason) ?? 'provider_error');
+        setStep('failure');
       } else {
         setFailureReason((res.data?.failureReason as RedemptionFailureReason) ?? 'provider_error');
         setStep('failure');
@@ -249,6 +263,10 @@ export default function CheckoutFlow({
         balance={balance}
         termsAgreed={termsAgreed}
         onTermsToggle={setTermsAgreed}
+        recipientEmail={recipientEmail}
+        onRecipientEmailChange={setRecipientEmail}
+        giftMessage={giftMessage}
+        onGiftMessageChange={setGiftMessage}
         forced={forced}
         onForcedChange={setForced}
         onConfirm={handleConfirm}
@@ -268,7 +286,7 @@ export default function CheckoutFlow({
         denomination={denomination}
         quantity={quantity}
         totalPoints={totalPoints}
-        code={mockCode}
+        recipientEmail={confirmedRecipient}
         redemptionId={redemptionId}
         onClose={onClose}
       />
@@ -315,6 +333,10 @@ function ReviewPane({
   balance,
   termsAgreed,
   onTermsToggle,
+  recipientEmail,
+  onRecipientEmailChange,
+  giftMessage,
+  onGiftMessageChange,
   forced,
   onForcedChange,
   onConfirm,
@@ -328,11 +350,19 @@ function ReviewPane({
   balance: MemberBalance;
   termsAgreed: boolean;
   onTermsToggle: (v: boolean) => void;
+  recipientEmail: string;
+  onRecipientEmailChange: (v: string) => void;
+  giftMessage: string;
+  onGiftMessageChange: (v: string) => void;
   forced: ForcedOutcome;
   onForcedChange: (v: ForcedOutcome) => void;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  /* Simple HTML5-ish validity: if filled, must look like an email. */
+  const recipientFilled = recipientEmail.trim().length > 0;
+  const recipientLooksValid =
+    !recipientFilled || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail.trim());
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between rounded-2xl bg-[#FBFAFF] border border-[#F1ECFB] p-3">
@@ -364,12 +394,50 @@ function ReviewPane({
           label="Delivery"
           value={
             brand.deliveryType === 'instant'
-              ? 'Digital code via email + in-app · usually under 10 seconds'
+              ? 'Gift code emailed to recipient · usually under 10 minutes'
               : brand.deliveryType === 'review'
-              ? 'Digital code via email + in-app · short review may apply'
-              : 'Digital code via email + in-app · scheduled'
+              ? 'Gift code emailed to recipient · short review may apply'
+              : 'Gift code emailed to recipient · scheduled'
           }
         />
+      </div>
+
+      {/* ─── Recipient capture — Prezzee-delivers mode ───
+          User can leave blank to send to their own email, or
+          enter someone else's email to gift. */}
+      <div className="rounded-2xl border border-[#E7E9F2] bg-[#FBFAFF] p-3 space-y-2">
+        <div className="flex items-center gap-1.5">
+          <Send className="w-3.5 h-3.5 text-[#6356E5]" />
+          <span className="text-[12px] font-bold uppercase tracking-widest text-[#5648D8]">
+            Send gift to
+          </span>
+        </div>
+        <input
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          placeholder="Your own email (leave blank)"
+          value={recipientEmail}
+          onChange={(e) => onRecipientEmailChange(e.target.value)}
+          className={`w-full rounded-xl border bg-white px-3 py-2 text-[13px] text-[#0F1222] placeholder:text-[#9097A8] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20 ${
+            recipientLooksValid ? 'border-[#E7E9F2] focus:border-[#6356E5]' : 'border-[#EF4444]'
+          }`}
+        />
+        {!recipientLooksValid && (
+          <p className="text-[11px] text-[#EF4444]">Enter a valid email address.</p>
+        )}
+        <textarea
+          placeholder="Optional gift message"
+          value={giftMessage}
+          onChange={(e) => onGiftMessageChange(e.target.value)}
+          rows={2}
+          maxLength={240}
+          className="w-full rounded-xl border border-[#E7E9F2] bg-white px-3 py-2 text-[13px] text-[#0F1222] placeholder:text-[#9097A8] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20 focus:border-[#6356E5] resize-none"
+        />
+        <p className="text-[11px] text-[#667085] leading-relaxed">
+          Prezzee will email the gift card directly to this address. Leave the
+          email blank to send to your own UNICASH email.
+        </p>
       </div>
 
       <BalanceRow currentPoints={balance.pointsAvailable} pointsRequired={totalPoints} />
@@ -382,8 +450,8 @@ function ReviewPane({
           className="mt-0.5 accent-[#6356E5]"
         />
         <span className="text-[12px] text-[#667085]">
-          I agree to the gift card terms and acknowledge codes are{' '}
-          <strong className="text-[#0F1222]">non-refundable once revealed</strong>.
+          I agree to the gift card terms and acknowledge gift cards are{' '}
+          <strong className="text-[#0F1222]">non-refundable once sent</strong>.
         </span>
       </label>
 
@@ -413,10 +481,10 @@ function ReviewPane({
       <div className="flex flex-col gap-2 pt-1">
         <button
           type="button"
-          disabled={!termsAgreed}
+          disabled={!termsAgreed || !recipientLooksValid}
           onClick={onConfirm}
           className={`w-full rounded-full px-5 py-3 text-[14px] font-bold transition-colors ${
-            termsAgreed
+            termsAgreed && recipientLooksValid
               ? 'bg-[#6356E5] text-white hover:bg-[#5648D8]'
               : 'bg-[#F4F1FB] text-[#94A3B8] cursor-not-allowed'
           }`}
@@ -457,7 +525,7 @@ function SuccessPane({
   denomination,
   quantity,
   totalPoints,
-  code,
+  recipientEmail,
   redemptionId,
   onClose,
 }: {
@@ -465,11 +533,16 @@ function SuccessPane({
   denomination: Denomination;
   quantity: number;
   totalPoints: number;
-  code: string;
+  /** Where Prezzee is sending the gift. Empty string = member's own email. */
+  recipientEmail: string;
   redemptionId: string;
   onClose: () => void;
 }) {
-  const expires = new Date(Date.now() + 365 * 2 * 86_400_000).toISOString();
+  /* 2026-05-20 — Prezzee-delivers SuccessPane.
+     UNICASH never sees the gift code or PIN — Prezzee emails it directly
+     to recipientEmail. Member's confirmation is the email itself; this
+     pane only confirms the order was accepted + sent. */
+  const sentLabel = recipientEmail.trim() || 'your registered email';
   return (
     <div className="space-y-4">
       <div className="text-center pt-1">
@@ -481,45 +554,37 @@ function SuccessPane({
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#FFE2B0] to-[#FFC85D]">
             {formatAud(denomination.valueAud)} {brand.name}
           </span>{' '}
-          gift card is ready
+          gift card is on the way
         </h3>
-        <p className="mt-1 text-[12px] text-[#667085]">{formatPts(totalPoints)} debited · {quantity} code{quantity > 1 ? 's' : ''}</p>
+        <p className="mt-1 text-[12px] text-[#667085]">
+          {formatPts(totalPoints)} debited · {quantity} gift{quantity > 1 ? 's' : ''}
+        </p>
       </div>
 
-      <CodeCard
-        brandName={brand.name}
-        code={{
-          id: 'mock-1',
-          code,
-          expiresAt: expires,
-          status: 'delivered',
-        }}
-      />
-
-      {/* Wallet placeholders — keep enabled so member sees the option;
-          real impl will deep-link to Apple/Google Pay passes. */}
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          className="inline-flex items-center justify-center gap-2 rounded-full border border-[#E7E9F2] bg-white px-3 py-2 text-[12px] font-semibold text-[#0F1222] hover:bg-[#F6F4FF]"
-        >
-          <Wallet className="w-3.5 h-3.5" />
-          Add to Apple Wallet
-        </button>
-        <button
-          type="button"
-          className="inline-flex items-center justify-center gap-2 rounded-full border border-[#E7E9F2] bg-white px-3 py-2 text-[12px] font-semibold text-[#0F1222] hover:bg-[#F6F4FF]"
-        >
-          <Wallet className="w-3.5 h-3.5" />
-          Add to Google Wallet
-        </button>
+      {/* Recipient confirmation block — replaces the legacy CodeCard.
+          Prezzee delivers the actual gift code; we just confirm the send. */}
+      <div className="rounded-2xl border border-[#FFC85D]/55 bg-gradient-to-br from-[#FFF6DA] to-[#FFE2B0] p-4">
+        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-[#9C5410]">
+          <Send className="w-3.5 h-3.5" />
+          Sent to
+        </div>
+        <p className="mt-1 break-all text-[15px] font-extrabold tracking-tight text-[#7C5A00]">
+          {sentLabel}
+        </p>
+        <p className="mt-1.5 text-[12px] leading-relaxed text-[#9C5410]/85">
+          {brand.name} will be delivered as an email gift card from Prezzee,
+          usually within 10 minutes. Track delivery status in your
+          Redemption history.
+        </p>
       </div>
 
       <div className="rounded-2xl border border-[#E7E9F2] bg-[#FBFAFF] p-3 text-[12px] text-[#667085] flex items-start gap-2">
         <Mail className="w-3.5 h-3.5 mt-0.5 text-[#5648D8] shrink-0" />
         <span>
-          A receipt with your code has been sent to your registered email. View any time in
-          Redemption history.
+          UNICASH will email you a separate confirmation receipt. If the
+          recipient doesn&apos;t receive their gift, use{' '}
+          <strong className="text-[#0F1222]">Resend email</strong> from the
+          receipt page.
         </span>
       </div>
 
@@ -541,7 +606,7 @@ function SuccessPane({
       </div>
 
       <p className="text-center text-[10px] text-[#9097A8]">
-        Redemption {redemptionId} · Code expires {formatDateTime(expires)}
+        Redemption {redemptionId}
       </p>
     </div>
   );
@@ -775,6 +840,16 @@ const FAILURE_COPY: Record<RedemptionFailureReason, FailureConfig> = {
     iconColor: '#B45309',
     ledgerRibbon: 'untouched',
     primaryCta: 'different_brand',
+  },
+  invalid_request: {
+    title: 'Request rejected',
+    body: () =>
+      'The redemption request had invalid parameters. Your Points were not debited. Please try again or contact support.',
+    icon: AlertCircle,
+    iconBg: '#FEF2F2',
+    iconColor: '#B91C1C',
+    ledgerRibbon: 'untouched',
+    primaryCta: 'retry',
   },
 };
 

@@ -75,11 +75,18 @@ export interface Brand {
   updatedAt: string;
 }
 
+/**
+ * 2026-05-20 — 10-state machine aligned with the Prezzee-delivers
+ * backend (replaces the legacy 7-state). See redemption.entity.ts.
+ */
 export type RedemptionStatus =
-  | 'draft'
-  | 'processing'
-  | 'on_hold'
+  | 'points_held'
+  | 'submitting'
+  | 'prezzee_pending'
   | 'completed'
+  | 'pending_payment'
+  | 'pending_fulfillment'
+  | 'pending_delivery'
   | 'failed'
   | 'refunded'
   | 'cancelled';
@@ -89,18 +96,20 @@ export type RedemptionFailureReason =
   | 'provider_error'
   | 'network_failure'
   | 'fraud_rejected'
-  | 'cap_exceeded';
+  | 'cap_exceeded'
+  | 'invalid_request';
 
 export type RedemptionChannel = 'web' | 'ios' | 'android';
 
-export interface RedemptionCode {
-  id: string;
-  code: string;
-  pin?: string;
-  revealedAt?: string;
-  expiresAt: string;
-  status: 'delivered' | 'reissued' | 'revoked';
-}
+/** Delivery telemetry mirrored from Prezzee List Order Items. */
+export type EmailDeliveryStatus =
+  | 'pending'
+  | 'sent'
+  | 'delivered'
+  | 'bounced'
+  | 'failed';
+
+export type VoucherUrlStatus = 'pending' | 'clicked' | 'expired';
 
 export interface FraudSignals {
   /** 0..1 — recent redemption velocity vs member baseline. */
@@ -130,8 +139,20 @@ export interface Redemption {
   quantity: number;
   status: RedemptionStatus;
   fraudSignals: FraudSignals;
-  providerRef: string | null;
-  codes: RedemptionCode[];
+  /** Prezzee order linkage (replaces legacy `providerRef`). */
+  prezzeeOrderUuid?: string | null;
+  prezzeeOrderNumber?: string | null;
+  prezzeeOrderStatus?: string | null;
+  /* Recipient — Prezzee delivers gift email here (default = member's own). */
+  recipientEmail: string;
+  recipientName?: string | null;
+  giftMessage?: string | null;
+  giftStyleCode?: string | null;
+  /* Delivery telemetry — mirrored from Prezzee List Order Items. */
+  emailDeliveryStatus?: EmailDeliveryStatus | null;
+  voucherUrlStatus?: VoucherUrlStatus | null;
+  emailDeliveredAt?: string | null;
+  recipientClickedAt?: string | null;
   createdAt: string;
   completedAt: string | null;
   refundedAt: string | null;

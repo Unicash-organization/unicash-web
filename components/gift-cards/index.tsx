@@ -13,7 +13,7 @@
  *   - DenominationChip    selectable denomination button
  *   - BalanceRow          "X pts → Y pts after" calculator row
  *   - BrandCard           catalog grid card
- *   - CodeCard            reveal-once code surface
+ *   - (CodeCard removed 2026-05-20 — Prezzee-delivers mode, no in-app codes)
  *   - RedemptionTimeline  vertical timeline of redemption events
  *   - BottomSheet         portalled modal — bottom sheet mobile / centered desktop
  *   - Toast               portalled bottom-centered toast
@@ -35,8 +35,8 @@ import {
   Clock,
   Loader2,
 } from 'lucide-react';
-import type { Brand, Denomination, RedemptionStatus, RedemptionCode } from '@/lib/gift-cards/types';
-import { formatAud, formatPts, formatDateTime, maskCode } from '@/lib/gift-cards/format';
+import type { Brand, Denomination, RedemptionStatus } from '@/lib/gift-cards/types';
+import { formatAud, formatPts, formatDateTime } from '@/lib/gift-cards/format';
 
 /* ──────────────────────────────────────────────────────────────────
    StatusChip — redemption + brand statuses
@@ -275,125 +275,9 @@ export function BrandCard({
   );
 }
 
-/* ──────────────────────────────────────────────────────────────────
-   CodeCard — reveal-once gift card code surface
-   ────────────────────────────────────────────────────────────────── */
-export function CodeCard({
-  code,
-  brandName,
-  onReveal,
-  onCopy,
-}: {
-  code: RedemptionCode;
-  brandName: string;
-  onReveal?: () => void;
-  onCopy?: () => void;
-}) {
-  const [revealed, setRevealed] = useState(!!code.revealedAt);
-  const [confirming, setConfirming] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const handleReveal = () => {
-    if (!confirming) {
-      setConfirming(true);
-      return;
-    }
-    setRevealed(true);
-    setConfirming(false);
-    onReveal?.();
-  };
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(code.code);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-      onCopy?.();
-    } catch {
-      /* clipboard blocked — no-op */
-    }
-  };
-
-  return (
-    <div className="rounded-2xl border border-[#E7E9F2] bg-gradient-to-br from-[#F6F4FF] via-white to-[#FBFAFF] p-5 shadow-[0_10px_30px_-12px_rgba(99,86,229,0.18)]">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-[11px] font-bold uppercase tracking-widest text-[#5648D8]">{brandName}</div>
-          <div className="mt-0.5 text-[12px] text-[#667085]">
-            Expires {formatDateTime(code.expiresAt)}
-          </div>
-        </div>
-        <span
-          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${
-            code.status === 'delivered'
-              ? 'bg-[#ECFDF5] text-[#047857]'
-              : code.status === 'reissued'
-              ? 'bg-[#F6F4FF] text-[#5648D8]'
-              : 'bg-[#FEF2F2] text-[#B91C1C]'
-          }`}
-        >
-          {code.status}
-        </span>
-      </div>
-
-      <div
-        className="mt-4 rounded-xl bg-white border border-[#E7E9F2] px-4 py-3 font-mono text-[18px] sm:text-[22px] tracking-[0.15em] font-extrabold text-[#0F1222] text-center break-all select-all"
-        aria-live="polite"
-      >
-        {revealed ? code.code : maskCode(code.code)}
-      </div>
-
-      {code.pin && revealed && (
-        <div className="mt-2 text-center text-[12px] text-[#667085]">
-          PIN: <span className="font-mono font-bold tracking-widest text-[#0F1222]">{code.pin}</span>
-        </div>
-      )}
-
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {!revealed ? (
-          <button
-            type="button"
-            onClick={handleReveal}
-            className={`col-span-full inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-[14px] font-bold transition-colors ${
-              confirming
-                ? 'bg-[#1A1432] text-white hover:bg-[#0F1222]'
-                : 'bg-[#6356E5] text-white hover:bg-[#5648D8]'
-            }`}
-          >
-            <Eye className="w-4 h-4" />
-            {confirming ? 'Tap again to confirm reveal' : 'Reveal code'}
-          </button>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#6356E5] text-white px-5 py-3 text-[14px] font-bold hover:bg-[#5648D8] transition-colors"
-            >
-              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              {copied ? 'Copied' : 'Copy code'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setRevealed(false)}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-[#E7E9F2] bg-white px-5 py-3 text-[14px] font-bold text-[#0F1222] hover:bg-[#F6F4FF] transition-colors"
-            >
-              <EyeOff className="w-4 h-4" />
-              Hide
-            </button>
-          </>
-        )}
-      </div>
-
-      {revealed && (
-        <p className="mt-3 flex items-center gap-1.5 text-[12px] text-[#B45309]">
-          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-          Code revealed — treat like cash.
-        </p>
-      )}
-    </div>
-  );
-}
+/* CodeCard removed 2026-05-20 — Prezzee-delivers mode means UNICASH never
+   stores or displays gift codes. Prezzee emails the gift directly to
+   recipientEmail. Replaced in SuccessPane by a "Sent to {email}" block. */
 
 /* ──────────────────────────────────────────────────────────────────
    RedemptionTimeline — vertical timeline of state events

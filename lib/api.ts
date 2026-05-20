@@ -450,6 +450,7 @@ export const api = {
     getById: (brandId: string) => apiClient.get<any>(`/gift-cards/${encodeURIComponent(brandId)}`),
   },
   redemptions: {
+    /* 2026-05-20 — Prezzee-delivers mode: recipient fields required by backend. */
     create: (body: {
       brandId: string;
       brandName: string;
@@ -461,10 +462,23 @@ export const api = {
       quantity?: number;
       idempotencyKey: string;
       channel?: 'web' | 'ios' | 'android';
+      /** Defaults to member's own email on backend if omitted. */
+      recipientEmail?: string;
+      recipientName?: string;
+      giftMessage?: string;
+      giftStyleCode?: string;
     }) => apiClient.post<any>('/redemptions', body),
-    reveal: (id: string) => apiClient.post<{ code: string; pin: string | null; expiresAt: string }>(
-      `/redemptions/${encodeURIComponent(id)}/reveal`,
-    ),
+    /** Cohort gate — UI checks this on page load to decide CTA state. */
+    eligibility: () =>
+      apiClient.get<{ eligible: boolean; reason: string | null }>(
+        '/redemptions/eligibility',
+      ),
+    /** Bounce recovery — asks Prezzee to re-send the gift email. */
+    resendEmail: (id: string) =>
+      apiClient.post<{ id: string; status: string; emailDeliveryStatus: string | null }>(
+        `/redemptions/${encodeURIComponent(id)}/resend-email`,
+        {},
+      ),
     getMyHistory: () => apiClient.get<any[]>('/redemptions'),
     getById: (id: string) => apiClient.get<any>(`/redemptions/${encodeURIComponent(id)}`),
   },

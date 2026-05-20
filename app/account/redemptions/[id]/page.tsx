@@ -29,17 +29,15 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock,
-  Copy,
   Download,
   Loader2,
   Mail,
   ReceiptText,
   RefreshCw,
   ShieldAlert,
-  Wallet,
   XCircle,
 } from 'lucide-react';
-import { CodeCard, StatusChip } from '@/components/gift-cards';
+import { StatusChip } from '@/components/gift-cards';
 import {
   MOCK_REDEMPTIONS,
   getRedemption,
@@ -122,30 +120,33 @@ export default function RedemptionReceiptPage() {
 
   const totalAud = redemption.valueAud * redemption.quantity;
   const isCompleted = redemption.status === 'completed';
-  const isOnHold = redemption.status === 'on_hold';
-  const isProcessing = redemption.status === 'processing';
+  /* 2026-05-20 — "on hold" UI bucket covers all Prezzee PENDING_* states
+     plus prezzee_pending (we're polling) and submitting (brief). */
+  const isOnHold =
+    redemption.status === 'prezzee_pending' ||
+    redemption.status === 'pending_payment' ||
+    redemption.status === 'pending_fulfillment' ||
+    redemption.status === 'pending_delivery';
+  const isProcessing =
+    redemption.status === 'points_held' || redemption.status === 'submitting';
   const isFailedOrRefunded =
     redemption.status === 'failed' || redemption.status === 'refunded';
+  const isBounce = redemption.status === 'pending_delivery';
 
-  const handleResendEmail = () => {
+  /* Real backend call (replaces legacy 900ms mock) — calls Prezzee
+     Regenerate Gift PIN via our /redemptions/:id/resend-email endpoint. */
+  const handleResendEmail = async () => {
     if (emailSending) return;
     setEmailSending(true);
     setEmailSent(false);
-    window.setTimeout(() => {
-      setEmailSending(false);
+    try {
+      await api.redemptions.resendEmail(redemption.id);
       setEmailSent(true);
       window.setTimeout(() => setEmailSent(false), 3200);
-    }, 900);
-  };
-
-  const handleCopyAll = async () => {
-    if (!redemption.codes.length) return;
-    try {
-      await navigator.clipboard.writeText(redemption.codes.map((c) => c.code).join('\n'));
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      /* clipboard blocked — no-op */
+      /* swallow — UI returns to idle; user can retry */
+    } finally {
+      setEmailSending(false);
     }
   };
 
@@ -237,43 +238,61 @@ export default function RedemptionReceiptPage() {
           </div>
         </section>
 
-        {/* Status-specific body */}
-        {isCompleted && redemption.codes.length > 0 && (
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[16px] font-extrabold tracking-tight text-[#0F1222]">
-                {redemption.codes.length > 1 ? 'Your codes' : 'Your code'}
-              </h2>
-              {redemption.codes.length > 1 && (
-                <button
-                  type="button"
-                  onClick={handleCopyAll}
-                  className="inline-flex items-center gap-1 rounded-full border border-[#E7E9F2] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#0F1222] hover:bg-[#F6F4FF]"
-                >
-                  <Copy className="w-3 h-3" />
-                  {copied ? 'Copied all' : 'Copy all'}
-                </button>
+        {/* Delivery telemetry — replaces the legacy "Your codes" block.
+            Prezzee emails the gift directly to recipientEmail; UNICASH
+            shows the delivery state instead of the gift code itself. */}
+        {(isCompleted || isBounce) && (
+          <section className="rounded-3xl border border-[#FFC85D]/55 bg-gradient-to-br from-[#FFF6DA] to-[#FFE2B0] p-5 space-y-3">
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-[#9C5410]">
+              <Mail className="w-3.5 h-3.5" />
+              Sent to
+            </div>
+            <p className="break-all text-[16px] sm:text-[18px] font-extrabold tracking-tight text-[#7C5A00]">
+              {redemption.recipientEmail || redemption.memberEmail}
+            </p>
+
+            {/* Status pills — surfaces what we know from Prezzee polling. */}
+            <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
+              <DeliveryPill
+                active={
+                  redemption.emailDeliveryStatus === 'sent' ||
+                  redemption.emailDeliveryStatus === 'delivered' ||
+                  !!redemption.recipientClickedAt
+                }
+                color="purple"
+              >
+                Email sent
+              </DeliveryPill>
+              <DeliveryPill
+                active={redemption.emailDeliveryStatus === 'delivered' || !!redemption.recipientClickedAt}
+                color="blue"
+              >
+                Delivered
+              </DeliveryPill>
+              <DeliveryPill
+                active={!!redemption.recipientClickedAt || redemption.voucherUrlStatus === 'clicked'}
+                color="green"
+              >
+                Opened
+              </DeliveryPill>
+              {(redemption.emailDeliveryStatus === 'bounced' ||
+                redemption.emailDeliveryStatus === 'failed' ||
+                isBounce) && (
+                <DeliveryPill active color="amber">
+                  Delivery issue
+                </DeliveryPill>
               )}
             </div>
-            {redemption.codes.map((code) => (
-              <CodeCard key={code.id} code={code} brandName={redemption.brandName} />
-            ))}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#E7E9F2] bg-white px-3 py-2 text-[12px] font-semibold text-[#0F1222] hover:bg-[#F6F4FF]"
-              >
-                <Wallet className="w-3.5 h-3.5" />
-                Add to Apple Wallet
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#E7E9F2] bg-white px-3 py-2 text-[12px] font-semibold text-[#0F1222] hover:bg-[#F6F4FF]"
-              >
-                <Wallet className="w-3.5 h-3.5" />
-                Add to Google Wallet
-              </button>
-            </div>
+
+            <p className="text-[12px] leading-relaxed text-[#9C5410]/85">
+              {isBounce
+                ? "Prezzee couldn't deliver to this address. Update the email or try resending below."
+                : redemption.recipientClickedAt
+                  ? 'Recipient has opened the gift link.'
+                  : redemption.emailDeliveryStatus === 'delivered'
+                    ? 'Email delivered. Recipient hasn\'t opened it yet — check their inbox + spam folder.'
+                    : `${redemption.brandName} gift email is being delivered by Prezzee. Status updates automatically as it arrives.`}
+            </p>
           </section>
         )}
 
@@ -343,8 +362,8 @@ export default function RedemptionReceiptPage() {
               {emailSending
                 ? 'Sending…'
                 : emailSent
-                ? 'Email sent'
-                : 'Resend receipt by email'}
+                ? 'Gift email sent'
+                : 'Resend gift email'}
             </button>
             <button
               type="button"
@@ -443,7 +462,34 @@ const FAILURE_LABELS: Record<RedemptionFailureReason, { label: string; icon: typ
   network_failure: { label: 'Network failure', icon: XCircle },
   fraud_rejected: { label: "Couldn't be completed", icon: ShieldAlert },
   cap_exceeded: { label: 'Monthly cap reached', icon: XCircle },
+  invalid_request: { label: 'Request rejected', icon: XCircle },
 };
+
+/* Delivery telemetry pill — active = solid color, inactive = ghost.
+   2026-05-20 — added for Prezzee-delivers status visualisation. */
+function DeliveryPill({
+  active,
+  color,
+  children,
+}: {
+  active: boolean;
+  color: 'purple' | 'blue' | 'green' | 'amber';
+  children: React.ReactNode;
+}) {
+  const palette = {
+    purple: { active: 'bg-[#6356E5] text-white', ghost: 'bg-white text-[#9097A8] border border-[#E0DAFF]' },
+    blue: { active: 'bg-[#2563EB] text-white', ghost: 'bg-white text-[#9097A8] border border-[#E0DAFF]' },
+    green: { active: 'bg-[#10B981] text-white', ghost: 'bg-white text-[#9097A8] border border-[#E0DAFF]' },
+    amber: { active: 'bg-[#F59E0B] text-[#1A1432]', ghost: 'bg-white text-[#9097A8] border border-[#E0DAFF]' },
+  }[color];
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${active ? palette.active : palette.ghost}`}
+    >
+      {children}
+    </span>
+  );
+}
 
 function ReceiptSkeleton() {
   return (
