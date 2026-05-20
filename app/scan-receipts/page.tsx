@@ -317,14 +317,10 @@ function PrimaryCTA({
   return (
     <Link
       href={href}
-      className="group inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-[15px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_18px_32px_-10px_rgba(99,86,229,0.65)] active:translate-y-0 active:brightness-95"
-      style={{
-        background: `linear-gradient(180deg, ${BRAND.primary} 0%, ${BRAND.gradEnd} 100%)`,
-        boxShadow: `0 0 0 1px ${BRAND.primary}, 0 10px 24px -10px rgba(99,86,229,0.55)`,
-      }}
+      className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-7 text-[15px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2"
     >
       {children}
-      <Icon className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+      <Icon className="h-4 w-4" aria-hidden />
     </Link>
   );
 }
@@ -333,11 +329,7 @@ function SecondaryCTA({ href, children }: { href: string; children: React.ReactN
   return (
     <Link
       href={href}
-      className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-[15px] font-bold transition-all duration-200 hover:bg-[#F4F1FB] hover:-translate-y-0.5 hover:shadow-[0_10px_24px_-14px_rgba(99,86,229,0.45)] active:translate-y-0"
-      style={{
-        color: BRAND.primary,
-        boxShadow: `0 0 0 1px ${BRAND.primary}`,
-      }}
+      className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[#E0DAFF] bg-white/90 px-6 text-[14.5px] font-bold text-[#0F1222] backdrop-blur transition-colors hover:border-[#6356E5] hover:text-[#6356E5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2"
     >
       {children}
     </Link>
@@ -849,14 +841,10 @@ export default function ScanReceiptsPage() {
                 type="button"
                 onClick={handleScanClick}
                 disabled={scanModalOpen}
-                className="group inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-[15px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_18px_32px_-10px_rgba(99,86,229,0.65)] active:translate-y-0 active:brightness-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:brightness-100 disabled:hover:shadow-[0_0_0_1px_#6356E5,0_10px_24px_-10px_rgba(99,86,229,0.55)]"
-                style={{
-                  background: `linear-gradient(180deg, ${BRAND.primary} 0%, ${BRAND.gradEnd} 100%)`,
-                  boxShadow: `0 0 0 1px ${BRAND.primary}, 0 10px 24px -10px rgba(99,86,229,0.55)`,
-                }}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-7 text-[15px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Scan Receipt
-                <ScanLine className="h-4 w-4 transition-transform group-hover:scale-110" aria-hidden />
+                <ScanLine className="h-4 w-4" aria-hidden />
               </button>
               {/* Mobile/desktop split — shorter label on small viewports */}
               <SecondaryCTA href="#how-points-work">
@@ -1180,12 +1168,7 @@ export default function ScanReceiptsPage() {
                     type="button"
                     onClick={loadReceipts}
                     disabled={receiptsLoading}
-                    className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-[13.5px] font-bold transition-all duration-200 hover:bg-[#F4F1FB] hover:-translate-y-0.5 hover:shadow-[0_10px_24px_-14px_rgba(99,86,229,0.45)] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:bg-white"
-                    style={{
-                      color: BRAND.primary,
-                      background: 'white',
-                      boxShadow: `0 0 0 1px ${BRAND.primary}`,
-                    }}
+                    className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#E0DAFF] bg-white px-6 text-[13.5px] font-bold text-[#0F1222] transition-colors hover:border-[#6356E5] hover:text-[#6356E5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {receiptsLoading ? 'Retrying…' : 'Try again'}
                   </button>
@@ -1247,13 +1230,9 @@ export default function ScanReceiptsPage() {
                     type="button"
                     onClick={handleScanClick}
                     disabled={scanModalOpen}
-                    className="group mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-[13.5px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_18px_32px_-10px_rgba(99,86,229,0.65)] active:translate-y-0 active:brightness-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:brightness-100"
-                    style={{
-                      background: `linear-gradient(180deg, ${BRAND.primary} 0%, ${BRAND.gradEnd} 100%)`,
-                      boxShadow: `0 10px 24px -10px rgba(99,86,229,0.55)`,
-                    }}
+                    className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-6 text-[13.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <ScanLine className="h-4 w-4 transition-transform group-hover:scale-110" aria-hidden />
+                    <ScanLine className="h-4 w-4" aria-hidden />
                     {/* Mobile/desktop split — shorter on small viewports */}
                     <span className="sm:hidden">Scan Receipt</span>
                     <span className="hidden sm:inline">Scan your first receipt</span>
@@ -1426,15 +1405,14 @@ export default function ScanReceiptsPage() {
                   type="button"
                   onClick={handleScanClick}
                   disabled={scanModalOpen}
-                  className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-[15px] font-bold transition-all duration-200 hover:bg-white hover:-translate-y-0.5 hover:shadow-[0_18px_32px_-10px_rgba(0,0,0,0.25)] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-                  style={{ color: BRAND.primary }}
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-7 text-[15px] font-bold text-[#6356E5] shadow-[0_14px_30px_-12px_rgba(0,0,0,0.45)] transition-colors hover:bg-[#F4F1FB] focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1A1432] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <ScanLine className="h-4 w-4 transition-transform group-hover:scale-110" aria-hidden />
+                  <ScanLine className="h-4 w-4" aria-hidden />
                   Scan Receipt
                 </button>
                 <Link
                   href="/dashboard/membership"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/60 px-6 text-[15px] font-bold text-white transition-all duration-200 hover:border-white hover:bg-white/15 hover:-translate-y-0.5 active:translate-y-0"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/60 bg-transparent px-6 text-[14.5px] font-bold text-white backdrop-blur transition-colors hover:border-white hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1A1432]"
                 >
                   View Membership
                 </Link>
