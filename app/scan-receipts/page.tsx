@@ -122,12 +122,19 @@ const NOT_ELIGIBLE: Eligibility[] = [
   { ok: false, text: 'Receipts outside the allowed period' },
 ];
 
+/* 2026-05-20 — extended to the 10 canonical receipt states per
+   feedback_unicash_state_coverage memory. The original 6-state model
+   left idle / uploading / invalid / network_failure unrepresented. */
 type StatusKey =
+  | 'idle'
+  | 'uploading'
   | 'scanning'
   | 'pending'
   | 'approved'
   | 'rejected'
   | 'duplicate'
+  | 'invalid'
+  | 'network_failure'
   | 'member'
   | 'redeemable';
 
@@ -141,6 +148,38 @@ type StatusToken = {
 };
 
 const STATUSES: Record<StatusKey, StatusToken> = {
+  idle: {
+    key: 'idle',
+    label: 'Ready',
+    icon: ScanLine,
+    bg: 'bg-[#F4F1FB]',
+    text: 'text-[#5648D8]',
+    ring: 'ring-[#E0DAFF]',
+  },
+  uploading: {
+    key: 'uploading',
+    label: 'Uploading',
+    icon: ScanLine,
+    bg: 'bg-amber-50',
+    text: 'text-amber-700',
+    ring: 'ring-amber-200',
+  },
+  invalid: {
+    key: 'invalid',
+    label: 'Invalid Receipt',
+    icon: AlertCircle,
+    bg: 'bg-red-50',
+    text: 'text-red-700',
+    ring: 'ring-red-200',
+  },
+  network_failure: {
+    key: 'network_failure',
+    label: 'Connection Issue',
+    icon: AlertCircle,
+    bg: 'bg-amber-50',
+    text: 'text-amber-700',
+    ring: 'ring-amber-200',
+  },
   scanning: {
     key: 'scanning',
     label: 'Scanning',
@@ -278,9 +317,9 @@ function PrimaryCTA({
   return (
     <Link
       href={href}
-      className="inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-[15px] font-bold text-white transition-all duration-200"
+      className="inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-[15px] font-bold text-white transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
       style={{
-        background: `linear-gradient(180deg, ${BRAND.gradEnd} 0%, ${BRAND.primary} 100%)`,
+        background: `linear-gradient(180deg, ${BRAND.primary} 0%, ${BRAND.gradEnd} 100%)`,
         boxShadow: `0 0 0 1px ${BRAND.primary}, 0 10px 24px -10px rgba(99,86,229,0.55)`,
       }}
     >
@@ -361,7 +400,7 @@ function FlyingPoints({ active }: { active: boolean }) {
           aria-hidden
           className="absolute left-1/2 top-[34%] h-6 w-12 -translate-x-1/2 rounded-full px-2 text-[11px] font-bold text-white"
           style={{
-            background: `linear-gradient(180deg, ${BRAND.gradEnd} 0%, ${BRAND.primary} 100%)`,
+            background: `linear-gradient(180deg, ${BRAND.primary} 0%, ${BRAND.gradEnd} 100%)`,
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -697,6 +736,9 @@ export default function ScanReceiptsPage() {
   const [memberModalOpen, setMemberModalOpen] = useState(false);
   const [myReceipts, setMyReceipts] = useState<RealReceipt[] | null>(null);
   const [receiptsLoading, setReceiptsLoading] = useState(false);
+  /* 2026-05-20 — surface API errors with a retry CTA instead of
+     silently falling through to the empty state. */
+  const [receiptsError, setReceiptsError] = useState<string | null>(null);
 
   const isActiveMember = user?.state === 'memberActive';
 
@@ -717,12 +759,15 @@ export default function ScanReceiptsPage() {
   const loadReceipts = useCallback(async () => {
     if (!isActiveMember) return;
     setReceiptsLoading(true);
+    setReceiptsError(null);
     try {
       const res = await api.receipts.getMyReceipts({ limit: 5 });
       setMyReceipts((res.data as { items?: RealReceipt[] })?.items || []);
     } catch (err) {
       console.warn('[ScanReceipts] Failed to load receipts:', err);
-      setMyReceipts([]);
+      /* Distinct error state — don't silently fall into empty state. */
+      setReceiptsError("We couldn't load your receipts. Check your connection and retry.");
+      setMyReceipts(null);
     } finally {
       setReceiptsLoading(false);
     }
@@ -771,7 +816,7 @@ export default function ScanReceiptsPage() {
               Scan receipts.{' '}
               <span
                 style={{
-                  background: `linear-gradient(180deg, ${BRAND.gradEnd} 0%, ${BRAND.primary} 100%)`,
+                  background: `linear-gradient(180deg, ${BRAND.primary} 0%, ${BRAND.gradEnd} 100%)`,
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
@@ -803,16 +848,21 @@ export default function ScanReceiptsPage() {
               <button
                 type="button"
                 onClick={handleScanClick}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-[15px] font-bold text-white transition-all duration-200"
+                disabled={scanModalOpen}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-[15px] font-bold text-white transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{
-                  background: `linear-gradient(180deg, ${BRAND.gradEnd} 0%, ${BRAND.primary} 100%)`,
+                  background: `linear-gradient(180deg, ${BRAND.primary} 0%, ${BRAND.gradEnd} 100%)`,
                   boxShadow: `0 0 0 1px ${BRAND.primary}, 0 10px 24px -10px rgba(99,86,229,0.55)`,
                 }}
               >
                 Scan Receipt
                 <ScanLine className="h-4 w-4" aria-hidden />
               </button>
-              <SecondaryCTA href="#how-points-work">View How Points Work</SecondaryCTA>
+              {/* Mobile/desktop split — shorter label on small viewports */}
+              <SecondaryCTA href="#how-points-work">
+                <span className="sm:hidden">How it works</span>
+                <span className="hidden sm:inline">View How Points Work</span>
+              </SecondaryCTA>
             </motion.div>
 
             <motion.p
@@ -839,8 +889,11 @@ export default function ScanReceiptsPage() {
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-6 sm:py-20 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <Eyebrow>How it works</Eyebrow>
-            <h2 className="mt-3 text-[28px] font-extrabold tracking-tight sm:text-[36px] md:text-[40px]" style={{ color: BRAND.ink }}>
-              Three simple steps.
+            <h2 className="mt-3 text-[28px] font-extrabold leading-[1.1] tracking-tight sm:text-[36px] md:text-[40px]" style={{ color: BRAND.ink }}>
+              Three simple{' '}
+              <span className="bg-gradient-to-r from-[#FFE2B0] to-[#FFC85D] bg-clip-text text-transparent">
+                steps.
+              </span>
             </h2>
             <p className="mx-auto mt-3 max-w-lg text-[14.5px] leading-relaxed sm:text-[15.5px]" style={{ color: BRAND.muted }}>
               From upload to confirmed Points — every step is shown in your dashboard.
@@ -882,7 +935,7 @@ export default function ScanReceiptsPage() {
                         {s.n}
                       </span>
                     </div>
-                    <h3 className="mt-4 text-[16.5px] font-bold tracking-tight sm:text-[18px]" style={{ color: BRAND.ink }}>
+                    <h3 className="mt-4 text-[16.5px] font-extrabold tracking-tight sm:text-[18px]" style={{ color: BRAND.ink }}>
                       {s.title}
                     </h3>
                     <p className="mt-2 text-[13.5px] leading-relaxed sm:text-[14px]" style={{ color: BRAND.muted }}>
@@ -910,8 +963,11 @@ export default function ScanReceiptsPage() {
           <div className="grid grid-cols-1 gap-10 md:grid-cols-12 md:gap-12">
             <div className="md:col-span-5">
               <Eyebrow>Points value</Eyebrow>
-              <h2 className="mt-3 text-[28px] font-extrabold tracking-tight sm:text-[36px] md:text-[40px]" style={{ color: BRAND.ink }}>
-                What are Points worth?
+              <h2 className="mt-3 text-[28px] font-extrabold leading-[1.1] tracking-tight sm:text-[36px] md:text-[40px]" style={{ color: BRAND.ink }}>
+                What are Points{' '}
+                <span className="bg-gradient-to-r from-[#FFE2B0] to-[#FFC85D] bg-clip-text text-transparent">
+                  worth?
+                </span>
               </h2>
               <p className="mt-3 text-[14.5px] leading-relaxed sm:text-[15px]" style={{ color: BRAND.muted }}>
                 Points sit in your wallet as soon as a receipt is approved. Active Members redeem them for selected
@@ -948,7 +1004,7 @@ export default function ScanReceiptsPage() {
                       <span
                         className="text-[36px] font-extrabold leading-none tracking-tight sm:text-[44px]"
                         style={{
-                          background: `linear-gradient(180deg, ${BRAND.gradEnd} 0%, ${BRAND.primary} 100%)`,
+                          background: `linear-gradient(180deg, ${BRAND.primary} 0%, ${BRAND.gradEnd} 100%)`,
                           WebkitBackgroundClip: 'text',
                           WebkitTextFillColor: 'transparent',
                           backgroundClip: 'text',
@@ -995,7 +1051,7 @@ export default function ScanReceiptsPage() {
                         <Icon className="h-5 w-5" aria-hidden />
                       </span>
                       <div>
-                        <p className="text-[14.5px] font-bold tracking-tight" style={{ color: BRAND.ink }}>{u.title}</p>
+                        <p className="text-[14.5px] font-extrabold tracking-tight" style={{ color: BRAND.ink }}>{u.title}</p>
                         <p className="mt-1 text-[12.5px] leading-relaxed" style={{ color: BRAND.muted }}>{u.body}</p>
                       </div>
                     </motion.div>
@@ -1012,8 +1068,11 @@ export default function ScanReceiptsPage() {
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-6 sm:py-20 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <Eyebrow>Receipt eligibility</Eyebrow>
-            <h2 className="mt-3 text-[28px] font-extrabold tracking-tight sm:text-[36px] md:text-[40px]" style={{ color: BRAND.ink }}>
-              What receipts are eligible?
+            <h2 className="mt-3 text-[28px] font-extrabold leading-[1.1] tracking-tight sm:text-[36px] md:text-[40px]" style={{ color: BRAND.ink }}>
+              What receipts are{' '}
+              <span className="bg-gradient-to-r from-[#FFE2B0] to-[#FFC85D] bg-clip-text text-transparent">
+                eligible?
+              </span>
             </h2>
             <p className="mx-auto mt-3 max-w-lg text-[14.5px] leading-relaxed sm:text-[15px]" style={{ color: BRAND.muted }}>
               Two simple lists. If your receipt fits the eligible list, Points usually arrive within minutes.
@@ -1045,7 +1104,7 @@ export default function ScanReceiptsPage() {
                       <AlertCircle className="h-4 w-4" aria-hidden />
                     )}
                   </span>
-                  <h3 className="text-[18px] font-bold tracking-tight" style={{ color: BRAND.ink }}>
+                  <h3 className="text-[18px] font-extrabold tracking-tight" style={{ color: BRAND.ink }}>
                     {col.title}
                   </h3>
                 </div>
@@ -1103,6 +1162,34 @@ export default function ScanReceiptsPage() {
                     </li>
                   ))}
                 </ul>
+              ) : receiptsError ? (
+                /* Error state with retry CTA (2026-05-20 — was silently
+                   falling through to empty state on API failure). */
+                <div className="px-5 py-10 text-center sm:px-6">
+                  <span
+                    className="inline-flex h-12 w-12 items-center justify-center rounded-2xl ring-1"
+                    style={{ background: '#FEF2F2', color: BRAND.err, '--tw-ring-color': '#FECACA' } as React.CSSProperties}
+                  >
+                    <AlertCircle className="h-5 w-5" aria-hidden />
+                  </span>
+                  <p className="mt-3 text-[15px] font-extrabold tracking-tight" style={{ color: BRAND.ink }}>
+                    Couldn&apos;t load your receipts
+                  </p>
+                  <p className="mt-1 text-[13px]" style={{ color: BRAND.muted }}>{receiptsError}</p>
+                  <button
+                    type="button"
+                    onClick={loadReceipts}
+                    disabled={receiptsLoading}
+                    className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-[13.5px] font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                    style={{
+                      color: BRAND.primary,
+                      background: 'white',
+                      boxShadow: `0 0 0 1px ${BRAND.primary}`,
+                    }}
+                  >
+                    {receiptsLoading ? 'Retrying…' : 'Try again'}
+                  </button>
+                </div>
               ) : myReceipts && myReceipts.length > 0 ? (
                 <ul className="divide-y" style={{ borderColor: BRAND.border }}>
                   {myReceipts.map((row) => {
@@ -1153,18 +1240,23 @@ export default function ScanReceiptsPage() {
                     <ScanLine className="h-5 w-5" aria-hidden />
                   </span>
                   <p className="mt-3 text-[15px] font-extrabold tracking-tight" style={{ color: BRAND.ink }}>No receipts scanned yet</p>
-                  <p className="mt-1 text-[13px]" style={{ color: BRAND.muted }}>Scan a fuel receipt to start earning Points.</p>
+                  <p className="mt-1 text-[13px]" style={{ color: BRAND.muted }}>
+                    Scan eligible fuel or shopping receipts to start earning Points.
+                  </p>
                   <button
                     type="button"
                     onClick={handleScanClick}
-                    className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-[13.5px] font-bold text-white transition-all"
+                    disabled={scanModalOpen}
+                    className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-[13.5px] font-bold text-white transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                     style={{
-                      background: `linear-gradient(180deg, ${BRAND.gradEnd} 0%, ${BRAND.primary} 100%)`,
+                      background: `linear-gradient(180deg, ${BRAND.primary} 0%, ${BRAND.gradEnd} 100%)`,
                       boxShadow: `0 10px 24px -10px rgba(99,86,229,0.55)`,
                     }}
                   >
                     <ScanLine className="h-4 w-4" aria-hidden />
-                    Scan your first receipt
+                    {/* Mobile/desktop split — shorter on small viewports */}
+                    <span className="sm:hidden">Scan Receipt</span>
+                    <span className="hidden sm:inline">Scan your first receipt</span>
                   </button>
                 </div>
               )
@@ -1247,7 +1339,7 @@ export default function ScanReceiptsPage() {
               Start earning for free.{' '}
               <span
                 style={{
-                  background: `linear-gradient(180deg, ${BRAND.gradEnd} 0%, ${BRAND.primary} 100%)`,
+                  background: `linear-gradient(180deg, ${BRAND.primary} 0%, ${BRAND.gradEnd} 100%)`,
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
@@ -1272,8 +1364,11 @@ export default function ScanReceiptsPage() {
         <div className="mx-auto max-w-3xl px-5 py-16 sm:px-6 sm:py-20 lg:px-8">
           <div className="text-center">
             <Eyebrow>FAQ</Eyebrow>
-            <h2 className="mt-3 text-[28px] font-extrabold tracking-tight sm:text-[36px]" style={{ color: BRAND.ink }}>
-              Common questions.
+            <h2 className="mt-3 text-[28px] font-extrabold leading-[1.1] tracking-tight sm:text-[36px]" style={{ color: BRAND.ink }}>
+              Common{' '}
+              <span className="bg-gradient-to-r from-[#FFE2B0] to-[#FFC85D] bg-clip-text text-transparent">
+                questions.
+              </span>
             </h2>
           </div>
           <div className="mt-8">
@@ -1317,7 +1412,10 @@ export default function ScanReceiptsPage() {
             <div className="grid grid-cols-1 items-center gap-8 sm:grid-cols-2">
               <div>
                 <h2 className="text-[28px] font-extrabold leading-[1.1] tracking-tight text-white sm:text-[36px]">
-                  Ready to turn receipts into Points?
+                  Ready to turn receipts into{' '}
+                  <span className="bg-gradient-to-r from-[#FFE2B0] to-[#FFC85D] bg-clip-text text-transparent">
+                    Points?
+                  </span>
                 </h2>
                 <p className="mt-3 max-w-md text-[15px] text-white/85">
                   Scan eligible receipts. Earn Points. Redeem real value as an active UNICASH Member.
