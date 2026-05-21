@@ -789,7 +789,7 @@ export default function ScanReceiptsPage() {
               'radial-gradient(900px 460px at 88% -10%, #efecff 0%, rgba(247,245,255,0) 60%), radial-gradient(700px 380px at 6% 14%, #f7f5ff 0%, rgba(255,255,255,0) 60%)',
           }}
         />
-        <div className="relative mx-auto grid max-w-7xl grid-cols-1 gap-12 px-6 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-16 md:grid-cols-12 md:gap-8 lg:px-8 lg:pt-20">
+        <div className="relative mx-auto grid max-w-7xl grid-cols-1 gap-12 px-6 pb-16 pt-12 sm:px-8 sm:pb-20 sm:pt-16 md:grid-cols-12 md:gap-8 lg:px-12 lg:pt-20">
           <div className="flex flex-col md:col-span-6 lg:col-span-6">
             <motion.div initial="hidden" animate="show" variants={fadeUp}>
               <Eyebrow>
@@ -874,7 +874,7 @@ export default function ScanReceiptsPage() {
 
       {/* ============== HOW IT WORKS — 3 STEPS ============== */}
       <section id="how-points-work" className="bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-16 sm:px-6 sm:py-20 lg:px-8">
+        <div className="mx-auto max-w-7xl px-6 py-16 sm:px-8 sm:py-20 lg:px-12">
           <div className="mx-auto max-w-2xl text-center">
             <Eyebrow>How it works</Eyebrow>
             <h2 className="mt-3 text-[28px] font-extrabold leading-[1.1] tracking-tight sm:text-[36px] md:text-[40px]" style={{ color: BRAND.ink }}>
@@ -947,7 +947,7 @@ export default function ScanReceiptsPage() {
               'radial-gradient(700px 340px at 90% 100%, #efecff 0%, rgba(247,245,255,0) 60%)',
           }}
         />
-        <div className="relative mx-auto max-w-7xl px-6 py-16 sm:px-6 sm:py-20 lg:px-8">
+        <div className="relative mx-auto max-w-7xl px-6 py-16 sm:px-8 sm:py-20 lg:px-12">
           <div className="grid grid-cols-1 gap-10 md:grid-cols-12 md:gap-12">
             <div className="md:col-span-5">
               <Eyebrow>Points value</Eyebrow>
@@ -1053,7 +1053,7 @@ export default function ScanReceiptsPage() {
 
       {/* ============== ELIGIBILITY ============== */}
       <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-16 sm:px-6 sm:py-20 lg:px-8">
+        <div className="mx-auto max-w-7xl px-6 py-16 sm:px-8 sm:py-20 lg:px-12">
           <div className="mx-auto max-w-2xl text-center">
             <Eyebrow>Receipt eligibility</Eyebrow>
             <h2 className="mt-3 text-[28px] font-extrabold leading-[1.1] tracking-tight sm:text-[36px] md:text-[40px]" style={{ color: BRAND.ink }}>
@@ -1299,7 +1299,7 @@ export default function ScanReceiptsPage() {
 
       {/* ============== MEMBERSHIP UNLOCK ============== */}
       <section style={{ background: BRAND.soft }}>
-        <div className="mx-auto max-w-7xl px-6 py-16 sm:px-6 sm:py-20 lg:px-8">
+        <div className="mx-auto max-w-7xl px-6 py-16 sm:px-8 sm:py-20 lg:px-12">
           <motion.div
             initial="hidden"
             whileInView="show"
@@ -1340,7 +1340,7 @@ export default function ScanReceiptsPage() {
 
       {/* ============== FAQ ============== */}
       <section className="bg-white">
-        <div className="mx-auto max-w-3xl px-6 py-16 sm:px-6 sm:py-20 lg:px-8">
+        <div className="mx-auto max-w-3xl px-6 py-16 sm:px-8 sm:py-20 lg:px-12">
           <div className="text-center">
             <Eyebrow>FAQ</Eyebrow>
             <h2 className="mt-3 text-[28px] font-extrabold leading-[1.1] tracking-tight sm:text-[36px]" style={{ color: BRAND.ink }}>
@@ -1380,7 +1380,7 @@ export default function ScanReceiptsPage() {
 
       {/* ============== FINAL CTA ============== */}
       <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-16 sm:px-6 sm:py-20 lg:px-8">
+        <div className="mx-auto max-w-7xl px-6 py-16 sm:px-8 sm:py-20 lg:px-12">
           <div
             className="overflow-hidden rounded-3xl p-7 sm:p-10 lg:p-14"
             style={{
