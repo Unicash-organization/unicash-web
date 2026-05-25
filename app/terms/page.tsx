@@ -1,66 +1,25 @@
-'use client';
+import type { Metadata } from 'next';
+import LegalPage from '@/components/legal/LegalPage';
 
-import { useEffect, useState } from 'react';
-import api from '@/lib/api';
-import LoadingRing from '@/components/LoadingRing';
+/**
+ * /terms — UNICASH Terms and Conditions
+ *
+ * Source-of-truth markdown is at `unicash-web/content/legal/terms.md`,
+ * mirrored from the canonical `/legal/UNICASH-Terms-and-Conditions.md`
+ * at the repo root. The page renders the markdown via the shared
+ * <LegalPage> component (Server Component, fs-based, no admin API).
+ *
+ * Previously this route fetched HTML from `settings.terms_and_conditions`.
+ * The API path was removed at v1.4 — markdown is now code-managed and
+ * version-controlled with the rest of the app.
+ */
+
+export const metadata: Metadata = {
+  title: 'Terms and Conditions — UNICASH',
+  description:
+    'The terms governing UNICASH Membership, Bonus Draws, Major Draws, Point Boosters, Scan Receipts, and Gift Card redemption.',
+};
 
 export default function TermsPage() {
-  const [content, setContent] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchContent = async () => {
-      try {
-        const response = await api.settings.getByKey('terms_and_conditions');
-        setContent(response.data.value || '');
-      } catch (error) {
-        console.error('Error fetching terms and conditions:', error);
-        setContent('');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchContent();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12">
-            <div className="text-center py-12">
-              <LoadingRing label="Loading terms" />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-8">Terms & Conditions</h1>
-          
-          <div className="prose prose-lg max-w-none">
-            {content ? (
-              <div dangerouslySetInnerHTML={{ __html: content }} />
-            ) : (
-              <p className="text-gray-500">Content not available. Please contact support.</p>
-            )}
-
-            <p className="text-sm text-gray-500 mt-8">
-              Last updated: {(() => {
-                const { formatSydneyDateOnly } = require('@/lib/timezone');
-                return formatSydneyDateOnly(new Date());
-              })()}
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <LegalPage slug="terms" />;
 }
-

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import BoostPackCard from '@/components/BoostPackCard';
 import api from '@/lib/api';
+import { boostPacksFaqs } from '@/content/faqs';
 
 /* -----------------------------------------------------------------------
    BoostPacksClient — v4 redesign.
@@ -90,36 +91,8 @@ const HOW_STEPS = [
   },
 ];
 
-const FAQ_ITEMS = [
-  {
-    q: 'Are Point Boosters subscriptions?',
-    a: 'No. Point Boosters are optional one-time purchases. They are completely separate from your Membership.',
-  },
-  {
-    q: 'Do Point Boosters auto-renew?',
-    a: 'No. Point Boosters never auto-renew. You only pay when you choose to top up.',
-  },
-  {
-    q: 'How do I use Points?',
-    a: 'Points are used to access eligible member-only Bonus Draws and to redeem selected Gift Cards from 2,000 Points.',
-  },
-  {
-    q: 'Can I use Points for Bonus Draws?',
-    a: 'Yes. Points from Boosters are added to your UNICASH balance and can be used on eligible member-only Bonus Draws.',
-  },
-  {
-    q: 'Does my Membership already include Points?',
-    a: 'Yes. Every active Membership plan includes Monthly Points each renewal. Point Boosters are optional extras for when you want more flexibility.',
-  },
-  {
-    q: 'Do I need a Membership to buy a Point Booster?',
-    a: 'Yes. Point Boosters are a Member-only top-up. An active Membership is required at the time of purchase.',
-  },
-  {
-    q: 'Which payment methods are supported?',
-    a: 'Major cards via Stripe, plus Apple Pay, Google Pay, and PayPal where available. All payments are SSL-encrypted bank-grade checkout.',
-  },
-];
+// Source of truth: /legal/UNICASH-FAQs.md → unicash-web/content/faqs.ts
+const FAQ_ITEMS = boostPacksFaqs;
 
 /* Painted radial-mesh background — matches v4 section pattern. */
 function PaintedBackground() {

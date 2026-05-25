@@ -12,6 +12,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 import api from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { showToast } from '@/lib/toast';
+import { homeFaqs } from '@/content/faqs';
 
 /* ==========================================================================
    UNICASH Homepage — v4 redesign
@@ -877,16 +878,8 @@ function Boosters() {
 /* -------------------------------------------------------------------------- */
 
 function Faq() {
-  const faqs = [
-    { q: 'What is UNICASH?', a: 'UNICASH is a premium Australian Membership rewards platform. Members get monthly Points to enter limited-entry Bonus Draws for premium Rewards. Fuel Rewards and one-time Point Boosters are available on top.' },
-    { q: 'How do Points work?', a: 'Every Membership delivers a monthly Points allowance. Use Points to enter members-only Bonus Draws. Each Bonus Draw clearly shows the Points required before you enter.' },
-    { q: 'What is a Bonus Draw?', a: 'A Bonus Draw is a member-only event with a capped number of entries. Each Bonus Draw lists the Points required, member limit, closing time, and outcome verification before you enter.' },
-    { q: 'Membership vs Point Booster?', a: 'Membership is a recurring monthly subscription. Point Boosters are one-time purchases that never auto-renew. Booster Points stack with your Monthly Points.' },
-    { q: 'Are outcomes verified?', a: 'Yes. Every Bonus Draw outcome is announced publicly with a draw ID and SHA256 hash. Winners are published transparently after each Bonus Draw closes.' },
-    { q: 'Are my Points safe? What payment methods?', a: 'Payments are processed by Stripe with bank-grade security — we accept Visa, Mastercard, Apple Pay, and PayPal. Your card details are never stored on UNICASH servers, and your Points balance is tied to your Member account with full audit history.' },
-    { q: 'What happens if I cancel mid-month?', a: 'You keep full access to your Membership benefits and Monthly Points until the end of your current billing period. There is no contract and no cancellation fee. Booster Points purchased separately remain yours.' },
-    { q: 'How long until my receipt is approved?', a: "Most receipts are reviewed quickly. You'll see live status (Pending, Approved, or Rejected) in your Receipt history. If a receipt is rejected, the reason is shown so you can re-submit when applicable." },
-  ];
+  // Source of truth: /legal/UNICASH-FAQs.md → unicash-web/content/faqs.ts
+  const faqs = homeFaqs;
 
   const [openIdx, setOpenIdx] = useState<number>(0);
 

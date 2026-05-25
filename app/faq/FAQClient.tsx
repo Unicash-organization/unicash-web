@@ -171,15 +171,15 @@ const FAQ_DATA: Record<CategoryKey, FaqItem[]> = {
   'getting-started': [
     {
       q: 'What is UNICASH?',
-      a: 'UNICASH is a premium Australian Membership rewards platform. Members earn Points, access Bonus Draws, receive Major Draw entries, earn Fuel Rewards from eligible receipts, and Redeem Gift Cards.',
-    },
-    {
-      q: 'Is UNICASH gambling?',
-      a: 'No. UNICASH is a Membership rewards platform. Bonus Draws use Points, show clear member limits, and publish Winners for transparency. UNICASH is not framed as gambling, betting, lottery, raffle, or casino.',
+      a: 'UNICASH is an Australian Membership rewards platform. Members earn Points, access Bonus Draws, receive Major Draw entries, earn Fuel Rewards from eligible receipts, and Redeem Gift Cards.',
     },
     {
       q: 'Who can join UNICASH?',
-      a: 'UNICASH is designed for eligible Australian Members. Full eligibility requirements are shown in the Terms and during signup.',
+      a: 'Adults aged 18 or over who are residents of Australia. A valid email, a payment method, and accurate identity details (used to verify Prize winners) are required. Some Bonus Draws and Major Draws have additional eligibility shown in their Promotion-Specific Terms.',
+    },
+    {
+      q: 'How are Draws conducted on UNICASH?',
+      a: 'Draws conducted on the Platform are promotional in nature. Where a Draw constitutes a regulated trade promotion under state or territory law, UNICASH conducts the Draw in accordance with applicable law and any required permit. Details are in each Draw’s Promotion-Specific Terms.',
     },
   ],
   membership: [

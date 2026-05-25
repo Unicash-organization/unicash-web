@@ -40,6 +40,7 @@ import api from '@/lib/api';
 import ScanReceiptModal from '@/components/ScanReceiptModal';
 import LoginRequiredModal from '@/components/LoginRequiredModal';
 import MembershipRequiredModal from '@/components/MembershipRequiredModal';
+import { scanReceiptsFaqs } from '@/content/faqs';
 
 /* ------------------------------------------------------------------
    Brand tokens (kept inline to avoid touching globals.css)
@@ -246,24 +247,8 @@ const ACTIVITY: { merchant: string; subline: string; status: StatusKey; pts?: nu
   { merchant: 'Bunnings · Alexandria', subline: '2d ago · 1,400 Points to redeem', status: 'redeemable' },
 ];
 
-const FAQS = [
-  {
-    q: 'When do I receive Points?',
-    a: 'Once your receipt is approved, Points are added to your wallet — usually within minutes for clean uploads. Some receipts may stay Pending while we validate them.',
-  },
-  {
-    q: 'Can free users scan receipts?',
-    a: 'Yes. Free users can scan eligible receipts and build a confirmed Points balance. Redemption requires an active UNICASH Membership.',
-  },
-  {
-    q: 'What can I redeem Points for?',
-    a: 'Selected gift cards, Fuel Rewards, selected Bonus Draws, and partner perks. The full menu is in your Member dashboard. 2,000 Points = $20 selected reward value.',
-  },
-  {
-    q: 'Why was my receipt rejected?',
-    a: 'Common reasons: duplicate upload, missing merchant or amount, edited image, or outside the allowed time window. The exact reason is shown in your receipt history.',
-  },
-];
+// Source of truth: /legal/UNICASH-FAQs.md → unicash-web/content/faqs.ts
+const FAQS = scanReceiptsFaqs;
 
 /* ------------------------------------------------------------------
    Animation helpers

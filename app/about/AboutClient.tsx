@@ -206,8 +206,8 @@ const PRODUCT_PILLARS: { icon: IconCmp; tone: 'purple' | 'gold' | 'warm'; title:
 
 const FAQ_ITEMS = [
   {
-    q: 'Is UNICASH gambling?',
-    a: 'No. UNICASH is a premium Membership rewards platform. Bonus Draws use Points and show clear limits.',
+    q: 'How are Draws conducted on UNICASH?',
+    a: 'Draws conducted on the Platform are promotional in nature. Where a Draw constitutes a regulated trade promotion under state or territory law, UNICASH conducts it in accordance with applicable law and any required permit. Details are in each Draw’s Promotion-Specific Terms.',
   },
   {
     q: 'What do Members receive?',

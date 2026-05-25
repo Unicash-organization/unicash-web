@@ -1,8 +1,11 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import GiveawaysClient from '@/components/GiveawaysClient';
 import FeaturedBonusDraw from '@/components/FeaturedBonusDraw';
+import FAQAccordion from '@/components/faq/FAQAccordion';
+import { giveawaysFaqs } from '@/content/faqs';
 
 /* -----------------------------------------------------------------------
    Inline v4 icons used in the hero
@@ -298,6 +301,33 @@ export default function GiveawaysPageClient() {
       <FeaturedBonusDraw />
 
       <GiveawaysClient />
+
+      {/* FAQ — Bonus Draw + Major Draw questions, sourced from /legal/UNICASH-FAQs.md */}
+      <section className="bg-[#FBFAFF] py-16 sm:py-20">
+        <div className="mx-auto max-w-5xl px-5 sm:px-6 lg:px-8">
+          <div className="grid gap-10 md:grid-cols-12">
+            <div className="md:col-span-4">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">FAQ</p>
+              <h2 className="mt-3 text-[28px] font-extrabold leading-[1.1] tracking-tight text-[#0f1222] sm:text-[36px]">
+                Questions about <span className="uc-gold-gradient">Bonus Draws.</span>
+              </h2>
+              <p className="mt-3 text-[14.5px] leading-relaxed text-[#4b5563]">
+                How entries work, how winners are chosen, and what happens if a Draw is cancelled.
+              </p>
+              <Link
+                href="/faq"
+                className="mt-5 inline-flex h-10 items-center gap-2 rounded-full border border-[#e7e9f2] bg-white px-5 text-[13px] font-semibold text-[#0f1222] transition hover:border-[#c8c5ea] hover:text-[#5346D6] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2"
+              >
+                See all FAQs
+                <span aria-hidden>→</span>
+              </Link>
+            </div>
+            <div className="md:col-span-8">
+              <FAQAccordion items={giveawaysFaqs} idPrefix="giveaways-faq" />
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

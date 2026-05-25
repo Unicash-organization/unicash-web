@@ -14,6 +14,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import api from '@/lib/api';
 import { getImageUrl } from '@/lib/imageUrl';
+import { winnersFaqs } from '@/content/faqs';
 
 /* -------------------------------------------------------------------------- */
 /*  Types — mirror existing API response shape                                */
@@ -815,24 +816,8 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 /*  FAQ section                                                               */
 /* -------------------------------------------------------------------------- */
 
-const FAQ_ITEMS: { q: string; a: string }[] = [
-  {
-    q: 'Why does UNICASH publish Winners?',
-    a: 'Published Winners help Members see completed Bonus Draw outcomes clearly and transparently.',
-  },
-  {
-    q: 'What information is shown?',
-    a: 'The Winner display name, Bonus Draw name, reward, published date, and available draw details.',
-  },
-  {
-    q: 'Why are names shortened?',
-    a: 'Winner names may be shown in a privacy-safe format such as first name and last initial.',
-  },
-  {
-    q: 'Where can I see active Bonus Draws?',
-    a: 'Visit the Bonus Draws page to view current member-only Bonus Draws.',
-  },
-];
+// Source of truth: /legal/UNICASH-FAQs.md → unicash-web/content/faqs.ts
+const FAQ_ITEMS: { q: string; a: string }[] = winnersFaqs;
 
 function FaqSection() {
   const [openIdx, setOpenIdx] = useState<number>(0);
