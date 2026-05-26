@@ -910,18 +910,101 @@ export default function DashboardPage() {
         ) : (
           <ul className="mt-4 divide-y divide-[#EFEDF5]">
             {recentLedger.map((row: any) => {
-              const isCredit = Number(row.amount) >= 0;
+              /* Source + transactionType drive sign, color, and icon.
+                 The backend stores `amount` as POSITIVE on both SPEND and
+                 GRANT rows — we infer direction from transactionType
+                 because reading the amount alone gives the wrong answer
+                 for redemption SPEND rows. */
+              const txType = String(row.transactionType ?? '').toLowerCase();
+              const source = String(row.source ?? '').toLowerCase();
+              const absAmount = Math.abs(Number(row.amount));
+              const isSpend = txType === 'spend';
+              const isReturn = txType === 'refund' || (txType === 'grant' && source === 'refund');
+              const isGain = txType === 'grant' && !isReturn;
+              /* Fallback when transactionType is missing (legacy rows):
+                 use amount sign. */
+              const fallbackCredit = !row.transactionType && Number(row.amount) >= 0;
+
+              const showAsCredit = isGain || isReturn || fallbackCredit;
+              const showAsSpend = isSpend;
+
+              /* Title — map (source, direction) to a member-friendly label.
+                 Fall back to row.description for sources we have not
+                 catalogued yet. */
+              const friendlyTitle = (() => {
+                if (source === 'gift_card_redemption' && isSpend) return 'Gift card redeemed';
+                if (source === 'refund' && isReturn) return 'Redemption refunded';
+                if (source === 'bonus_draw_entry' && isSpend) return 'Bonus Draw entry';
+                if (source === 'receipt_earn' && isGain) return 'Receipt approved';
+                if (source === 'monthly_membership_points' && isGain) return 'Monthly Membership Points';
+                if (source === 'boost_pack_purchase' && isGain) return 'Point Booster purchased';
+                return row.description || (showAsCredit ? 'Points granted' : 'Points used');
+              })();
+
+              /* Sub-line — strip the source prefix from description and
+                 (for refunds) translate technical reason codes into
+                 user-friendly language. */
+              const REASON_LABELS: Record<string, string> = {
+                invalid_request: 'We hit a technical issue completing this.',
+                out_of_stock: 'This brand was temporarily out of stock.',
+                provider_error: 'Our gift card partner had an issue.',
+                fraud_rejected: 'We could not verify this redemption.',
+                cap_exceeded: 'You reached this brand’s monthly limit.',
+                network_failure: 'We lost connection — Points are safe.',
+              };
+              const subline = (() => {
+                const desc = String(row.description ?? '');
+                if (source === 'refund' && isReturn) {
+                  /* "Gift card refund · Coles (invalid_request)" → brand + friendly reason */
+                  const brandMatch = desc.match(/Gift card refund · ([^()]+?)(?:\s*\(|$)/);
+                  const reasonMatch = desc.match(/\(([^)]+)\)/);
+                  const brand = brandMatch?.[1]?.trim();
+                  const reason = reasonMatch?.[1]?.trim().toLowerCase();
+                  const friendlyReason = (reason && REASON_LABELS[reason]) || 'Your Points are back.';
+                  return brand ? `${brand} · ${friendlyReason}` : friendlyReason;
+                }
+                if (source === 'gift_card_redemption' && isSpend) {
+                  /* "Gift card redemption · Apple Gift Card - digital 25 AUD × 1"
+                     → "Apple Gift Card - digital · $25" */
+                  const m = desc.match(/Gift card redemption · (.+?) (\d+(?:\.\d+)?) AUD × (\d+)/);
+                  if (m) {
+                    const [, brand, value, qty] = m;
+                    return Number(qty) > 1
+                      ? `${brand} · $${value} × ${qty}`
+                      : `${brand} · $${value}`;
+                  }
+                }
+                return null;
+              })();
+
+              const ringClasses = showAsSpend
+                ? 'bg-[#FEF2F2] ring-[#FECACA] text-[#EF4444]'
+                : isReturn
+                  ? 'bg-[#FEF6E7] ring-[#FFE2B0] text-[#C49A2C]'
+                  : 'bg-[#ECFDF5] ring-[#A7F3D0] text-[#10B981]';
+
+              const amountClass = showAsSpend
+                ? 'text-[#EF4444]'
+                : isReturn
+                  ? 'text-[#10B981]'
+                  : 'text-[#10B981]';
+
+              const signPrefix = showAsSpend ? '−' : '+'; // unicode minus
+
               return (
-                <li key={`l-${row.id}`} className="flex items-center gap-3 py-2.5 first:pt-0">
-                  <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${isCredit ? 'bg-[#ECFDF5] ring-[#A7F3D0] text-[#10B981]' : 'bg-[#F4F1FB] ring-[#E0DAFF] text-[#6356E5]'}`}>
+                <li key={`l-${row.id}`} className="flex items-start gap-3 py-2.5 first:pt-0">
+                  <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${ringClasses}`}>
                     <Icon.Coins className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-extrabold tracking-tight text-[#0F1222]">{row.description || (isCredit ? 'Points granted' : 'Points used')}</p>
+                    <p className="truncate text-[13px] font-extrabold tracking-tight text-[#0F1222]">{friendlyTitle}</p>
+                    {subline ? (
+                      <p className="mt-0.5 truncate text-[11.5px] leading-snug text-[#4B5563]">{subline}</p>
+                    ) : null}
                     <p className="mt-0.5 text-[11px] text-[#667085]">{formatDate(row.createdAt)}</p>
                   </div>
-                  <p className={`shrink-0 whitespace-nowrap text-right text-[13px] font-extrabold tabular-nums ${isCredit ? 'text-[#10B981]' : 'text-[#0F1222]'}`}>
-                    {isCredit ? '+' : ''}{Number(row.amount).toLocaleString()} <span className="text-[10.5px] font-semibold text-[#667085]">Points</span>
+                  <p className={`shrink-0 whitespace-nowrap text-right text-[13px] font-extrabold tabular-nums ${amountClass}`}>
+                    {signPrefix}{absAmount.toLocaleString()} <span className="text-[10.5px] font-semibold text-[#667085]">Points</span>
                   </p>
                 </li>
               );

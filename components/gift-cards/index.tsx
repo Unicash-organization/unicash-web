@@ -40,18 +40,62 @@ import { formatAud, formatPts, formatDateTime } from '@/lib/gift-cards/format';
 
 /* ──────────────────────────────────────────────────────────────────
    StatusChip — redemption + brand statuses
+
+   2026-05-26 — Map every one of the 10 backend redemption states
+   (per redemption.entity.ts) plus the 3 brand states. Three pending
+   states are grouped under "Processing" because they describe normal
+   in-flight work; only `pending_payment` and `pending_fulfillment`
+   warrant the amber "On hold" tone (those indicate something needs
+   intervention upstream). A separate "Delivery issue" tone covers
+   the bounce-recovery state `pending_delivery`.
    ────────────────────────────────────────────────────────────────── */
-const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string; label: string }> = {
-  draft: { bg: '#F4F1FB', text: '#5648D8', dot: '#8B7BFF', label: 'Draft' },
-  processing: { bg: '#F6F4FF', text: '#5648D8', dot: '#6356E5', label: 'Processing' },
-  on_hold: { bg: '#FFFBEB', text: '#B45309', dot: '#F59E0B', label: 'On hold' },
+type StatusStyle = { bg: string; text: string; dot: string; label: string };
+
+const PROCESSING_STYLE: StatusStyle = {
+  bg: '#F6F4FF',
+  text: '#5648D8',
+  dot: '#6356E5',
+  label: 'Processing',
+};
+const ON_HOLD_STYLE: StatusStyle = {
+  bg: '#FFFBEB',
+  text: '#B45309',
+  dot: '#F59E0B',
+  label: 'On hold',
+};
+const STATUS_STYLES: Record<string, StatusStyle> = {
+  /* Redemption — in-flight (normal, not scary) */
+  points_held: PROCESSING_STYLE,
+  submitting: PROCESSING_STYLE,
+  prezzee_pending: PROCESSING_STYLE,
+  /* Redemption — needs upstream intervention */
+  pending_payment: ON_HOLD_STYLE,
+  pending_fulfillment: ON_HOLD_STYLE,
+  /* Redemption — delivery-specific issue (bounce / undeliverable email) */
+  pending_delivery: {
+    bg: '#FFF7ED',
+    text: '#9A3412',
+    dot: '#F97316',
+    label: 'Delivery issue',
+  },
+  /* Redemption — terminal states */
   completed: { bg: '#ECFDF5', text: '#047857', dot: '#10B981', label: 'Completed' },
   failed: { bg: '#FEF2F2', text: '#B91C1C', dot: '#EF4444', label: 'Failed' },
-  refunded: { bg: '#F1F5F9', text: '#475569', dot: '#94A3B8', label: 'Refunded' },
+  refunded: { bg: '#F1ECFB', text: '#5648D8', dot: '#8B7BFF', label: 'Refunded' },
   cancelled: { bg: '#F1F5F9', text: '#475569', dot: '#94A3B8', label: 'Cancelled' },
+  /* Brand statuses (catalog admin) */
   live: { bg: '#ECFDF5', text: '#047857', dot: '#10B981', label: 'Live' },
   paused: { bg: '#FFFBEB', text: '#B45309', dot: '#F59E0B', label: 'Paused' },
   archived: { bg: '#F1F5F9', text: '#475569', dot: '#94A3B8', label: 'Archived' },
+};
+/* Final-resort fallback when an unknown status string sneaks through —
+   show a neutral chip with the raw value so it's debuggable rather
+   than mis-rendering as something it isn't. */
+const UNKNOWN_STYLE: StatusStyle = {
+  bg: '#F1F5F9',
+  text: '#475569',
+  dot: '#94A3B8',
+  label: 'Unknown',
 };
 
 export function StatusChip({
@@ -61,7 +105,7 @@ export function StatusChip({
   status: RedemptionStatus | string;
   className?: string;
 }) {
-  const s = STATUS_STYLES[status] || STATUS_STYLES.draft;
+  const s = STATUS_STYLES[status] || UNKNOWN_STYLE;
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold whitespace-nowrap ${className}`}
@@ -151,7 +195,12 @@ export function DenominationChip({
 }
 
 /* ──────────────────────────────────────────────────────────────────
-   BalanceRow — "Points balance 84,200 → 79,200 pts"
+   BalanceRow — two layouts:
+   • Sufficient   → "Points balance  84,200 → 79,200 pts"   (after-state)
+   • Insufficient → "Points balance  3,500 pts · Need 4,000 more"
+   The post-redemption "negative balance" reading confused members
+   (2026-05-26 feedback) because backend never allows a negative
+   balance — show the shortfall directly instead.
    ────────────────────────────────────────────────────────────────── */
 export function BalanceRow({
   currentPoints,
@@ -164,6 +213,7 @@ export function BalanceRow({
 }) {
   const after = currentPoints - pointsRequired;
   const insufficient = after < 0;
+  const shortfall = insufficient ? Math.abs(after) : 0;
   return (
     <div
       className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl border px-4 py-3 text-[14px] ${
@@ -171,13 +221,19 @@ export function BalanceRow({
       } ${className}`}
     >
       <div className="text-[#667085]">Points balance</div>
-      <div className="flex items-center gap-1.5 font-semibold tabular-nums">
-        <span className="text-[#0F1222]">{formatPts(currentPoints)}</span>
-        <ChevronRight className="w-3.5 h-3.5 text-[#667085]" />
-        <span className={insufficient ? 'text-[#B91C1C]' : 'text-[#0F1222]'}>
-          {formatPts(after)}
-        </span>
-      </div>
+      {insufficient ? (
+        <div className="flex items-center gap-2 font-semibold tabular-nums">
+          <span className="text-[#0F1222]">{formatPts(currentPoints)}</span>
+          <span aria-hidden className="text-[#FCA5A5]">·</span>
+          <span className="text-[#B91C1C]">Need {formatPts(shortfall)} more</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1.5 font-semibold tabular-nums">
+          <span className="text-[#0F1222]">{formatPts(currentPoints)}</span>
+          <ChevronRight className="w-3.5 h-3.5 text-[#667085]" />
+          <span className="text-[#0F1222]">{formatPts(after)}</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -96,6 +96,15 @@ const Icon = {
       <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   ),
+  GiftCard: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <rect x="3" y="8" width="18" height="13" rx="2" />
+      <path d="M3 12h18" />
+      <path d="M12 8v13" />
+      <path d="M12 8a3 3 0 1 1-3-3 3 3 0 0 1 3 3z" />
+      <path d="M12 8a3 3 0 1 0 3-3 3 3 0 0 0-3 3z" />
+    </svg>
+  ),
   Sparkle: ({ className = '' }: { className?: string }) => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
       <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
@@ -122,6 +131,7 @@ const ACCOUNT_NAV = [
   { label: 'My Entries',         href: '/dashboard/entries',            icon: Icon.List },
   { label: 'My Receipts',        href: '/dashboard/receipts',           icon: Icon.Camera },
   { label: 'Purchase History',   href: '/dashboard/purchases',          icon: Icon.Receipt },
+  { label: 'Gift cards',         href: '/dashboard/redemptions',        icon: Icon.GiftCard },
   { label: 'Security & Billing', href: '/dashboard/security-billing',   icon: Icon.Card },
 ];
 
@@ -130,18 +140,20 @@ const ACCOUNT_NAV = [
    already have ACCOUNT > Membership pointing to /dashboard/membership.
    FAQ moved to SUPPORT (it's help, not exploration). */
 const MARKETING_NAV_GUEST = [
-  { label: 'Bonus Draws',    href: '/giveaways',         icon: Icon.Trophy },
-  { label: 'Membership',     href: '/#membership-plans', icon: Icon.Crown },
-  { label: 'Point Boosters', href: '/boost-packs',       icon: Icon.Bolt },
-  { label: 'Fuel Rewards',   href: '/scan-receipts',     icon: Icon.Camera },
-  { label: 'Winners',        href: '/winners',           icon: Icon.Trophy2 },
+  { label: 'Bonus Draws',        href: '/giveaways',         icon: Icon.Trophy },
+  { label: 'Membership',         href: '/#membership-plans', icon: Icon.Crown },
+  { label: 'Point Boosters',     href: '/boost-packs',       icon: Icon.Bolt },
+  { label: 'Redeem Gift Cards',  href: '/rewards/gift-cards',icon: Icon.GiftCard },
+  { label: 'Fuel Rewards',       href: '/scan-receipts',     icon: Icon.Camera },
+  { label: 'Winners',            href: '/winners',           icon: Icon.Trophy2 },
 ];
 
 const MARKETING_NAV_MEMBER = [
-  { label: 'Bonus Draws',    href: '/giveaways',     icon: Icon.Trophy },
-  { label: 'Point Boosters', href: '/boost-packs',   icon: Icon.Bolt },
-  { label: 'Fuel Rewards',   href: '/scan-receipts', icon: Icon.Camera },
-  { label: 'Winners',        href: '/winners',       icon: Icon.Trophy2 },
+  { label: 'Bonus Draws',        href: '/giveaways',         icon: Icon.Trophy },
+  { label: 'Point Boosters',     href: '/boost-packs',       icon: Icon.Bolt },
+  { label: 'Redeem Gift Cards',  href: '/rewards/gift-cards',icon: Icon.GiftCard },
+  { label: 'Fuel Rewards',       href: '/scan-receipts',     icon: Icon.Camera },
+  { label: 'Winners',            href: '/winners',           icon: Icon.Trophy2 },
 ];
 
 const SUPPORT_NAV = [

@@ -64,6 +64,18 @@ const Icon = {
       <circle cx="12" cy="13" r="3" />
     </svg>
   ),
+  /* Gift card — payment-card rectangle + bow on top, signals
+     "gift" without colliding with the Receipt or generic Card icons
+     already in use on this sidebar. */
+  GiftCard: ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <rect x="3" y="8" width="18" height="13" rx="2" />
+      <path d="M3 12h18" />
+      <path d="M12 8v13" />
+      <path d="M12 8a3 3 0 1 1-3-3 3 3 0 0 1 3 3z" />
+      <path d="M12 8a3 3 0 1 0 3-3 3 3 0 0 0-3 3z" />
+    </svg>
+  ),
 };
 
 const ACCOUNT_NAV: { label: string; href: string; icon: React.FC<{ className?: string }>; matchPaths?: string[] }[] = [
@@ -72,6 +84,7 @@ const ACCOUNT_NAV: { label: string; href: string; icon: React.FC<{ className?: s
   { label: 'My Entries',         href: '/dashboard/entries',          icon: Icon.List },
   { label: 'My Receipts',        href: '/dashboard/receipts',         icon: Icon.Camera },
   { label: 'Purchase History',   href: '/dashboard/purchases',        icon: Icon.Receipt },
+  { label: 'Gift cards',         href: '/dashboard/redemptions',      icon: Icon.GiftCard },
   {
     label: 'Security & Billing',
     href: '/dashboard/security-billing',

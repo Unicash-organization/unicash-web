@@ -9,7 +9,7 @@
  *
  * Mobile shows a card list per row; desktop shows a tidy table. No tabs
  * library — small button-pill toggle keeps the bundle slim, same idiom
- * as /account/redemptions filter row.
+ * as /dashboard/redemptions filter row.
  */
 
 import { useEffect, useMemo, useState } from 'react';

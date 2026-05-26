@@ -1,20 +1,25 @@
 /**
  * Shared layout + renderer for UNICASH legal pages.
  *
- * Reads markdown source from `unicash-web/content/legal/{slug}.md` at
- * render time (Server Component, Node fs) and pipes the body through
- * ReactMarkdown with custom component mappings that match the canonical
- * UNICASH legal-page styling (lavender bg, eyebrow + H1, 14.5px prose,
- * #6356E5 brand link colour, rounded-2xl support card at the bottom).
+ * Phase A — baseline + override pattern:
  *
- * Source of truth for the markdown lives in the canonical `/legal/`
- * directory at the repo root; copies are mirrored into
- * `unicash-web/content/legal/` so Next.js can read them at build time.
+ *   1. Fetch the published override from the API
+ *      (`GET /api/legal/overrides/:slug`). If 200, render that content.
+ *      Admin can edit/publish without a code deploy.
  *
- * The .md files contain a metadata header (version, effective date,
- * legal review note) terminated by the first `---` separator. The
- * loader strips that header — the public page renders body content
- * only and supplies its own title + last-updated via component props.
+ *   2. If the API returns 404 (no published override) or the fetch
+ *      fails, fall back to the bundled `.md` baseline at
+ *      `unicash-web/content/legal/{slug}.md` (lawyer-reviewed,
+ *      Git-versioned).
+ *
+ * Styling matches the canonical UNICASH legal-page tokens (lavender bg,
+ * eyebrow + H1, 14.5px prose, #6356E5 brand link colour, rounded-2xl
+ * support card at the bottom).
+ *
+ * Both content sources (override + baseline) share the same Markdown
+ * header-strip + cross-reference preprocessing logic and the same
+ * ReactMarkdown component mappings. Admin authors and lawyer authors
+ * write in the same dialect.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -59,10 +64,14 @@ function preprocess(content: string): string {
     .replace(/\[unicash\.com\.au\/legal\/refund-policy\](?!\()/g, '[unicash.com.au/legal/refund-policy](/legal/refund-policy)');
 }
 
-function loadContent(slug: LegalSlug): string {
-  const filePath = join(process.cwd(), 'content', 'legal', `${slug}.md`);
-  const raw = readFileSync(filePath, 'utf-8');
-  // Strip the metadata header (everything up to and including the first --- separator).
+/**
+ * Strip the metadata header (everything up to and including the first ---
+ * separator) and apply cross-reference preprocessing.
+ *
+ * Used for both override content (from API) and baseline (from .md file)
+ * so authors write in the same dialect either way.
+ */
+function normaliseMarkdown(raw: string): string {
   const headerMatch = raw.match(/^---\s*$/m);
   if (!headerMatch || headerMatch.index === undefined) {
     return preprocess(raw);
@@ -71,15 +80,70 @@ function loadContent(slug: LegalSlug): string {
   return preprocess(body);
 }
 
+function loadBaseline(slug: LegalSlug): string {
+  const filePath = join(process.cwd(), 'content', 'legal', `${slug}.md`);
+  const raw = readFileSync(filePath, 'utf-8');
+  return normaliseMarkdown(raw);
+}
+
+/**
+ * Fetch a published admin override from the API.
+ *
+ * - Returns the markdown body + published_at if a published row exists.
+ * - Returns null on 404 (no override) or on any fetch/parse error
+ *   (network blip, API down). The page then falls back to baseline.
+ *
+ * `next: { revalidate: 60 }` makes Next.js cache the response for up to
+ * 60s between requests. Admin can also trigger an on-demand revalidate
+ * via a webhook after publish if a faster propagation is needed.
+ */
+async function fetchOverride(
+  slug: LegalSlug,
+): Promise<{ content: string; publishedAt: string | null; version: number } | null> {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ??
+    'http://localhost:3000/api';
+  const url = `${baseUrl}/legal/overrides/${slug}`;
+
+  try {
+    const res = await fetch(url, { next: { revalidate: 60 } });
+    if (!res.ok) {
+      // 404 = no published override (expected); 5xx = transient (fall back).
+      return null;
+    }
+    const json = (await res.json()) as {
+      markdown_content?: string;
+      published_at?: string | null;
+      version?: number;
+    };
+    if (!json?.markdown_content) {
+      return null;
+    }
+    return {
+      content: normaliseMarkdown(json.markdown_content),
+      publishedAt: json.published_at ?? null,
+      version: json.version ?? 1,
+    };
+  } catch {
+    return null;
+  }
+}
+
 interface LegalPageProps {
   slug: LegalSlug;
 }
 
-export default function LegalPage({ slug }: LegalPageProps) {
-  const content = loadContent(slug);
+export default async function LegalPage({ slug }: LegalPageProps) {
+  const override = await fetchOverride(slug);
+  const content = override ? override.content : loadBaseline(slug);
+
   const title = TITLE[slug];
   const eyebrow = EYEBROW[slug];
-  const lastUpdated = LAST_UPDATED[slug];
+  // If an admin override is published, show its publishedAt; else the
+  // baseline last-updated date.
+  const lastUpdated = override?.publishedAt
+    ? new Date(override.publishedAt).toISOString().slice(0, 10)
+    : LAST_UPDATED[slug];
 
   return (
     <main className="bg-[#FBFAFF] py-16">

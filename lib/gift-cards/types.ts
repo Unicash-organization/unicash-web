@@ -97,7 +97,12 @@ export type RedemptionFailureReason =
   | 'network_failure'
   | 'fraud_rejected'
   | 'cap_exceeded'
-  | 'invalid_request';
+  | 'invalid_request'
+  /* Member-side errors (backend rejected, Points never moved). */
+  | 'insufficient_points'
+  | 'feature_not_enabled'
+  | 'auth_required'
+  | 'member_invalid';
 
 export type RedemptionChannel = 'web' | 'ios' | 'android';
 

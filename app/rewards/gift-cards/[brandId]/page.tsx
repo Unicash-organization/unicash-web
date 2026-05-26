@@ -27,7 +27,7 @@
  * wire Processing → Success → On-hold → Failure inline.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
@@ -37,8 +37,6 @@ import {
   ChevronDown,
   Clock,
   Lock,
-  Minus,
-  Plus,
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
@@ -48,9 +46,10 @@ import {
   DenominationChip,
 } from '@/components/gift-cards';
 import CheckoutFlow from '@/components/gift-cards/checkout-flow';
-import { getBrand, MOCK_MEMBER_BALANCE, MOCK_REDEMPTIONS } from '@/lib/gift-cards/mock-data';
+import { getBrand, MOCK_REDEMPTIONS } from '@/lib/gift-cards/mock-data';
 import api from '@/lib/api';
-import type { Brand } from '@/lib/gift-cards/types';
+import { useAuth } from '@/contexts/AuthContext';
+import type { Brand, MemberBalance } from '@/lib/gift-cards/types';
 import { formatAud, formatPts } from '@/lib/gift-cards/format';
 import type { Denomination } from '@/lib/gift-cards/types';
 
@@ -92,7 +91,26 @@ export default function BrandDetailPage() {
   const params = useParams();
   const router = useRouter();
   const brandId = decodeURIComponent((params?.brandId as string) || '');
-  const balance = MOCK_MEMBER_BALANCE;
+
+  /* 2026-05-26 — read live Points balance + membership status from
+     AuthContext (same source the Header pill uses) instead of the
+     hardcoded MOCK_MEMBER_BALANCE that the page was shipped with.
+     `membershipCredits` and `boostCredits` on the User row are kept
+     in sync by every ledger mutation, so they reflect any pending
+     debits (the redemption modal reserves Points before this page
+     refetches). */
+  const { user } = useAuth();
+  const balance: MemberBalance = useMemo(() => {
+    const total =
+      (Number(user?.membershipCredits) || 0) +
+      (Number(user?.boostCredits) || 0);
+    return {
+      pointsAvailable: total,
+      pointsHeld: 0, // not surfaced on User row; admin-only telemetry
+      fuelRewardsAud: Number((user as any)?.fuelRewardsAud) || 0,
+      isMember: !!(user as any)?.membership || !!(user as any)?.membershipId,
+    };
+  }, [user]);
 
   // GP4 — fetch brand from backend; fall back to local mock so dev
   // without API still works.
@@ -121,14 +139,35 @@ export default function BrandDetailPage() {
   const [authState] = useState<AuthState>(balance.isMember ? 'member' : 'free_member');
 
   const [selectedDenomId, setSelectedDenomId] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState(1);
+  /* 2026-05-26 — Quantity locked to 1 per redemption.
+     Backend createOrder currently only sends a single item to Prezzee
+     regardless of `quantity`, so qty>1 silently lost gift cards while
+     debiting all the Points. Disabled at the UI until multi-item
+     fulfillment ships (see Option A roadmap in the redemption flow audit).
+     The `quantity` DB column stays so the historical schema is
+     unchanged; members who want N gift cards redeem N times. */
+  const quantity = 1;
   const [reviewOpen, setReviewOpen] = useState(false);
   const [openAccordion, setOpenAccordion] = useState<'terms' | 'faq' | null>(null);
+  /* When the persistent Redeem CTA is clicked without a denomination
+     selected, briefly flash the chip row to guide the eye there. */
+  const denomsRef = useRef<HTMLDivElement | null>(null);
+  const [chipsFlash, setChipsFlash] = useState(false);
 
   const selected: Denomination | null = useMemo(() => {
     if (!brand || !selectedDenomId) return null;
     return brand.denominations.find((d) => d.id === selectedDenomId) ?? null;
   }, [brand, selectedDenomId]);
+
+  const handleStartRedeem = () => {
+    if (!selected) {
+      denomsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setChipsFlash(true);
+      window.setTimeout(() => setChipsFlash(false), 1600);
+      return;
+    }
+    setReviewOpen(true);
+  };
 
   const totalPoints = selected ? selected.pointsRequired * quantity : 0;
   const totalAud = selected ? selected.valueAud * quantity : 0;
@@ -141,7 +180,6 @@ export default function BrandDetailPage() {
   const monthlyCap = selected?.capPerMemberPerMonth ?? 0;
   const remainingCap = Math.max(0, monthlyCap - redeemedCount);
   const capReached = selected ? remainingCap <= 0 : false;
-  const maxQty = Math.max(1, remainingCap || 1);
 
   const memberLocked = brand?.memberOnly && authState !== 'member';
   const loginRequired = authState === 'guest';
@@ -185,10 +223,6 @@ export default function BrandDetailPage() {
       </div>
     );
   }
-
-  const handleQty = (delta: number) => {
-    setQuantity((q) => Math.min(maxQty, Math.max(1, q + delta)));
-  };
 
   const canRedeem =
     !!selected && !outOfStock && !insufficient && !capReached && !memberLocked && !loginRequired;
@@ -270,7 +304,12 @@ export default function BrandDetailPage() {
           <h2 className="text-[16px] font-extrabold tracking-tight text-[#0F1222]">
             Choose a denomination
           </h2>
-          <div className="mt-3 flex flex-wrap gap-2.5">
+          <div
+            ref={denomsRef}
+            className={`mt-3 flex flex-wrap gap-2.5 rounded-2xl p-1 -m-1 transition-all duration-300 ${
+              chipsFlash ? 'ring-2 ring-[#6356E5]/40 bg-[#F4F1FB]' : 'ring-0'
+            }`}
+          >
             {brand.denominations
               .filter((d) => d.active)
               .map((d) => (
@@ -280,7 +319,6 @@ export default function BrandDetailPage() {
                   selected={selectedDenomId === d.id}
                   onClick={() => {
                     setSelectedDenomId(d.id);
-                    setQuantity(1);
                   }}
                 />
               ))}
@@ -308,37 +346,13 @@ export default function BrandDetailPage() {
             </div>
           )}
 
-          {/* Quantity stepper — only when redeemable */}
-          {selected && !outOfStock && !capReached && (
-            <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-[#E7E9F2] bg-[#FBFAFF] px-4 py-3">
-              <div>
-                <div className="text-[12px] text-[#667085]">Quantity</div>
-                <div className="text-[11px] text-[#9097A8]">
-                  Up to {monthlyCap} per month · {remainingCap} remaining
-                </div>
-              </div>
-              <div className="inline-flex items-center rounded-full bg-white border border-[#E7E9F2]">
-                <button
-                  type="button"
-                  onClick={() => handleQty(-1)}
-                  disabled={quantity <= 1}
-                  aria-label="Decrease quantity"
-                  className="inline-flex h-9 w-9 items-center justify-center text-[#0F1222] disabled:text-[#9097A8]"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </button>
-                <div className="w-10 text-center font-bold tabular-nums">{quantity}</div>
-                <button
-                  type="button"
-                  onClick={() => handleQty(1)}
-                  disabled={quantity >= maxQty}
-                  aria-label="Increase quantity"
-                  className="inline-flex h-9 w-9 items-center justify-center text-[#0F1222] disabled:text-[#9097A8]"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
+          {/* Monthly cap hint — quantity is fixed at 1 per redemption
+              (2026-05-26 UX decision); members redeem the same brand
+              multiple times to get more gift cards. */}
+          {selected && !outOfStock && !capReached && monthlyCap > 1 && (
+            <p className="mt-4 text-[12px] text-[#667085]">
+              Up to {monthlyCap} per month for this denomination · {remainingCap} left.
+            </p>
           )}
         </section>
 
@@ -375,8 +389,17 @@ export default function BrandDetailPage() {
         )}
 
         {!selected && (
-          <section className="rounded-3xl border border-dashed border-[#E7E9F2] bg-white/60 p-5 text-center text-[14px] text-[#667085]">
-            Choose a denomination above to see Points required.
+          <section className="rounded-3xl border border-[#E7E9F2] bg-white p-5 space-y-3">
+            <p className="text-[13px] text-[#667085] text-center">
+              Pick a denomination above to lock in your gift card.
+            </p>
+            <button
+              type="button"
+              onClick={handleStartRedeem}
+              className="w-full inline-flex items-center justify-center rounded-full bg-[#F4F1FB] text-[#5648D8] hover:bg-[#E7DFFF] px-5 py-3 text-[14px] font-bold transition-colors"
+            >
+              Redeem Gift Card
+            </button>
           </section>
         )}
 
@@ -434,7 +457,7 @@ export default function BrandDetailPage() {
         {/* Trust row */}
         <section className="rounded-3xl border border-[#E7E9F2] bg-[#FBFAFF] p-5">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <TrustChip icon={<ShieldCheck className="w-4 h-4" />} title="Powered by Prezzee" body="Australia's leading digital gift card platform — encrypted at rest, reveal is logged." />
+            <TrustChip icon={<ShieldCheck className="w-4 h-4" />} title="Powered by Prezzee" body="Australia's leading digital gift card platform — UNICASH never sees your gift code." />
             <TrustChip icon={<Clock className="w-4 h-4" />} title="2-year validity" body="Plenty of time to spend." />
             <TrustChip icon={<Sparkles className="w-4 h-4" />} title="No hidden fees" body="Face value at checkout." />
           </div>
@@ -546,19 +569,13 @@ function PrimaryCta({
   if (insufficient) {
     return compact ? (
       <Link href="/boost-packs" className={`${base} bg-[#6356E5] text-white hover:bg-[#5648D8]`}>
-        Get Points
+        Buy Point Booster
       </Link>
     ) : (
       <div className="flex flex-col sm:flex-row gap-2 mt-2">
         <Link
           href="/boost-packs"
           className="flex-1 inline-flex items-center justify-center rounded-full bg-[#6356E5] text-white hover:bg-[#5648D8] px-5 py-3 text-[14px] font-bold transition-colors"
-        >
-          Get Points
-        </Link>
-        <Link
-          href="/boost-packs"
-          className="flex-1 inline-flex items-center justify-center rounded-full border border-[#E7E9F2] bg-white text-[#0F1222] hover:bg-[#F6F4FF] px-5 py-3 text-[14px] font-bold transition-colors"
         >
           Buy Point Booster
         </Link>

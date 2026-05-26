@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { label: 'Bonus Draws', href: '/giveaways' },
   { label: 'Membership', href: '/#membership-plans' },
   { label: 'Point Boosters', href: '/boost-packs' },
+  { label: 'Redeem Gift Cards', href: '/rewards/gift-cards' },
   { label: 'Fuel Rewards', href: '/scan-receipts' },
   { label: 'Winners', href: '/winners' },
   { label: 'FAQ', href: '/faq' },

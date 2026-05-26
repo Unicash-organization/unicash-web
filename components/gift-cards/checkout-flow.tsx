@@ -3,20 +3,23 @@
 /**
  * UNICASH Redeem Gift Cards — Checkout Flow
  *
- * Multi-state flow rendered inside the Review BottomSheet from
- * brand-detail. The flow never navigates away mid-redemption — every
- * state replaces the modal contents in-place so the member always
- * sees an explicit outcome (success / hold / failure with cause).
+ * 2026-05-26 — Unified post-confirm pane (replaces the legacy
+ * processing/preparing/on_hold/success quartet). Modal is the
+ * confirmation handshake; the receipt page (/dashboard/redemptions/:id)
+ * is the source of truth for delivery status. This matches modern
+ * commerce patterns (Stripe, Shopify) and stops the modal from
+ * "holding" the member while async work runs.
  *
  * State machine:
  *
- *   review ──confirm──► processing ──ok (≤10s)──► success
- *                                  ├─slow (>30s)─► on_hold
- *                                  └─fail──────► failure(reason)
+ *   review ──confirm──► submitting (inline spinner on button)
+ *                         │
+ *                         ├─non-failure status──► submitted
+ *                         │                       (Track this redemption)
+ *                         └─failure──► failure(reason)
  *
- * Ledger copy contract (per spec §9 + §11):
- *   - success         → Points debited
- *   - on_hold         → Points held (reservation; reversible)
+ * Ledger copy contract:
+ *   - submitted       → Points debited  (refunded if anything fails)
  *   - out_of_stock    → Points NOT debited
  *   - provider_error  → Points refunded
  *   - network_failure → Points NOT debited
@@ -24,9 +27,7 @@
  *   - cap_exceeded    → Points NOT debited
  *
  * Dev toggle: a small `Force outcome` select sits in the Review pane
- * during the mock phase. Remove before the API wires up — spec §14
- * acceptance criteria asks for it commented; we surface it as a
- * radio-style chip group instead so QA can drive every branch.
+ * for QA — gate behind an env flag before launch.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -34,15 +35,12 @@ import Link from 'next/link';
 import {
   AlertCircle,
   CheckCircle2,
-  Clock,
   Loader2,
-  Mail,
   ReceiptText,
   Send,
   ShieldAlert,
   XCircle,
 } from 'lucide-react';
-import { BalanceRow } from '@/components/gift-cards';
 import api from '@/lib/api';
 import type {
   Brand,
@@ -50,18 +48,17 @@ import type {
   MemberBalance,
   RedemptionFailureReason,
 } from '@/lib/gift-cards/types';
-import { formatAud, formatDateTime, formatPts } from '@/lib/gift-cards/format';
+import { formatAud, formatPts } from '@/lib/gift-cards/format';
 
 /* ──────────────────────────────────────────────────────────────────
    Types
    ────────────────────────────────────────────────────────────────── */
 
-type FlowStep = 'review' | 'processing' | 'success' | 'on_hold' | 'failure';
+type FlowStep = 'review' | 'submitting' | 'submitted' | 'failure';
 
 type ForcedOutcome =
   | 'auto'
-  | 'success'
-  | 'on_hold'
+  | 'submitted'
   | 'out_of_stock'
   | 'provider_error'
   | 'network_failure'
@@ -78,8 +75,7 @@ const FAILURE_REASONS: { value: ForcedOutcome; label: string }[] = [
 
 const OUTCOME_OPTIONS: { value: ForcedOutcome; label: string }[] = [
   { value: 'auto', label: 'Auto (random)' },
-  { value: 'success', label: 'Success' },
-  { value: 'on_hold', label: 'On hold' },
+  { value: 'submitted', label: 'Submitted' },
   ...FAILURE_REASONS,
 ];
 
@@ -107,10 +103,9 @@ export default function CheckoutFlow({
   onIssued,
 }: Props) {
   const totalPoints = denomination.pointsRequired * quantity;
-  const totalAud = denomination.valueAud * quantity;
 
   // Forced outcome — drives mock resolution. "auto" lets the mock
-  // resolver pick a weighted outcome (70% success, 15% hold, 15% fail).
+  // resolver pick a weighted outcome (85% submitted, 15% fail).
   const [forced, setForced] = useState<ForcedOutcome>('auto');
 
   // Flow state.
@@ -124,20 +119,25 @@ export default function CheckoutFlow({
   const [giftMessage, setGiftMessage] = useState('');
   const [confirmedRecipient, setConfirmedRecipient] = useState<string>('');
 
-  // Minted redemption id (assigned at confirm so the member can deep-link
-  // even if the modal is dismissed). 8-digit random suffix for the mock.
-  const redemptionId = useMemo(
-    () => `RDM-${Math.floor(Math.random() * 1_000_000).toString().padStart(6, '0')}`,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  /* Client-minted idempotency key (NOT shown in UI). Backend returns its
+     own UUID as the canonical redemption id — we capture that into
+     `mintedId` and use it for all deep-links. The local key only exists
+     to make the POST safely retryable. */
+  const idempotencyKey = useMemo(
+    () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `RDM-${Date.now()}-${Math.floor(Math.random() * 1_000_000).toString().padStart(6, '0')}`),
     [],
   );
+  /* The backend-assigned redemption id. Falls back to the idempotency
+     key only for dev-forced flows that never hit the API. */
+  const [mintedId, setMintedId] = useState<string>(idempotencyKey);
 
+  /* Single timer used only by the dev-forced mock path. */
   const timerRef = useRef<number | null>(null);
-  const holdTimerRef = useRef<number | null>(null);
   useEffect(
     () => () => {
       if (timerRef.current != null) window.clearTimeout(timerRef.current);
-      if (holdTimerRef.current != null) window.clearTimeout(holdTimerRef.current);
     },
     [],
   );
@@ -152,33 +152,24 @@ export default function CheckoutFlow({
     let pick: ForcedOutcome = forced;
     if (pick === 'auto') {
       const r = Math.random();
-      if (r < 0.7) pick = 'success';
-      else if (r < 0.85) pick = 'on_hold';
+      if (r < 0.85) pick = 'submitted';
       else {
         const reasons = FAILURE_REASONS.map((f) => f.value);
         pick = reasons[Math.floor(Math.random() * reasons.length)];
       }
     }
-    if (pick === 'success') return { next: 'success' };
-    if (pick === 'on_hold') return { next: 'on_hold' };
+    if (pick === 'submitted') return { next: 'submitted' };
     return { next: 'failure', reason: pick as RedemptionFailureReason };
   };
 
   /* ────────────────────────────────────────────────────────────────
-     Confirm — calls the real backend (Phase GP4). The backend
-     handles the reserve-then-Prezzee flow; we only react to the
-     final status (completed | on_hold | failed). Dev "Force outcome"
-     toggle remains as a local override so QA can still drive each
-     branch without hitting Prezzee.
+     Confirm — POST /redemptions, then either go to `submitted`
+     (any non-failure response) or `failure`. No more inline polling
+     in the modal; the receipt page polls until terminal.
      ──────────────────────────────────────────────────────────────── */
   const handleConfirm = async () => {
-    if (!termsAgreed) return;
-    setStep('processing');
-
-    // Hard timeout — flip to on_hold if backend hasn't replied in 30s
-    holdTimerRef.current = window.setTimeout(() => {
-      setStep((prev) => (prev === 'processing' ? 'on_hold' : prev));
-    }, 30_000);
+    if (!termsAgreed || step === 'submitting') return;
+    setStep('submitting');
 
     // Dev forced outcome — bypass backend entirely so QA can demo
     // every state without a server roundtrip.
@@ -187,8 +178,8 @@ export default function CheckoutFlow({
         const { next, reason } = resolveOutcome();
         if (next === 'failure' && reason) setFailureReason(reason);
         setStep(next);
-        if (next === 'success') onIssued?.(redemptionId);
-      }, 1800);
+        if (next === 'submitted') onIssued?.(mintedId);
+      }, 1200);
       return;
     }
 
@@ -204,63 +195,90 @@ export default function CheckoutFlow({
         pointsRequired: denomination.pointsRequired,
         providerCostAud: 0, // Backend ignores; server-side has the real cost
         quantity,
-        idempotencyKey: redemptionId,
+        idempotencyKey,
         channel: 'web',
         recipientEmail: trimmedRecipient || undefined,
         giftMessage: giftMessage.trim() || undefined,
       });
-      if (holdTimerRef.current != null) window.clearTimeout(holdTimerRef.current);
       const status = res.data?.status;
       const resolvedRecipient: string = res.data?.recipientEmail ?? trimmedRecipient ?? '';
       setConfirmedRecipient(resolvedRecipient);
-      // 2026-05-20 — 10-state machine: only `completed` is terminal-success.
-      // submitting/prezzee_pending/pending_payment/pending_fulfillment/pending_delivery
-      // all map to UI "on_hold". failed/refunded/cancelled → failure.
-      if (status === 'completed') {
-        onIssued?.(res.data.id ?? redemptionId);
-        setStep('success');
-      } else if (
-        status === 'submitting' ||
-        status === 'prezzee_pending' ||
-        status === 'pending_payment' ||
-        status === 'pending_fulfillment' ||
-        status === 'pending_delivery'
-      ) {
-        setStep('on_hold');
-      } else if (status === 'failed' || status === 'refunded' || status === 'cancelled') {
+      const persistedId: string = res.data?.id ?? idempotencyKey;
+      /* Canonical id for all deep-links — use whatever the backend
+         stored. Falls back to our idempotency key only when the API
+         response omits an id field. */
+      setMintedId(persistedId);
+
+      /* 2026-05-26 — Unified submitted pane.
+         - Terminal failures resolve immediately.
+         - Everything else (completed OR any pending status) lands on
+           SubmittedPane. The receipt page polls until terminal. */
+      if (status === 'failed' || status === 'refunded' || status === 'cancelled') {
         setFailureReason((res.data?.failureReason as RedemptionFailureReason) ?? 'provider_error');
         setStep('failure');
       } else {
-        setFailureReason((res.data?.failureReason as RedemptionFailureReason) ?? 'provider_error');
-        setStep('failure');
+        onIssued?.(persistedId);
+        setStep('submitted');
       }
     } catch (err: any) {
-      if (holdTimerRef.current != null) window.clearTimeout(holdTimerRef.current);
-      const code = err?.response?.data?.code;
-      if (code === 'insufficient_points') {
-        // Insufficient — close with native error; brand page already
-        // shows the recovery CTAs (Get Points / Booster / Receipts).
-        setFailureReason('provider_error');
-        setStep('failure');
+      /* Map (status, code) tuple to a member-friendly failure reason.
+         Backend uses BadRequestException({ code, message }) for most
+         validation failures, ForbiddenException for cohort gate, and
+         UnauthorizedException for auth. Network/abort errors have no
+         response at all. */
+      const status: number | undefined = err?.response?.status;
+      const code: string | undefined = err?.response?.data?.code;
+      const msg: string =
+        err?.response?.data?.message ?? err?.message ?? '';
+
+      let reason: RedemptionFailureReason = 'network_failure';
+
+      if (!err?.response) {
+        // No response received — true network failure or abort.
+        reason = 'network_failure';
+      } else if (status === 401) {
+        reason = 'auth_required';
+      } else if (status === 403) {
+        // Cohort gate or other server-side permission denial.
+        reason = code === 'feature_not_enabled' ? 'feature_not_enabled' : 'auth_required';
+      } else if (status === 404) {
+        // Member lookup failure or denomination not found.
+        reason = 'member_invalid';
+      } else if (status === 400) {
+        // Backend validation error. Map by code, fall back to message text.
+        if (code === 'insufficient_points' || /not enough points/i.test(msg)) {
+          reason = 'insufficient_points';
+        } else if (code === 'cap_exceeded' || /cap|monthly limit/i.test(msg)) {
+          reason = 'cap_exceeded';
+        } else if (code === 'out_of_stock' || /out of stock|sold out/i.test(msg)) {
+          reason = 'out_of_stock';
+        } else if (code === 'invalid_denomination' || /denomination/i.test(msg)) {
+          reason = 'invalid_request';
+        } else {
+          reason = 'invalid_request';
+        }
+      } else if (status && status >= 500) {
+        // Prezzee or our backend exploded — Points refunded by service.
+        reason = 'provider_error';
       } else {
-        setFailureReason('network_failure');
-        setStep('failure');
+        reason = 'network_failure';
       }
+
+      setFailureReason(reason);
+      setStep('failure');
     }
   };
 
   /* ────────────────────────────────────────────────────────────────
      Render — one block per step. Modal frame supplied by parent.
      ──────────────────────────────────────────────────────────────── */
-  if (step === 'review') {
+  if (step === 'review' || step === 'submitting') {
     return (
       <ReviewPane
         brand={brand}
         denomination={denomination}
         quantity={quantity}
         totalPoints={totalPoints}
-        totalAud={totalAud}
-        balance={balance}
         termsAgreed={termsAgreed}
         onTermsToggle={setTermsAgreed}
         recipientEmail={recipientEmail}
@@ -269,37 +287,21 @@ export default function CheckoutFlow({
         onGiftMessageChange={setGiftMessage}
         forced={forced}
         onForcedChange={setForced}
+        isSubmitting={step === 'submitting'}
         onConfirm={handleConfirm}
         onCancel={onClose}
       />
     );
   }
 
-  if (step === 'processing') {
-    return <ProcessingPane />;
-  }
-
-  if (step === 'success') {
+  if (step === 'submitted') {
     return (
-      <SuccessPane
+      <SubmittedPane
         brand={brand}
         denomination={denomination}
-        quantity={quantity}
         totalPoints={totalPoints}
         recipientEmail={confirmedRecipient}
-        redemptionId={redemptionId}
-        onClose={onClose}
-      />
-    );
-  }
-
-  if (step === 'on_hold') {
-    return (
-      <OnHoldPane
-        brand={brand}
-        totalPoints={totalPoints}
-        redemptionId={redemptionId}
-        onClose={onClose}
+        redemptionId={mintedId}
       />
     );
   }
@@ -329,8 +331,6 @@ function ReviewPane({
   denomination,
   quantity,
   totalPoints,
-  totalAud,
-  balance,
   termsAgreed,
   onTermsToggle,
   recipientEmail,
@@ -339,6 +339,7 @@ function ReviewPane({
   onGiftMessageChange,
   forced,
   onForcedChange,
+  isSubmitting,
   onConfirm,
   onCancel,
 }: {
@@ -346,8 +347,6 @@ function ReviewPane({
   denomination: Denomination;
   quantity: number;
   totalPoints: number;
-  totalAud: number;
-  balance: MemberBalance;
   termsAgreed: boolean;
   onTermsToggle: (v: boolean) => void;
   recipientEmail: string;
@@ -356,6 +355,7 @@ function ReviewPane({
   onGiftMessageChange: (v: string) => void;
   forced: ForcedOutcome;
   onForcedChange: (v: ForcedOutcome) => void;
+  isSubmitting: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -376,7 +376,8 @@ function ReviewPane({
           <div className="min-w-0">
             <div className="text-[13px] text-[#667085]">{brand.name}</div>
             <div className="text-[15px] font-extrabold tabular-nums truncate">
-              {formatAud(denomination.valueAud)} × {quantity}
+              {formatAud(denomination.valueAud)}
+              {quantity > 1 ? ` × ${quantity}` : ''}
             </div>
           </div>
         </div>
@@ -387,17 +388,20 @@ function ReviewPane({
       </div>
 
       <div className="space-y-1 text-[13px]">
-        <Row label="Unit Points" value={formatPts(denomination.pointsRequired)} />
-        <Row label="Quantity" value={String(quantity)} />
-        <Row label="Total face value" value={formatAud(totalAud)} />
+        {quantity > 1 && (
+          <Row
+            label="Each"
+            value={`${formatAud(denomination.valueAud)} · ${formatPts(denomination.pointsRequired)}`}
+          />
+        )}
         <Row
           label="Delivery"
           value={
             brand.deliveryType === 'instant'
-              ? 'Gift code emailed to recipient · usually under 10 minutes'
+              ? 'Emailed to recipient · usually under 10 minutes'
               : brand.deliveryType === 'review'
-              ? 'Gift code emailed to recipient · short review may apply'
-              : 'Gift code emailed to recipient · scheduled'
+              ? 'Emailed to recipient · short review may apply'
+              : 'Emailed to recipient · scheduled'
           }
         />
       </div>
@@ -440,8 +444,6 @@ function ReviewPane({
         </p>
       </div>
 
-      <BalanceRow currentPoints={balance.pointsAvailable} pointsRequired={totalPoints} />
-
       <label className="flex items-start gap-2 cursor-pointer">
         <input
           type="checkbox"
@@ -481,20 +483,22 @@ function ReviewPane({
       <div className="flex flex-col gap-2 pt-1">
         <button
           type="button"
-          disabled={!termsAgreed || !recipientLooksValid}
+          disabled={!termsAgreed || !recipientLooksValid || isSubmitting}
           onClick={onConfirm}
-          className={`w-full rounded-full px-5 py-3 text-[14px] font-bold transition-colors ${
-            termsAgreed && recipientLooksValid
+          className={`w-full inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-[14px] font-bold transition-colors ${
+            termsAgreed && recipientLooksValid && !isSubmitting
               ? 'bg-[#6356E5] text-white hover:bg-[#5648D8]'
-              : 'bg-[#F4F1FB] text-[#94A3B8] cursor-not-allowed'
+              : 'bg-[#6356E5]/80 text-white cursor-not-allowed'
           }`}
         >
-          Confirm and redeem
+          {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+          {isSubmitting ? 'Confirming…' : 'Confirm and redeem'}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="w-full rounded-full border border-[#E7E9F2] bg-white text-[#0F1222] hover:bg-[#F6F4FF] px-5 py-3 text-[14px] font-bold transition-colors"
+          disabled={isSubmitting}
+          className="w-full rounded-full border border-[#E7E9F2] bg-white text-[#0F1222] hover:bg-[#F6F4FF] px-5 py-3 text-[14px] font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
           Cancel
         </button>
@@ -503,45 +507,26 @@ function ReviewPane({
   );
 }
 
-function ProcessingPane() {
-  return (
-    <div className="py-10 text-center">
-      <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#F6F4FF] text-[#6356E5]">
-        <Loader2 className="w-7 h-7 animate-spin" />
-      </div>
-      <div className="mt-5 text-[18px] font-extrabold tracking-tight text-[#0F1222]">
-        Securing your code…
-      </div>
-      <p className="mt-1 text-[13px] text-[#667085]">This usually takes under 10 seconds.</p>
-      <p className="mt-4 text-[11px] uppercase tracking-widest font-bold text-[#9097A8]">
-        Do not close this window
-      </p>
-    </div>
-  );
-}
-
-function SuccessPane({
+/* 2026-05-26 — SubmittedPane is the single confirmation handshake shown
+   after a successful POST /redemptions. It covers BOTH the instant-
+   completed and the pending paths (Prezzee usually settles in seconds
+   either way). The receipt page is the source of truth for status —
+   we just confirm the order was accepted and offer a single CTA to
+   track delivery. */
+function SubmittedPane({
   brand,
   denomination,
-  quantity,
   totalPoints,
   recipientEmail,
   redemptionId,
-  onClose,
 }: {
   brand: Brand;
   denomination: Denomination;
-  quantity: number;
   totalPoints: number;
   /** Where Prezzee is sending the gift. Empty string = member's own email. */
   recipientEmail: string;
   redemptionId: string;
-  onClose: () => void;
 }) {
-  /* 2026-05-20 — Prezzee-delivers SuccessPane.
-     UNICASH never sees the gift code or PIN — Prezzee emails it directly
-     to recipientEmail. Member's confirmation is the email itself; this
-     pane only confirms the order was accepted + sent. */
   const sentLabel = recipientEmail.trim() || 'your registered email';
   return (
     <div className="space-y-4">
@@ -556,119 +541,35 @@ function SuccessPane({
           </span>{' '}
           gift card is on the way
         </h3>
-        <p className="mt-1 text-[12px] text-[#667085]">
-          {formatPts(totalPoints)} debited · {quantity} gift{quantity > 1 ? 's' : ''}
+        <p className="mt-2 text-[13px] text-[#667085] leading-relaxed">
+          We&apos;ll email it to <strong className="text-[#0F1222] break-all">{sentLabel}</strong> — usually within 10 minutes.
         </p>
       </div>
 
-      {/* Recipient confirmation block — replaces the legacy CodeCard.
-          Prezzee delivers the actual gift code; we just confirm the send. */}
-      <div className="rounded-2xl border border-[#FFC85D]/55 bg-gradient-to-br from-[#FFF6DA] to-[#FFE2B0] p-4">
-        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-[#9C5410]">
-          <Send className="w-3.5 h-3.5" />
-          Sent to
-        </div>
-        <p className="mt-1 break-all text-[15px] font-extrabold tracking-tight text-[#7C5A00]">
-          {sentLabel}
-        </p>
-        <p className="mt-1.5 text-[12px] leading-relaxed text-[#9C5410]/85">
-          {brand.name} will be delivered as an email gift card from Prezzee,
-          usually within 10 minutes. Track delivery status in your
-          Redemption history.
-        </p>
-      </div>
-
-      <div className="rounded-2xl border border-[#E7E9F2] bg-[#FBFAFF] p-3 text-[12px] text-[#667085] flex items-start gap-2">
-        <Mail className="w-3.5 h-3.5 mt-0.5 text-[#5648D8] shrink-0" />
-        <span>
-          UNICASH will email you a separate confirmation receipt. If the
-          recipient doesn&apos;t receive their gift, use{' '}
-          <strong className="text-[#0F1222]">Resend email</strong> from the
-          receipt page.
-        </span>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-        <Link
-          href={`/account/redemptions/${redemptionId}`}
-          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#6356E5] hover:bg-[#5648D8] text-white px-5 py-3 text-[14px] font-bold"
-        >
-          <ReceiptText className="w-4 h-4" />
-          View receipt
-        </Link>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex items-center justify-center rounded-full border border-[#E7E9F2] bg-white text-[#0F1222] hover:bg-[#F6F4FF] px-5 py-3 text-[14px] font-bold"
-        >
-          Back to gift cards
-        </button>
-      </div>
-
-      <p className="text-center text-[10px] text-[#9097A8]">
-        Redemption {redemptionId}
-      </p>
-    </div>
-  );
-}
-
-function OnHoldPane({
-  brand,
-  totalPoints,
-  redemptionId,
-  onClose,
-}: {
-  brand: Brand;
-  totalPoints: number;
-  redemptionId: string;
-  onClose: () => void;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="text-center pt-1">
-        <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#FFFBEB] text-[#B45309]">
-          <Clock className="w-7 h-7" />
-        </div>
-        <h3 className="mt-3 text-[18px] font-extrabold tracking-tight text-[#0F1222]">
-          Your redemption is on hold
-        </h3>
-        {/* Member-safe copy — never reveal fraud rules per §10. */}
-        <p className="mt-1 text-[13px] text-[#667085]">
-          We&apos;re confirming a few details on your {brand.name} redemption. This usually takes under 30 minutes.
-        </p>
-      </div>
-
-      <div className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] p-4">
-        <div className="text-[11px] font-bold uppercase tracking-widest text-[#B45309]">
-          Points held
+      <div className="rounded-2xl border border-[#E0DAFF] bg-[#F4F1FB] p-4">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-[#6356E5]">
+          Points debited
         </div>
         <div className="mt-1 text-[20px] font-extrabold tabular-nums text-[#0F1222]">
           {formatPts(totalPoints)}
         </div>
-        <p className="mt-1 text-[12px] text-[#B45309]">
-          We&apos;ve held these Points — they&apos;ll either complete this redemption or be returned in full if it&apos;s declined.
+        <p className="mt-1 text-[12px] text-[#5346D6]">
+          Fully refunded if anything goes wrong with this redemption.
         </p>
       </div>
 
-      <p className="text-[12px] text-[#667085]">
-        You&apos;ll get an email the moment the review finishes. No action needed from you right now.
+      <p className="text-[12px] text-[#667085] leading-relaxed text-center">
+        Sometimes takes longer if our provider runs an extra check. You can close this window — we&apos;ll email you the moment it&apos;s delivered.
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+      <div className="pt-1">
         <Link
-          href="/account/redemptions"
-          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#6356E5] hover:bg-[#5648D8] text-white px-5 py-3 text-[14px] font-bold"
+          href={`/dashboard/redemptions/${redemptionId}`}
+          className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-[#6356E5] hover:bg-[#5648D8] text-white px-5 py-3 text-[14px] font-bold"
         >
           <ReceiptText className="w-4 h-4" />
-          Track in Redemption history
+          Track this redemption
         </Link>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex items-center justify-center rounded-full border border-[#E7E9F2] bg-white text-[#0F1222] hover:bg-[#F6F4FF] px-5 py-3 text-[14px] font-bold"
-        >
-          Back to gift cards
-        </button>
       </div>
 
       <p className="text-center text-[10px] text-[#9097A8]">Redemption {redemptionId}</p>
@@ -746,7 +647,7 @@ function FailurePane({
             onClick={onRetry}
             className="inline-flex items-center justify-center rounded-full bg-[#6356E5] hover:bg-[#5648D8] text-white px-5 py-3 text-[14px] font-bold"
           >
-            Pick another denomination
+            Try a smaller amount
           </button>
         )}
         {config.primaryCta === 'different_brand' && (
@@ -763,6 +664,14 @@ function FailurePane({
             className="inline-flex items-center justify-center rounded-full bg-[#6356E5] hover:bg-[#5648D8] text-white px-5 py-3 text-[14px] font-bold"
           >
             Contact support
+          </Link>
+        )}
+        {config.primaryCta === 'login' && (
+          <Link
+            href="/login"
+            className="inline-flex items-center justify-center rounded-full bg-[#6356E5] hover:bg-[#5648D8] text-white px-5 py-3 text-[14px] font-bold"
+          >
+            Sign in
           </Link>
         )}
         <button
@@ -788,12 +697,12 @@ type FailureConfig = {
   iconBg: string;
   iconColor: string;
   ledgerRibbon: 'refunded' | 'untouched';
-  primaryCta: 'retry' | 'pick_denom' | 'different_brand' | 'contact';
+  primaryCta: 'retry' | 'pick_denom' | 'different_brand' | 'contact' | 'login';
 };
 
 const FAILURE_COPY: Record<RedemptionFailureReason, FailureConfig> = {
   out_of_stock: {
-    title: 'Sold out — just',
+    title: 'Just sold out',
     body: (brand) =>
       `This ${brand} denomination just sold out. Your Points were not debited.`,
     icon: AlertCircle,
@@ -850,6 +759,51 @@ const FAILURE_COPY: Record<RedemptionFailureReason, FailureConfig> = {
     iconColor: '#B91C1C',
     ledgerRibbon: 'untouched',
     primaryCta: 'retry',
+  },
+  /* Not enough Points — most common member-side error.
+     CTA encourages earning more Points instead of retrying same flow. */
+  insufficient_points: {
+    title: 'Not enough Points',
+    body: (brand) =>
+      `You don't have enough Points yet for this ${brand} gift card. Scan more receipts, top up with a Point Booster, or pick a smaller denomination.`,
+    icon: AlertCircle,
+    iconBg: '#FFFBEB',
+    iconColor: '#B45309',
+    ledgerRibbon: 'untouched',
+    primaryCta: 'pick_denom',
+  },
+  /* Cohort gate — gift card redemption not yet rolled out to this Member. */
+  feature_not_enabled: {
+    title: 'Coming soon',
+    body: () =>
+      'Gift card redemption is not yet available for your account. Your Points are safe and you can still redeem once we enable this for you.',
+    icon: AlertCircle,
+    iconBg: '#F4F1FB',
+    iconColor: '#6356E5',
+    ledgerRibbon: 'untouched',
+    primaryCta: 'different_brand',
+  },
+  /* Session expired or token invalid — push to login. */
+  auth_required: {
+    title: 'Please sign in again',
+    body: () =>
+      'Your session has expired. Sign in again to complete this redemption. Your Points are safe.',
+    icon: AlertCircle,
+    iconBg: '#FEF2F2',
+    iconColor: '#B91C1C',
+    ledgerRibbon: 'untouched',
+    primaryCta: 'login',
+  },
+  /* Member account lookup failed (very rare; usually data-integrity issue). */
+  member_invalid: {
+    title: 'Account issue',
+    body: () =>
+      'We could not verify your account for this redemption. Your Points are safe. Please contact support so we can help.',
+    icon: ShieldAlert,
+    iconBg: '#FEF2F2',
+    iconColor: '#B91C1C',
+    ledgerRibbon: 'untouched',
+    primaryCta: 'contact',
   },
 };
 
