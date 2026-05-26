@@ -575,9 +575,15 @@ export default function MembershipPage() {
             </span>
             <p className="mt-2 text-[13.5px] font-bold text-[#0F1222]">
               Your {planName} ends in{' '}
+              {/* Math.round (not ceil) — currentPeriodEnd is stored as DATE
+                  (UTC midnight of the Sydney calendar day), so a "31 days
+                  from now" period_end is actually ~31.4 days away in raw ms
+                  (Sydney is UTC+10). Ceil would always inflate by 1
+                  ("32 days" when user expects "31"). Round gives the
+                  intuitive whole-day count. */}
               {Math.max(
                 0,
-                Math.ceil(
+                Math.round(
                   (new Date(membership.currentPeriodEnd).getTime() - Date.now()) /
                     (24 * 60 * 60 * 1000),
                 ),
