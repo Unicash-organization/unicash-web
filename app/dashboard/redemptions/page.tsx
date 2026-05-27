@@ -32,13 +32,13 @@ import { formatAud, formatDate, formatPts, maskEmail } from '@/lib/gift-cards/fo
 import type { Redemption, RedemptionStatus } from '@/lib/gift-cards/types';
 import api from '@/lib/api';
 
-/* 2026-05-26 — filter is a coarse bucket on top of the 10 backend states.
-   Each bucket maps to a list of statuses so a single tap on "In flight"
-   surfaces every non-terminal redemption (was previously only matching
-   `prezzee_pending`, leaving other pending states invisible). */
+/* 2026-05-27 — filter is a coarse bucket on top of the 10 backend states.
+   Non-terminal statuses (points_held, submitting, prezzee_pending,
+   pending_payment, pending_fulfillment) intentionally fold into the
+   'All' tab — they self-resolve within minutes and don't need their
+   own surface for members. */
 type FilterKey =
   | 'all'
-  | 'in_flight'
   | 'completed'
   | 'delivery_issue'
   | 'failed'
@@ -47,13 +47,6 @@ type FilterKey =
 type ViewState = 'ready' | 'loading' | 'error';
 
 const FILTER_BUCKETS: Record<Exclude<FilterKey, 'all'>, RedemptionStatus[]> = {
-  in_flight: [
-    'points_held',
-    'submitting',
-    'prezzee_pending',
-    'pending_payment',
-    'pending_fulfillment',
-  ],
   completed: ['completed'],
   delivery_issue: ['pending_delivery'],
   failed: ['failed'],
@@ -62,7 +55,6 @@ const FILTER_BUCKETS: Record<Exclude<FilterKey, 'all'>, RedemptionStatus[]> = {
 
 const FILTER_PILLS: { value: FilterKey; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'in_flight', label: 'In flight' },
   { value: 'completed', label: 'Completed' },
   { value: 'delivery_issue', label: 'Delivery issue' },
   { value: 'failed', label: 'Failed' },
@@ -121,20 +113,7 @@ export default function RedemptionsHistoryPage() {
       .filter((r) => r.status === 'completed')
       .reduce((sum, r) => sum + r.pointsDebited, 0);
     const completed = all.filter((r) => r.status === 'completed').length;
-    /* 2026-05-26 — match the 10-state backend model. In-flight covers
-       every non-terminal status (anything that's not completed/failed/
-       refunded/cancelled). */
-    const inFlight = all.filter((r) =>
-      [
-        'points_held',
-        'submitting',
-        'prezzee_pending',
-        'pending_payment',
-        'pending_fulfillment',
-        'pending_delivery',
-      ].includes(r.status),
-    ).length;
-    return { totalSpent, completed, inFlight };
+    return { totalSpent, completed };
   }, [all]);
 
   return (
@@ -147,12 +126,11 @@ export default function RedemptionsHistoryPage() {
             Gift cards
           </h1>
           <p className="mt-1 max-w-xl text-[13.5px] text-[#667085] sm:text-[14px]">
-            Every gift card you&apos;ve redeemed, plus any in flight or under review.
+            Every gift card you&apos;ve redeemed.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <SummaryChip label="Completed" value={String(summary.completed)} />
-          <SummaryChip label="In flight" value={String(summary.inFlight)} />
           <SummaryChip label="Points spent" value={formatPts(summary.totalSpent)} />
         </div>
       </header>
