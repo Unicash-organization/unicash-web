@@ -1044,8 +1044,8 @@ function LoyaltyProjection() {
 
   return (
     <div className="mt-10 sm:mt-14 rounded-3xl border border-[#E7E9F2] bg-white p-5 sm:p-7 shadow-[0_10px_30px_-18px_rgba(99,86,229,0.18)]">
-      {/* Tier picker — segmented control */}
-      <div className="flex items-center gap-2 mb-6 sm:mb-7">
+      {/* Tier picker — segmented control. Centered on mobile, left on desktop. */}
+      <div className="flex items-center gap-2 mb-6 sm:mb-7 justify-center sm:justify-start">
         <span className="text-[11px] font-bold uppercase tracking-widest text-[#5648D8] hidden sm:inline mr-2">
           Tier
         </span>
@@ -1151,7 +1151,7 @@ function LoyaltyProjection() {
         </div>
       </div>
 
-      <p className="mt-5 text-[11.5px] sm:text-[12px] leading-relaxed text-[#667085]">
+      <p className="mt-5 text-[11.5px] sm:text-[12px] leading-relaxed text-[#667085] text-center sm:text-left">
         Entries accrue while your membership is active.
       </p>
     </div>
