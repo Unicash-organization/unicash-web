@@ -267,79 +267,100 @@ export default function RedemptionReceiptPage() {
       </header>
 
         {/* Delivery — primary content card for completed + bounce flows.
-            Folds the legacy "order summary" + "sent to" + delivery telemetry
-            into one continuous section so the page reads as a single story
-            instead of four detached blocks. */}
+            2026-05-27 — redesign to UNICASH lavender palette (was amber).
+            Folds brand identity + amount + Points + recipient + delivery
+            timeline into one story-style card. */}
         {(isCompleted || isBounce) && (
-          <section className="rounded-3xl border border-[#FFC85D]/55 bg-gradient-to-br from-[#FFF6DA] to-[#FFE2B0] p-5 sm:p-6 space-y-4">
-            {/* Headline values — the gift card amount and the Points
-                debited are the two numbers a member reads first. Promote
-                them to display weight so the receipt feels like a real
-                receipt, not a meta strip. Timestamp drops to a muted
-                helper line below. */}
-            <div>
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[24px] sm:text-[28px] font-extrabold tracking-tight tabular-nums text-[#7C5A00]">
-                <span>
+          <section className="rounded-3xl border border-[#E7E9F2] bg-white p-5 sm:p-6 space-y-5 shadow-[0_2px_10px_-6px_rgba(99,86,229,0.12)]">
+            {/* Brand identity strip — avatar + brand label + denomination.
+                Mirrors the catalog card so members recognise the product
+                they just bought. */}
+            <div className="flex items-center justify-between gap-3 pb-4 border-b border-[#F1ECFB]">
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className="h-12 w-12 rounded-2xl flex items-center justify-center text-[14px] font-extrabold shrink-0 bg-[#F4F1FB] text-[#5648D8]"
+                  aria-hidden
+                >
+                  {brandLabel.slice(0, 2).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-[#9097A8]">
+                    Gift card
+                  </p>
+                  <p className="text-[15px] sm:text-[17px] font-extrabold tracking-tight text-[#0F1222] truncate">
+                    {brandLabel}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-[#9097A8]">
+                  Value
+                </p>
+                <p className="text-[18px] sm:text-[20px] font-extrabold tracking-tight tabular-nums text-[#0F1222]">
                   {formatAud(redemption.valueAud)}
                   {redemption.quantity > 1 ? ` × ${redemption.quantity}` : ''}
-                </span>
-                <span aria-hidden className="text-[#9C5410]/60">·</span>
-                <span>{formatPts(redemption.pointsDebited)} debited</span>
+                </p>
               </div>
-              <p className="mt-1 text-[12px] text-[#9C5410]/75">
-                {formatDateTime(redemption.createdAt)}
-              </p>
             </div>
 
-            <div className="border-t border-[#9C5410]/15" />
+            {/* Two-column summary — Points + Recipient. Stack on mobile. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-[#FBFAFF] border border-[#F1ECFB] p-3.5">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-[#6356E5]">
+                  Points debited
+                </p>
+                <p className="mt-1 text-[18px] font-extrabold tabular-nums text-[#0F1222]">
+                  {formatPts(redemption.pointsDebited)}
+                </p>
+                <p className="mt-0.5 text-[11px] text-[#9097A8]">
+                  {formatDateTime(redemption.createdAt)}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-[#FBFAFF] border border-[#F1ECFB] p-3.5">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#6356E5]">
+                  <Mail className="w-3 h-3" />
+                  Sent to
+                </div>
+                <p className="mt-1 break-all text-[14px] font-extrabold tracking-tight text-[#0F1222]">
+                  {redemption.recipientEmail || redemption.memberEmail}
+                </p>
+                <p className="mt-0.5 text-[11px] text-[#9097A8]">
+                  Prezzee gift email
+                </p>
+              </div>
+            </div>
 
-            {/* Sent to */}
+            {/* Delivery timeline — connected dots for visual progression.
+                Each step lights up purple when reached, stays grey otherwise.
+                Bounce flow swaps the last step for an Issue indicator. */}
             <div>
-              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-[#9C5410]">
-                <Mail className="w-3.5 h-3.5" />
-                Sent to
-              </div>
-              <p className="mt-1 break-all text-[16px] sm:text-[18px] font-extrabold tracking-tight text-[#7C5A00]">
-                {redemption.recipientEmail || redemption.memberEmail}
+              <p className="text-[11px] font-bold uppercase tracking-widest text-[#6356E5] mb-3">
+                Delivery status
               </p>
-            </div>
-
-            {/* Status pills — surfaces what we know from Prezzee polling. */}
-            <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
-              <DeliveryPill
-                active={
+              <DeliveryTimeline
+                emailSent={
                   redemption.emailDeliveryStatus === 'sent' ||
                   redemption.emailDeliveryStatus === 'delivered' ||
                   !!redemption.recipientClickedAt
                 }
-                color="purple"
-              >
-                Email sent
-              </DeliveryPill>
-              <DeliveryPill
-                active={redemption.emailDeliveryStatus === 'delivered' || !!redemption.recipientClickedAt}
-                color="blue"
-              >
-                Delivered
-              </DeliveryPill>
-              <DeliveryPill
-                active={!!redemption.recipientClickedAt || redemption.voucherUrlStatus === 'clicked'}
-                color="green"
-              >
-                Opened
-              </DeliveryPill>
-              {(redemption.emailDeliveryStatus === 'bounced' ||
-                redemption.emailDeliveryStatus === 'failed' ||
-                isBounce) && (
-                <DeliveryPill active color="amber">
-                  Delivery issue
-                </DeliveryPill>
-              )}
+                delivered={
+                  redemption.emailDeliveryStatus === 'delivered' ||
+                  !!redemption.recipientClickedAt
+                }
+                opened={
+                  !!redemption.recipientClickedAt ||
+                  redemption.voucherUrlStatus === 'clicked'
+                }
+                hasIssue={
+                  redemption.emailDeliveryStatus === 'bounced' ||
+                  redemption.emailDeliveryStatus === 'failed' ||
+                  isBounce
+                }
+              />
+              <p className="mt-3 text-[12.5px] leading-relaxed text-[#667085]">
+                {deliveryCopy}
+              </p>
             </div>
-
-            <p className="text-[12px] leading-relaxed text-[#9C5410]/85">
-              {deliveryCopy}
-            </p>
           </section>
         )}
 
@@ -513,29 +534,76 @@ const FAILURE_LABELS: Record<RedemptionFailureReason, { label: string; icon: typ
   member_invalid: { label: 'Account issue', icon: ShieldAlert },
 };
 
-/* Delivery telemetry pill — active = solid color, inactive = ghost.
-   2026-05-20 — added for Prezzee-delivers status visualisation. */
-function DeliveryPill({
-  active,
-  color,
-  children,
+/* Delivery telemetry timeline — connected step indicator for the 3-stage
+   Prezzee gift delivery journey: Email sent → Delivered → Opened. When
+   a bounce/fail is detected we swap the last step for an Issue marker so
+   the timeline reflects reality instead of stalling at "Delivered".
+   2026-05-27 — replaces DeliveryPill (off-brand amber styling). */
+function DeliveryTimeline({
+  emailSent,
+  delivered,
+  opened,
+  hasIssue,
 }: {
-  active: boolean;
-  color: 'purple' | 'blue' | 'green' | 'amber';
-  children: React.ReactNode;
+  emailSent: boolean;
+  delivered: boolean;
+  opened: boolean;
+  hasIssue: boolean;
 }) {
-  const palette = {
-    purple: { active: 'bg-[#6356E5] text-white', ghost: 'bg-white text-[#9097A8] border border-[#E0DAFF]' },
-    blue: { active: 'bg-[#2563EB] text-white', ghost: 'bg-white text-[#9097A8] border border-[#E0DAFF]' },
-    green: { active: 'bg-[#10B981] text-white', ghost: 'bg-white text-[#9097A8] border border-[#E0DAFF]' },
-    amber: { active: 'bg-[#F59E0B] text-[#1A1432]', ghost: 'bg-white text-[#9097A8] border border-[#E0DAFF]' },
-  }[color];
+  const steps: { label: string; done: boolean; issue?: boolean }[] = hasIssue
+    ? [
+        { label: 'Email sent', done: emailSent },
+        { label: 'Delivered', done: delivered },
+        { label: 'Delivery issue', done: true, issue: true },
+      ]
+    : [
+        { label: 'Email sent', done: emailSent },
+        { label: 'Delivered', done: delivered },
+        { label: 'Opened', done: opened },
+      ];
+
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${active ? palette.active : palette.ghost}`}
-    >
-      {children}
-    </span>
+    <ol className="flex items-center gap-0">
+      {steps.map((step, i) => {
+        const isLast = i === steps.length - 1;
+        const tone = step.issue
+          ? 'bg-[#EF4444] text-white ring-[#FECACA]'
+          : step.done
+          ? 'bg-[#6356E5] text-white ring-[#E0DAFF]'
+          : 'bg-white text-[#9097A8] ring-[#E7E9F2]';
+        const labelTone = step.issue
+          ? 'text-[#B91C1C]'
+          : step.done
+          ? 'text-[#0F1222]'
+          : 'text-[#9097A8]';
+        const connectorTone =
+          step.done && !step.issue ? 'bg-[#E0DAFF]' : 'bg-[#E7E9F2]';
+
+        return (
+          <li
+            key={step.label}
+            className={`flex items-center ${isLast ? 'flex-none' : 'flex-1'} min-w-0`}
+          >
+            <div className="flex flex-col items-center min-w-0">
+              <span
+                className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-extrabold tabular-nums ring-2 ${tone}`}
+                aria-hidden
+              >
+                {step.issue ? '!' : i + 1}
+              </span>
+              <span
+                className={`mt-1.5 text-[11px] font-semibold tracking-tight truncate max-w-[90px] text-center ${labelTone}`}
+              >
+                {step.label}
+              </span>
+            </div>
+            {!isLast && (
+              <div className={`flex-1 h-0.5 mx-2 -mt-5 rounded-full ${connectorTone}`} />
+            )}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
