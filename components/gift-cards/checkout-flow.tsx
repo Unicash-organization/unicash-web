@@ -116,6 +116,12 @@ export default function CheckoutFlow({
   /* 2026-05-20 — Prezzee-delivers mode: capture where the gift goes.
      Blank = send to member's own email (server defaults from JWT). */
   const [recipientEmail, setRecipientEmail] = useState('');
+  /* 2026-05-27 — Optional recipient name shown in the Prezzee greeting
+     ("Hi <name>, you've received a gift..."). When blank, the backend
+     falls back to the member's profile name for gift-to-self, else the
+     email local-part. Always optional — Prezzee accepts any non-empty
+     string here. */
+  const [recipientName, setRecipientName] = useState('');
   const [giftMessage, setGiftMessage] = useState('');
   const [confirmedRecipient, setConfirmedRecipient] = useState<string>('');
 
@@ -198,6 +204,7 @@ export default function CheckoutFlow({
         idempotencyKey,
         channel: 'web',
         recipientEmail: trimmedRecipient || undefined,
+        recipientName: recipientName.trim() || undefined,
         giftMessage: giftMessage.trim() || undefined,
       });
       const status = res.data?.status;
@@ -283,6 +290,8 @@ export default function CheckoutFlow({
         onTermsToggle={setTermsAgreed}
         recipientEmail={recipientEmail}
         onRecipientEmailChange={setRecipientEmail}
+        recipientName={recipientName}
+        onRecipientNameChange={setRecipientName}
         giftMessage={giftMessage}
         onGiftMessageChange={setGiftMessage}
         forced={forced}
@@ -335,6 +344,8 @@ function ReviewPane({
   onTermsToggle,
   recipientEmail,
   onRecipientEmailChange,
+  recipientName,
+  onRecipientNameChange,
   giftMessage,
   onGiftMessageChange,
   forced,
@@ -351,6 +362,8 @@ function ReviewPane({
   onTermsToggle: (v: boolean) => void;
   recipientEmail: string;
   onRecipientEmailChange: (v: string) => void;
+  recipientName: string;
+  onRecipientNameChange: (v: string) => void;
   giftMessage: string;
   onGiftMessageChange: (v: string) => void;
   forced: ForcedOutcome;
@@ -363,6 +376,11 @@ function ReviewPane({
   const recipientFilled = recipientEmail.trim().length > 0;
   const recipientLooksValid =
     !recipientFilled || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail.trim());
+  /* "Gifting to someone else" = user typed a recipientEmail. In that mode
+     the Prezzee email greets the recipient by name, so we surface the
+     name field. For self-redemptions we hide it to keep the form short —
+     backend will fall back to the member's profile name automatically. */
+  const isGiftToOther = recipientFilled && recipientLooksValid;
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between rounded-2xl bg-[#FBFAFF] border border-[#F1ECFB] p-3">
@@ -429,6 +447,19 @@ function ReviewPane({
         />
         {!recipientLooksValid && (
           <p className="text-[11px] text-[#EF4444]">Enter a valid email address.</p>
+        )}
+        {/* Recipient name — only shown when gifting to someone else.
+            For gift-to-self, backend uses the member's profile name. */}
+        {isGiftToOther && (
+          <input
+            type="text"
+            autoComplete="name"
+            placeholder="Recipient name (optional)"
+            value={recipientName}
+            onChange={(e) => onRecipientNameChange(e.target.value)}
+            maxLength={80}
+            className="w-full rounded-xl border border-[#E7E9F2] bg-white px-3 py-2 text-[13px] text-[#0F1222] placeholder:text-[#9097A8] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20 focus:border-[#6356E5]"
+          />
         )}
         <textarea
           placeholder="Optional gift message"
