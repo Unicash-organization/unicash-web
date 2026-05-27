@@ -951,6 +951,214 @@ function Faq() {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Member Loyalty projection                                                 */
+/* --------------------------------------------------------------------------
+   Indicative projection of how Loyalty entries accumulate across tenure.
+   Math mirrors Loyalty V2 Option D (memory: project_loyalty_v2_option_d).
+   Canonical values come from migration 20260514_loyalty_01_plan_config.sql:
+     • tenure         = monthlyAccrual × months active
+     • anniversary    = milestone bonuses at 3/6/12/18/24mo + yearly recur
+     • streak         = milestone bonuses at 12/24/36mo (one-time each)
+   -------------------------------------------------------------------------- */
+type LoyaltyTier = 'UniOne' | 'UniPlus' | 'UniMax';
+
+type LoyaltyTierConfig = {
+  id: LoyaltyTier;
+  label: string;
+  monthlyAccrual: number;
+  anniversaryBonuses: {
+    '3': number;
+    '6': number;
+    '12': number;
+    '18': number;
+    '24': number;
+    yearlyRecurringAfter24: number;
+  };
+  streakBonuses: {
+    '12': number;
+    '24': number;
+    '36': number;
+  };
+};
+
+const LOYALTY_TIERS: LoyaltyTierConfig[] = [
+  {
+    id: 'UniOne',
+    label: 'UniOne',
+    monthlyAccrual: 1,
+    anniversaryBonuses: { '3': 3, '6': 6, '12': 10, '18': 15, '24': 15, yearlyRecurringAfter24: 10 },
+    streakBonuses: { '12': 5, '24': 10, '36': 15 },
+  },
+  {
+    id: 'UniPlus',
+    label: 'UniPlus',
+    monthlyAccrual: 4,
+    anniversaryBonuses: { '3': 6, '6': 12, '12': 30, '18': 25, '24': 50, yearlyRecurringAfter24: 25 },
+    streakBonuses: { '12': 15, '24': 30, '36': 50 },
+  },
+  {
+    id: 'UniMax',
+    label: 'UniMax',
+    monthlyAccrual: 10,
+    anniversaryBonuses: { '3': 10, '6': 20, '12': 75, '18': 35, '24': 120, yearlyRecurringAfter24: 60 },
+    streakBonuses: { '12': 35, '24': 75, '36': 150 },
+  },
+];
+
+/* Cumulative anniversary up to `months`: each milestone fires once when
+   reached, then yearlyRecurringAfter24 fires every 12 months after 24
+   (so month 36 adds yearly, 48 adds another, etc.) */
+function calcAnniversary(t: LoyaltyTierConfig, months: number): number {
+  let total = 0;
+  if (months >= 3) total += t.anniversaryBonuses['3'];
+  if (months >= 6) total += t.anniversaryBonuses['6'];
+  if (months >= 12) total += t.anniversaryBonuses['12'];
+  if (months >= 18) total += t.anniversaryBonuses['18'];
+  if (months >= 24) total += t.anniversaryBonuses['24'];
+  if (months >= 36) {
+    const yearsAfter24 = Math.floor((months - 24) / 12);
+    total += yearsAfter24 * t.anniversaryBonuses.yearlyRecurringAfter24;
+  }
+  return total;
+}
+
+/* Cumulative streak: one-time bonus at each milestone hit. */
+function calcStreak(t: LoyaltyTierConfig, months: number): number {
+  let total = 0;
+  if (months >= 12) total += t.streakBonuses['12'];
+  if (months >= 24) total += t.streakBonuses['24'];
+  if (months >= 36) total += t.streakBonuses['36'];
+  return total;
+}
+
+function LoyaltyProjection() {
+  const [tierId, setTierId] = useState<LoyaltyTier>('UniPlus');
+  const [month, setMonth] = useState<number>(12);
+
+  const tier = LOYALTY_TIERS.find((t) => t.id === tierId)!;
+  const tenure = tier.monthlyAccrual * month;
+  const anniversary = calcAnniversary(tier, month);
+  const streak = calcStreak(tier, month);
+  const total = tenure + anniversary + streak;
+  const formattedMonth = month === 1 ? 'MONTH 1' : `MONTH ${month}`;
+
+  return (
+    <div className="mt-10 sm:mt-14 rounded-3xl border border-[#E7E9F2] bg-white p-5 sm:p-7 shadow-[0_10px_30px_-18px_rgba(99,86,229,0.18)]">
+      {/* Tier picker — segmented control */}
+      <div className="flex items-center gap-2 mb-6 sm:mb-7">
+        <span className="text-[11px] font-bold uppercase tracking-widest text-[#5648D8] hidden sm:inline mr-2">
+          Tier
+        </span>
+        <div role="tablist" aria-label="Choose membership tier" className="inline-flex rounded-full bg-[#F4F1FB] p-1">
+          {LOYALTY_TIERS.map((t) => {
+            const active = t.id === tierId;
+            return (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={active}
+                type="button"
+                onClick={() => setTierId(t.id)}
+                className={
+                  'px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-[12px] sm:text-[13px] font-bold tracking-tight transition-all ' +
+                  (active
+                    ? 'bg-white text-[#0F1222] shadow-[0_4px_10px_-4px_rgba(99,86,229,0.30)]'
+                    : 'text-[#667085] hover:text-[#0F1222]')
+                }
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Two-column horizontal layout — slider+breakdown left, big number right */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 sm:gap-7">
+        {/* LEFT — slider + breakdown cards */}
+        <div className="lg:col-span-3 space-y-5">
+          {/* Slider */}
+          <div>
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-[#667085]">
+                Month
+              </span>
+              <span className="text-[20px] font-extrabold tabular-nums text-[#6356E5]">
+                {month}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={60}
+              step={1}
+              value={month}
+              onChange={(e) => setMonth(Number(e.target.value))}
+              aria-label="Months of membership"
+              className="uc-loyalty-slider w-full"
+              style={{ ['--uc-loyalty-progress' as any]: `${((month - 1) / 59) * 100}%` }}
+            />
+            <div className="mt-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-[#9097A8]">
+              <span>Start</span>
+              <span className="hidden sm:inline">Year 1</span>
+              <span className="hidden sm:inline">Year 2</span>
+              <span className="hidden sm:inline">Year 3</span>
+              <span className="hidden sm:inline">Year 4</span>
+              <span>Year 5</span>
+            </div>
+          </div>
+
+          {/* Breakdown cards */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            <div className="rounded-2xl bg-[#FBFAFF] border border-[#F1ECFB] p-3 sm:p-4">
+              <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-[#5648D8]">
+                Tenure
+              </p>
+              <p className="mt-1 text-[18px] sm:text-[20px] font-extrabold tabular-nums text-[#0F1222]">
+                +{tenure}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-[#FFF6DA] border border-[#FFE2B0] p-3 sm:p-4">
+              <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-[#9C5410]">
+                Anniversary
+              </p>
+              <p className="mt-1 text-[18px] sm:text-[20px] font-extrabold tabular-nums text-[#0F1222]">
+                +{anniversary}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-[#FBFAFF] border border-[#F1ECFB] p-3 sm:p-4">
+              <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-[#5648D8]">
+                Streak
+              </p>
+              <p className="mt-1 text-[18px] sm:text-[20px] font-extrabold tabular-nums text-[#0F1222]">
+                +{streak}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT — big "Entries at month N" panel */}
+        <div className="lg:col-span-2 rounded-2xl bg-gradient-to-br from-[#6356E5] to-[#8B7BFF] p-5 sm:p-6 text-white flex flex-col justify-center min-h-[160px]">
+          <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-white/75">
+            Entries at {formattedMonth.toLowerCase()}
+          </p>
+          <p className="mt-2 text-[44px] sm:text-[56px] font-extrabold leading-none tabular-nums">
+            {total.toLocaleString('en-AU')}
+          </p>
+          <p className="mt-1.5 text-[12px] text-white/85">
+            entries · {tier.label}
+          </p>
+        </div>
+      </div>
+
+      <p className="mt-5 text-[11.5px] sm:text-[12px] leading-relaxed text-[#667085]">
+        Entries accrue while your membership is active.
+      </p>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Page                                                                      */
 /* -------------------------------------------------------------------------- */
 
@@ -1224,6 +1432,38 @@ export default function HomeClient() {
               Membership renews monthly. Membership Points refresh on your renewal date. Point Boosters are separate one-time purchases (no auto-renew) and Booster Points stack with your Monthly Points.
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* Member Loyalty — entries projection over tenure */}
+      <section id="loyalty" className="relative w-full overflow-hidden bg-white">
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background: [
+              'radial-gradient(420px 320px at 8% 14%, rgba(139,123,255,.10), transparent 60%)',
+              'radial-gradient(420px 320px at 92% 86%, rgba(255,226,176,.08), transparent 60%)',
+              'linear-gradient(180deg, #FFFFFF 0%, #FBFAFF 100%)',
+            ].join(', '),
+          }}
+        />
+        <div aria-hidden className="uc-dot-light absolute inset-0 opacity-[0.04]" />
+
+        <div className="relative mx-auto max-w-7xl px-6 py-12 sm:py-20 lg:px-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <ScrollReveal><Eyebrow>Member Loyalty</Eyebrow></ScrollReveal>
+            <ScrollReveal delay={60} as="h2" className="mt-3 text-[28px] font-extrabold leading-[1.1] tracking-tight text-[#0f1222] sm:text-[36px] md:text-[44px]">
+              See how entries <span className="uc-gold-gradient">grow.</span>
+            </ScrollReveal>
+            <ScrollReveal delay={120} as="p" className="mx-auto mt-3 max-w-xl text-[14.5px] leading-relaxed text-[#4b5563] sm:text-[15.5px]">
+              Drag the slider to project tenure, anniversary, and streak bonuses over time.
+            </ScrollReveal>
+          </div>
+
+          <ScrollReveal delay={180}>
+            <LoyaltyProjection />
+          </ScrollReveal>
         </div>
       </section>
 
