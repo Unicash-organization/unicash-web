@@ -27,7 +27,6 @@ import {
   Search,
 } from 'lucide-react';
 import { StatusChip } from '@/components/gift-cards';
-import { MOCK_REDEMPTIONS } from '@/lib/gift-cards/mock-data';
 import { formatAud, formatDate, formatPts, maskEmail } from '@/lib/gift-cards/format';
 import type { Redemption, RedemptionStatus } from '@/lib/gift-cards/types';
 import api from '@/lib/api';
@@ -66,21 +65,23 @@ export default function RedemptionsHistoryPage() {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [search, setSearch] = useState('');
 
-  // GP4 — fetch member redemption history; fallback to mock for dev.
-  const [all, setAll] = useState<Redemption[]>(MOCK_REDEMPTIONS);
+  // Fetch real member redemption history. Empty array → empty state UI;
+  // API failure → error UI. No mock fallback (was masking the real
+  // empty/error states for new members).
+  const [all, setAll] = useState<Redemption[]>([]);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const res = await api.redemptions.getMyHistory();
         if (!cancelled) {
-          setAll(Array.isArray(res.data) && res.data.length ? (res.data as Redemption[]) : MOCK_REDEMPTIONS);
+          setAll(Array.isArray(res.data) ? (res.data as Redemption[]) : []);
           setViewState('ready');
         }
       } catch {
         if (!cancelled) {
-          setAll(MOCK_REDEMPTIONS);
-          setViewState('ready');
+          setAll([]);
+          setViewState('error');
         }
       }
     })();

@@ -22,7 +22,7 @@
  * 404 for unknown ids — search for `MOCK FALLBACK` to find the gate.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
@@ -35,10 +35,6 @@ import {
   XCircle,
 } from 'lucide-react';
 import { StatusChip } from '@/components/gift-cards';
-import {
-  MOCK_REDEMPTIONS,
-  getRedemption,
-} from '@/lib/gift-cards/mock-data';
 import api from '@/lib/api';
 import {
   formatAud,
@@ -54,37 +50,35 @@ export default function RedemptionReceiptPage() {
   const id = decodeURIComponent((params?.id as string) || '');
   const [viewState, setViewState] = useState<ViewState>('loading');
 
-  // GP4 — try the real API first; fall back to mock seed so the
-  // post-G3 demo path still lands on a receipt.
-  const [redemption, setRedemption] = useState<Redemption | undefined>(getRedemption(id));
-  const fallback = useMemo(
-    () => [...MOCK_REDEMPTIONS].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))[0],
-    [],
-  );
+  // Fetch the real redemption by id. No mock fallback — if the API can't
+  // find it, render the not_found UI instead of a fake receipt.
+  const [redemption, setRedemption] = useState<Redemption | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const res = await api.redemptions.getById(id);
-        if (!cancelled && res.data) {
-          setRedemption(res.data as Redemption);
-          setViewState('ready');
-        } else if (!cancelled) {
-          setRedemption(getRedemption(id) ?? fallback);
-          setViewState('ready');
+        if (!cancelled) {
+          if (res.data) {
+            setRedemption(res.data as Redemption);
+            setViewState('ready');
+          } else {
+            setRedemption(undefined);
+            setViewState('not_found');
+          }
         }
       } catch {
         if (!cancelled) {
-          setRedemption(getRedemption(id) ?? fallback);
-          setViewState('ready');
+          setRedemption(undefined);
+          setViewState('not_found');
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [id, fallback]);
+  }, [id]);
 
   /* 2026-05-26 — Source-of-truth polling. The modal no longer holds
      the member while async work runs; this page is where they watch
