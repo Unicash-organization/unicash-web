@@ -9,6 +9,7 @@ import MembershipCard from '@/components/MembershipCard';
 import ScrollReveal from '@/components/ScrollReveal';
 import NewsletterSection from '@/components/NewsletterSection';
 import ConfirmModal from '@/components/ConfirmModal';
+import HomeHero from '@/components/HomeHero';
 import api from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { showToast } from '@/lib/toast';
@@ -137,127 +138,6 @@ const Icon = {
 };
 
 /* -------------------------------------------------------------------------- */
-/*  Hero illustration components — render-style SVG props                     */
-/* -------------------------------------------------------------------------- */
-
-const GiftBox = ({ className = '' }: { className?: string }) => (
-  <svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden>
-    <defs>
-      <linearGradient id="boxBody" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#FCFAFF" /><stop offset="100%" stopColor="#D9D2F7" /></linearGradient>
-      <linearGradient id="boxLid" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#FFFFFF" /><stop offset="100%" stopColor="#E7E1FB" /></linearGradient>
-      <linearGradient id="ribbon" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#8B7BFF" /><stop offset="100%" stopColor="#6356E5" /></linearGradient>
-    </defs>
-    <rect x="38" y="98" width="144" height="92" rx="10" fill="url(#boxBody)" />
-    <rect x="100" y="98" width="20" height="92" fill="url(#ribbon)" />
-    <rect x="28" y="84" width="164" height="28" rx="8" fill="url(#boxLid)" />
-    <rect x="100" y="84" width="20" height="28" fill="url(#ribbon)" />
-    <path d="M 92 82 Q 70 50 84 38 Q 102 30 110 80 Q 118 30 136 38 Q 150 50 128 82 Z" fill="url(#ribbon)" />
-    <ellipse cx="74" cy="138" rx="8" ry="3" fill="rgba(255,255,255,.7)" />
-  </svg>
-);
-
-const CashStack = ({ className = '' }: { className?: string }) => (
-  <svg viewBox="0 0 240 180" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden>
-    <defs>
-      <linearGradient id="bill" x1="0" x2="1" y1="0" y2="1"><stop offset="0%" stopColor="#15A268" /><stop offset="100%" stopColor="#0A6740" /></linearGradient>
-    </defs>
-    <g transform="rotate(-10 120 90)">
-      <rect x="20" y="22" width="200" height="100" rx="10" fill="url(#bill)" opacity=".55" />
-      <rect x="36" y="40" width="200" height="100" rx="10" fill="url(#bill)" opacity=".75" />
-      <rect x="52" y="58" width="200" height="100" rx="10" fill="url(#bill)" />
-      <circle cx="152" cy="108" r="22" fill="rgba(255,255,255,.16)" />
-      <text x="152" y="116" textAnchor="middle" fontFamily="Anton, Impact, sans-serif" fontSize="28" fill="rgba(255,255,255,.85)">$</text>
-      <rect x="60" y="74" width="60" height="6" rx="3" fill="rgba(255,255,255,.18)" />
-    </g>
-  </svg>
-);
-
-const UCoin = ({ className = '' }: { className?: string }) => (
-  <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden>
-    <defs>
-      <radialGradient id="coinFace" cx="40%" cy="36%" r="70%">
-        <stop offset="0%" stopColor="#FFEFC2" />
-        <stop offset="55%" stopColor="#F4B14B" />
-        <stop offset="100%" stopColor="#A35D17" />
-      </radialGradient>
-      <linearGradient id="coinEdge" x1="0" x2="0" y1="0" y2="1">
-        <stop offset="0%" stopColor="#F4B14B" />
-        <stop offset="100%" stopColor="#7A4007" />
-      </linearGradient>
-    </defs>
-    <ellipse cx="100" cy="106" rx="78" ry="78" fill="url(#coinEdge)" />
-    <ellipse cx="100" cy="100" rx="78" ry="78" fill="url(#coinFace)" />
-    <text x="100" y="124" textAnchor="middle" fontFamily="Inter, sans-serif" fontSize="76" fontWeight="800" fill="#6E3804">U</text>
-    <ellipse cx="74" cy="68" rx="28" ry="10" fill="rgba(255,255,255,.45)" />
-  </svg>
-);
-
-const HeartFloat = ({ className = '' }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden>
-    <path d="M12 21s-7-4.35-9.5-9C1 8.5 3 5 7 5c2 0 3.5 1 5 3 1.5-2 3-3 5-3 4 0 6 3.5 4.5 7-2.5 4.65-9.5 9-9.5 9Z" fill="#D6CCFF" />
-  </svg>
-);
-
-const CarRender = ({ className = '' }: { className?: string }) => (
-  <svg viewBox="0 0 720 420" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden>
-    <defs>
-      <linearGradient id="bodyDark" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#1A0F40" /><stop offset="100%" stopColor="#070319" /></linearGradient>
-      <linearGradient id="bodyLight" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#3A2170" stopOpacity=".9" /><stop offset="100%" stopColor="#0B0420" stopOpacity=".6" /></linearGradient>
-      <radialGradient id="hl" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#FFE9C4" /><stop offset="60%" stopColor="#F5B266" stopOpacity=".75" /><stop offset="100%" stopColor="#6356e5" stopOpacity="0" /></radialGradient>
-      <linearGradient id="rim" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#5A4DD0" /><stop offset="100%" stopColor="#1B1042" /></linearGradient>
-    </defs>
-    <ellipse cx="360" cy="380" rx="240" ry="14" fill="rgba(99,86,229,.45)" filter="blur(10px)" />
-    <path d="M 80 320 Q 80 230 200 200 L 320 178 Q 410 170 510 184 L 600 210 Q 660 232 660 308 L 660 348 L 80 348 Z" fill="url(#bodyDark)" />
-    <path d="M 220 200 Q 360 130 510 192 L 510 200 Q 360 154 230 210 Z" fill="url(#bodyLight)" />
-    <path d="M 240 196 Q 360 158 490 196" stroke="rgba(255,255,255,.16)" strokeWidth="1.5" fill="none" />
-    <path d="M 200 240 Q 360 220 600 240" stroke="rgba(255,255,255,.10)" strokeWidth="1.5" fill="none" />
-    <g opacity=".88">
-      <rect x="298" y="232" width="46" height="62" rx="10" fill="#0A0418" stroke="#6356e5" strokeWidth="1.5" />
-      <rect x="354" y="232" width="46" height="62" rx="10" fill="#0A0418" stroke="#6356e5" strokeWidth="1.5" />
-    </g>
-    <g>
-      <ellipse cx="200" cy="244" rx="62" ry="12" fill="url(#hl)" />
-      <rect x="146" y="240" width="100" height="6" rx="3" fill="#FFE2B0" />
-    </g>
-    <g>
-      <ellipse cx="500" cy="244" rx="62" ry="12" fill="url(#hl)" />
-      <rect x="450" y="240" width="100" height="6" rx="3" fill="#FFE2B0" />
-    </g>
-    <g>
-      <circle cx="180" cy="328" r="42" fill="#0A0418" />
-      <circle cx="180" cy="328" r="28" fill="url(#rim)" />
-      <g stroke="#1B1042" strokeWidth="3" fill="none" opacity=".85">
-        <line x1="180" y1="304" x2="180" y2="352" />
-        <line x1="156" y1="328" x2="204" y2="328" />
-        <line x1="161" y1="311" x2="199" y2="345" />
-        <line x1="161" y1="345" x2="199" y2="311" />
-      </g>
-      <circle cx="180" cy="328" r="6" fill="#5A4DD0" />
-    </g>
-    <g>
-      <circle cx="540" cy="328" r="42" fill="#0A0418" />
-      <circle cx="540" cy="328" r="28" fill="url(#rim)" />
-      <g stroke="#1B1042" strokeWidth="3" fill="none" opacity=".85">
-        <line x1="540" y1="304" x2="540" y2="352" />
-        <line x1="516" y1="328" x2="564" y2="328" />
-        <line x1="521" y1="311" x2="559" y2="345" />
-        <line x1="521" y1="345" x2="559" y2="311" />
-      </g>
-      <circle cx="540" cy="328" r="6" fill="#5A4DD0" />
-    </g>
-    <rect x="160" y="324" width="400" height="20" rx="6" fill="#040112" />
-    <rect x="180" y="332" width="80" height="6" rx="2" fill="rgba(99,86,229,.55)" />
-    <rect x="460" y="332" width="80" height="6" rx="2" fill="rgba(99,86,229,.55)" />
-  </svg>
-);
-
-const SparkleStar = ({ className = '' }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
-    <path d="m12 2 3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1Z" />
-  </svg>
-);
-
-/* -------------------------------------------------------------------------- */
 /*  Eyebrow — small labelled chip used above section H2s                      */
 /* -------------------------------------------------------------------------- */
 
@@ -275,152 +155,9 @@ const Eyebrow = ({ children, tone = 'light' }: { children: React.ReactNode; tone
 };
 
 /* -------------------------------------------------------------------------- */
-/*  Section: Hero — painted purple stage                                      */
+/*  Section: Hero — moved to <HomeHero />                                      */
+/*  See `unicash-web/components/HomeHero.tsx` (v5 drifting wall of rewards).   */
 /* -------------------------------------------------------------------------- */
-
-function Hero() {
-  const featurePillsDesktop = [
-    { Icon: Icon.Coins, label: 'Points' },
-    { Icon: Icon.Gift, label: 'Bonus Draws' },
-    { Icon: Icon.Fuel, label: 'Fuel Rewards' },
-  ];
-  const trustClaimsDesktop = ['Published Winners', 'Clear Limits', 'Secure Checkout', 'Cancel Anytime'];
-  const trustClaimsMobile = ['Published Winners', 'Secure Checkout', 'Cancel Anytime'];
-
-  return (
-    <section className="relative overflow-hidden text-white">
-      {/* Painted purple stage — multi-layer radial blooms over a soft brand-purple linear */}
-      <div
-        aria-hidden
-        className="absolute inset-0"
-        style={{
-          background: [
-            'radial-gradient(700px 480px at 96% 4%, rgba(15,18,34,.32), transparent 55%)',
-            'radial-gradient(900px 600px at 24% 36%, rgba(170,150,255,.42), transparent 60%)',
-            'radial-gradient(540px 420px at 70% 28%, rgba(255,226,176,.10), transparent 70%)',
-            'radial-gradient(900px 600px at 95% 96%, rgba(58,46,168,.42), transparent 62%)',
-            'linear-gradient(170deg, #4538B8 0%, #5C4FD8 36%, #6E60E8 70%, #7867EC 100%)',
-          ].join(', '),
-        }}
-      />
-      {/* Dot pattern overlay */}
-      <div aria-hidden className="uc-dot-stage absolute inset-0 opacity-30" />
-      {/* Animated blobs — disabled by prefers-reduced-motion */}
-      <div aria-hidden className="uc-blob-a absolute -left-24 top-6 h-[480px] w-[480px] rounded-full bg-[#A192FF]/40 blur-[140px]" />
-      <div aria-hidden className="uc-blob-b absolute right-[-12%] bottom-[-14%] hidden h-[560px] w-[560px] rounded-full bg-[#3D30B8]/50 blur-[150px] sm:block" />
-      <div aria-hidden className="uc-blob-c absolute left-[-2%] top-[26%] hidden h-[340px] w-[340px] rounded-full bg-[#FFE2B0]/16 blur-[120px] sm:block" />
-
-      {/* Drifting particles — md+ only (subtle white dots that gently float) */}
-      {[
-        { l: '36%', t: '14%', sz: 'h-1 w-1', d: '0s' },
-        { l: '52%', t: '28%', sz: 'h-1.5 w-1.5', d: '-2.5s' },
-        { l: '20%', t: '54%', sz: 'h-1 w-1', d: '-5s' },
-        { l: '60%', t: '62%', sz: 'h-1.5 w-1.5', d: '-1.5s' },
-      ].map((p, i) => (
-        <span
-          key={i}
-          aria-hidden
-          className={`uc-particle absolute hidden ${p.sz} rounded-full bg-white/45 md:block`}
-          style={{ left: p.l, top: p.t, animationDelay: p.d }}
-        />
-      ))}
-
-      {/* Renders cluster — desktop (lg+) only. Mobile + tablet keep a clean focused hero. */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
-        <HeartFloat className="uc-float absolute right-[28%] top-[12%] h-5 w-5" />
-        <HeartFloat className="uc-float2 absolute right-[10%] top-[10%] h-4 w-4" />
-        <HeartFloat className="uc-float3 absolute right-[36%] top-[24%] h-3 w-3" />
-        <GiftBox className="uc-float2 absolute right-[6%] top-[14%] h-[140px] w-[140px]" />
-        <CashStack className="uc-float absolute right-[32%] top-[34%] h-[150px] w-[190px]" />
-        <UCoin className="uc-float3 absolute right-[16%] top-[30%] h-[130px] w-[130px]" />
-        <CarRender className="absolute right-[1%] bottom-[8%] w-[620px] xl:w-[700px]" />
-        <SparkleStar className="uc-float2 absolute right-[40%] top-[60%] h-6 w-6 text-[#FFE2B0]" />
-        <SparkleStar className="uc-float absolute right-[18%] top-[66%] h-4 w-4 text-[#FFE2B0]" />
-      </div>
-
-      <div className="relative mx-auto max-w-7xl px-6 pt-14 pb-16 sm:pt-20 sm:pb-28 lg:px-8 lg:pt-28 lg:pb-36">
-        <div className="max-w-3xl">
-          <ScrollReveal>
-            <Eyebrow tone="dark">Built for everyday Australians</Eyebrow>
-          </ScrollReveal>
-
-          <h1 className="uc-glow-text mt-6 font-extrabold leading-[1.04] tracking-tight text-[40px] sm:text-[56px] md:text-[64px] lg:text-[68px] xl:text-[80px]">
-            {/* Three guaranteed lines: each phrase wraps on its own block-level span,
-                with cascading fade-up delays for a calm staggered reveal. */}
-            <ScrollReveal delay={80} as="span" className="block">
-              Every receipt.
-            </ScrollReveal>
-            <ScrollReveal delay={170} as="span" className="block">
-              More value.
-            </ScrollReveal>
-            <ScrollReveal delay={260} as="span" className="relative block isolate">
-              <span aria-hidden className="pointer-events-none absolute inset-x-0 top-1/2 -z-10 mx-auto h-[95%] max-w-[88%] -translate-y-1/2 rounded-[42%] bg-[#8B7BFF]/45 blur-[72px]" />
-              <span className="uc-gold-gradient">Real rewards.</span>
-            </ScrollReveal>
-          </h1>
-
-          <ScrollReveal delay={300}>
-            <p className="mt-6 max-w-xl text-[15px] leading-relaxed text-white/85 sm:text-[17px]">
-              <span className="sm:hidden">Scan receipts to earn Points, Fuel Rewards, and access Bonus Draws.</span>
-              <span className="hidden sm:inline">Scan eligible receipts to earn Points, unlock Fuel Rewards, and access member-only Bonus Draws.</span>
-            </p>
-          </ScrollReveal>
-
-          {/* Feature pills — desktop only (mobile hides for compact hero) */}
-          <ScrollReveal delay={360}>
-            <div className="mt-7 hidden flex-wrap gap-2 sm:flex">
-              {featurePillsDesktop.map(({ Icon: I, label }) => (
-                <span key={label} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[13px] font-medium text-white/85 backdrop-blur">
-                  <I className="h-3.5 w-3.5 text-[#FFE2B0]" />
-                  {label}
-                </span>
-              ))}
-            </div>
-          </ScrollReveal>
-
-          {/* CTAs */}
-          <ScrollReveal delay={420}>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-              <Link
-                href="/#membership-plans"
-                className="uc-lift-sm uc-pulse inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white px-7 text-[15px] font-bold text-[#6356e5] transition-colors hover:bg-white/95 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#4538B8] sm:w-auto"
-              >
-                Join UNICASH
-                <Icon.ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/giveaways"
-                className="uc-lift-sm inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border border-white/30 bg-white/[0.06] px-6 text-[15px] font-semibold text-white backdrop-blur transition-colors hover:bg-white/[0.12] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#4538B8] sm:w-auto"
-              >
-                Explore Bonus Draws
-              </Link>
-            </div>
-          </ScrollReveal>
-
-          {/* Trust line — mobile drops 'Clear Limits' */}
-          <ScrollReveal delay={480}>
-            <div className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-white/75 sm:hidden">
-              {trustClaimsMobile.map((t, i) => (
-                <React.Fragment key={t}>
-                  {i > 0 && <span aria-hidden className="text-white/35">·</span>}
-                  <span>{t}</span>
-                </React.Fragment>
-              ))}
-            </div>
-            <div className="mt-7 hidden flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-white/70 sm:flex">
-              {trustClaimsDesktop.map((t, i) => (
-                <React.Fragment key={t}>
-                  {i > 0 && <span aria-hidden className="text-white/35">·</span>}
-                  <span>{t}</span>
-                </React.Fragment>
-              ))}
-            </div>
-          </ScrollReveal>
-        </div>
-      </div>
-    </section>
-  );
-}
 
 /* -------------------------------------------------------------------------- */
 /*  Section: HowItWorks                                                       */
@@ -1305,7 +1042,7 @@ export default function HomeClient() {
   /* -------------------------------------------------------------------- */
   return (
     <div className="w-full overflow-x-hidden">
-      <Hero />
+      <HomeHero />
 
       <HowItWorks />
 
