@@ -14,6 +14,7 @@ interface PublicEntryRow {
   creditsSpent: number;
   createdAt: string;
   maskedName?: string;
+  position?: number;
 }
 
 interface EntryStats {
@@ -252,6 +253,7 @@ export default function DrawEntriesPage() {
                 <table className="min-w-full divide-y divide-[#E7E9F2]">
                   <thead className="bg-[#FBFAFF]">
                     <tr>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Draw Position</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Member</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Entry Number</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Order Number</th>
@@ -262,6 +264,9 @@ export default function DrawEntriesPage() {
                   <tbody className="divide-y divide-[#F0EEFB]">
                     {entries.map((entry) => (
                       <tr key={entry.id} className="hover:bg-[#FBFAFF]">
+                        <td className="px-6 py-3.5 whitespace-nowrap text-sm font-bold text-gray-900 tabular-nums">
+                          {entry.position ?? '—'}
+                        </td>
                         <td className="px-6 py-3.5 whitespace-nowrap text-sm font-medium text-gray-900">
                           {entry.maskedName || 'UNICASH Member'}
                         </td>
@@ -285,11 +290,16 @@ export default function DrawEntriesPage() {
               <ul className="sm:hidden divide-y divide-[#F0EEFB]">
                 {entries.map((entry) => (
                   <li key={entry.id} className="px-4 py-3.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-900">
-                        {entry.maskedName || 'UNICASH Member'}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[#F0EEFB] px-2 py-0.5 text-xs font-bold text-primary-700 tabular-nums">
+                          #{entry.position ?? '—'}
+                        </span>
+                        <span className="truncate text-sm font-medium text-gray-900">
+                          {entry.maskedName || 'UNICASH Member'}
+                        </span>
                       </span>
-                      <span className="text-sm font-mono font-semibold text-primary-700">
+                      <span className="shrink-0 text-sm font-mono font-semibold text-primary-700">
                         {formatEntryNumber(entry.ticketNumber)}
                       </span>
                     </div>
@@ -335,7 +345,9 @@ export default function DrawEntriesPage() {
           <p className="text-xs text-gray-600 leading-relaxed">
             <strong className="text-gray-800">Privacy &amp; fairness:</strong> Member names are
             partially hidden (e.g. “John V”) and no email, phone, or full surname is ever shown.
-            Each entry has a unique Entry Number used to select the winner transparently.
+            Each entry has a fixed <strong className="text-gray-800">Draw Position</strong> that never
+            changes — the winner is chosen by drawing a random position, making the result fully
+            verifiable.
           </p>
         </div>
       </div>
