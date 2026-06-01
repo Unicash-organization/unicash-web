@@ -291,12 +291,13 @@ export default function DrawEntriesPage() {
               {/* Go to Draw Position — for the live random draw */}
               <div className="border-b border-[#E7E9F2] bg-[#FBFAFF] px-4 sm:px-6 py-3">
                 <form onSubmit={handleJumpToPosition} className="flex flex-wrap items-center gap-2">
-                  <label htmlFor="posjump" className="text-xs font-semibold text-gray-600">
+                  <label htmlFor="posjump" className="w-full text-xs font-semibold text-gray-600 sm:w-auto">
                     Go to Draw Position
                   </label>
                   <input
                     id="posjump"
                     type="number"
+                    inputMode="numeric"
                     min={1}
                     value={posInput}
                     onChange={(e) => {
@@ -304,11 +305,11 @@ export default function DrawEntriesPage() {
                       if (jumpError) setJumpError(null);
                     }}
                     placeholder={`1–${total.toLocaleString()}`}
-                    className="w-28 rounded-lg border border-[#E7E9F2] px-3 py-1.5 text-sm focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
+                    className="h-10 flex-1 rounded-lg border border-[#E7E9F2] px-3 text-sm focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20 sm:h-9 sm:w-28 sm:flex-none"
                   />
                   <button
                     type="submit"
-                    className="rounded-lg bg-[#6356E5] px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-[#5648D8]"
+                    className="h-10 rounded-lg bg-[#6356E5] px-5 text-sm font-semibold text-white transition hover:bg-[#5648D8] sm:h-9 sm:px-4"
                   >
                     Go
                   </button>
@@ -320,9 +321,9 @@ export default function DrawEntriesPage() {
                         setPosInput('');
                         setJumpError(null);
                       }}
-                      className="px-2 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700"
+                      className="h-10 px-2 text-sm font-medium text-gray-500 hover:text-gray-700 sm:h-9"
                     >
-                      Clear highlight
+                      Clear
                     </button>
                   )}
                 </form>
@@ -378,25 +379,33 @@ export default function DrawEntriesPage() {
               <ul className="sm:hidden divide-y divide-[#F0EEFB]">
                 {entries.map((entry) => {
                   const hl = highlightPos != null && entry.position === highlightPos;
+                  const num = formatEntryNumber(entry.ticketNumber);
                   return (
                     <li
                       key={entry.id}
-                      className={`flex items-center justify-between gap-3 px-4 py-3.5 ${hl ? 'bg-[#F0EEFB]' : ''}`}
+                      className={`flex items-center gap-3 px-4 py-3 ${hl ? 'bg-[#F0EEFB]' : ''}`}
                     >
-                      <span className="flex min-w-0 items-center gap-2.5">
+                      <span
+                        className={`inline-flex h-8 min-w-[2.25rem] shrink-0 items-center justify-center rounded-lg px-2 text-[13px] font-extrabold tabular-nums ${
+                          hl ? 'bg-[#6356E5] text-white' : 'bg-[#F4F1FB] text-[#6356E5]'
+                        }`}
+                      >
+                        {entry.position ?? '—'}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-gray-900">
+                        {entry.maskedName || 'UNICASH Member'}
+                      </span>
+                      <span className="shrink-0 text-right leading-tight">
+                        <span className="block text-[9px] font-bold uppercase tracking-wider text-gray-400">
+                          Entry
+                        </span>
                         <span
-                          className={`inline-flex min-w-[2.25rem] shrink-0 items-center justify-center rounded-lg px-2 py-0.5 text-xs font-extrabold tabular-nums ${
-                            hl ? 'bg-[#6356E5] text-white' : 'bg-[#F4F1FB] text-[#6356E5]'
+                          className={`font-mono text-[13px] font-bold tracking-wider ${
+                            num === '—' ? 'text-gray-300' : 'text-gray-900'
                           }`}
                         >
-                          {entry.position ?? '—'}
+                          {num}
                         </span>
-                        <span className="truncate text-sm font-semibold text-gray-900">
-                          {entry.maskedName || 'UNICASH Member'}
-                        </span>
-                      </span>
-                      <span className="shrink-0 font-mono text-sm font-bold tracking-wider text-gray-900">
-                        {formatEntryNumber(entry.ticketNumber)}
                       </span>
                     </li>
                   );
@@ -405,13 +414,13 @@ export default function DrawEntriesPage() {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex flex-col gap-3 border-t border-[#E7E9F2] bg-[#FBFAFF] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                  <p className="text-xs text-gray-500 sm:text-sm">
+                <div className="flex flex-col items-center gap-3 border-t border-[#E7E9F2] bg-[#FBFAFF] px-4 py-3.5 sm:flex-row sm:justify-between sm:px-6">
+                  <p className="order-2 text-xs text-gray-500 sm:order-1 sm:text-sm">
                     Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, total)} of {total.toLocaleString()}
                   </p>
-                  <div className="flex items-center gap-1.5">
-                    <button onClick={() => goToPage(1)} disabled={currentPage === 1} className="rounded-lg border border-[#E7E9F2] bg-white px-2.5 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">«</button>
-                    <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} className="rounded-lg border border-[#E7E9F2] bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">Prev</button>
+                  <div className="order-1 flex items-center gap-1.5 sm:order-2">
+                    <button onClick={() => goToPage(1)} disabled={currentPage === 1} aria-label="First page" className="hidden h-9 w-9 items-center justify-center rounded-lg border border-[#E7E9F2] bg-white text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 sm:inline-flex">«</button>
+                    <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} className="inline-flex h-9 items-center rounded-lg border border-[#E7E9F2] bg-white px-3.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">Prev</button>
                     <form onSubmit={handleJumpToPage} className="flex items-center gap-1.5">
                       <input
                         type="number"
@@ -421,12 +430,12 @@ export default function DrawEntriesPage() {
                         onChange={(e) => setPageInput(e.target.value)}
                         placeholder={String(currentPage)}
                         aria-label="Jump to page"
-                        className="w-14 rounded-lg border border-[#E7E9F2] px-2 py-1.5 text-center text-sm focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
+                        className="h-9 w-14 rounded-lg border border-[#E7E9F2] px-2 text-center text-sm focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
                       />
-                      <span className="text-sm text-gray-500">/ {totalPages}</span>
+                      <span className="whitespace-nowrap text-sm text-gray-500">/ {totalPages}</span>
                     </form>
-                    <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} className="rounded-lg border border-[#E7E9F2] bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
-                    <button onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages} className="rounded-lg border border-[#E7E9F2] bg-white px-2.5 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">»</button>
+                    <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} className="inline-flex h-9 items-center rounded-lg border border-[#E7E9F2] bg-white px-3.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+                    <button onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages} aria-label="Last page" className="hidden h-9 w-9 items-center justify-center rounded-lg border border-[#E7E9F2] bg-white text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 sm:inline-flex">»</button>
                   </div>
                 </div>
               )}
