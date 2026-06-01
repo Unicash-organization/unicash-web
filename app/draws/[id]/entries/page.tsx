@@ -112,12 +112,15 @@ export default function DrawEntriesPage() {
     if (drawId) loadEntries();
   }, [drawId, loadEntries]);
 
-  // Animate the progress bar from 0 → real % whenever the counts load/change.
+  // Animate the progress bar from 0 → fill width whenever the counts load/change.
+  // Floor the fill at a visible sliver when there's ≥1 entry so a tiny % (e.g.
+  // 6/3000) still shows movement instead of looking empty.
   useEffect(() => {
     const c = stats?.cap ?? draw?.cap ?? 0;
     const s = stats?.soldEntries ?? total;
-    const p = c === -1 || c <= 0 ? 0 : Math.min(100, Math.round((s / c) * 100));
-    const t = setTimeout(() => setBarW(p), 80);
+    const real = c === -1 || c <= 0 ? 0 : Math.min(100, (s / c) * 100);
+    const fill = real > 0 ? Math.max(real, 4) : 0;
+    const t = setTimeout(() => setBarW(fill), 120);
     return () => clearTimeout(t);
   }, [stats, total, draw]);
 
@@ -174,7 +177,9 @@ export default function DrawEntriesPage() {
   const cap = stats?.cap ?? draw?.cap ?? 0;
   const sold = stats?.soldEntries ?? total;
   const unlimited = cap === -1;
-  const pct = unlimited || cap <= 0 ? 0 : Math.min(100, Math.round((sold / cap) * 100));
+  const realPct = unlimited || cap <= 0 ? 0 : Math.min(100, (sold / cap) * 100);
+  // Honest label: show "<1%" for a tiny non-zero fill instead of a flat "0%".
+  const pctLabel = realPct === 0 ? '0' : realPct < 1 ? '<1' : String(Math.round(realPct));
 
   return (
     <div className="min-h-screen bg-[#FBFAFF] py-8">
@@ -210,7 +215,7 @@ export default function DrawEntriesPage() {
             </div>
             {!unlimited && (
               <div className="text-right">
-                <p className="text-sm font-semibold text-[#6356E5]">{pct}% filled</p>
+                <p className="text-sm font-semibold text-[#6356E5]">{pctLabel}% filled</p>
                 {stats?.remaining != null && (
                   <p className="text-xs text-gray-400 mt-0.5">
                     {stats.remaining.toLocaleString()} remaining
@@ -384,16 +389,16 @@ export default function DrawEntriesPage() {
                 </table>
               </div>
 
-              {/* Mobile header + cards */}
+              {/* Mobile header + cards — 3 equal columns */}
               <div className="sm:hidden">
-                <div className="flex items-center gap-3 border-b border-[#E7E9F2] bg-[#FBFAFF] px-4 py-2">
-                  <span className="min-w-[2.25rem] shrink-0 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                    Pos
+                <div className="grid grid-cols-3 items-center gap-2 border-b border-[#E7E9F2] bg-[#FBFAFF] px-4 py-2.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    Position
                   </span>
-                  <span className="flex-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
                     Member
                   </span>
-                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  <span className="text-right text-[10px] font-bold uppercase tracking-wider text-gray-400">
                     Entry No.
                   </span>
                 </div>
@@ -404,20 +409,22 @@ export default function DrawEntriesPage() {
                     return (
                       <li
                         key={entry.id}
-                        className={`flex items-center gap-3 px-4 py-3 ${hl ? 'bg-[#F0EEFB]' : ''}`}
+                        className={`grid grid-cols-3 items-center gap-2 px-4 py-3 ${hl ? 'bg-[#F0EEFB]' : ''}`}
                       >
-                        <span
-                          className={`inline-flex h-8 min-w-[2.25rem] shrink-0 items-center justify-center rounded-lg px-2 text-[13px] font-extrabold tabular-nums ${
-                            hl ? 'bg-[#6356E5] text-white' : 'bg-[#F4F1FB] text-[#6356E5]'
-                          }`}
-                        >
-                          {entry.position ?? '—'}
+                        <span>
+                          <span
+                            className={`inline-flex h-8 min-w-[2.25rem] items-center justify-center rounded-lg px-2 text-[13px] font-extrabold tabular-nums ${
+                              hl ? 'bg-[#6356E5] text-white' : 'bg-[#F4F1FB] text-[#6356E5]'
+                            }`}
+                          >
+                            {entry.position ?? '—'}
+                          </span>
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-gray-900">
+                        <span className="min-w-0 truncate text-[15px] font-semibold text-gray-900">
                           {entry.maskedName || 'UNICASH Member'}
                         </span>
                         <span
-                          className={`shrink-0 font-mono text-[14px] font-bold tracking-wider ${
+                          className={`text-right font-mono text-[14px] font-bold tracking-wider ${
                             num === '—' ? 'text-gray-300' : 'text-gray-900'
                           }`}
                         >
