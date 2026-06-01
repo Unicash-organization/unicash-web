@@ -60,6 +60,8 @@ export default function DrawEntriesPage() {
   const [jumpError, setJumpError] = useState<string | null>(null);
   // Free page-number jump.
   const [pageInput, setPageInput] = useState('');
+  // Animated progress-bar width (starts at 0, eases to the real % on load).
+  const [barW, setBarW] = useState(0);
 
   const loadDraw = useCallback(async () => {
     try {
@@ -109,6 +111,15 @@ export default function DrawEntriesPage() {
   useEffect(() => {
     if (drawId) loadEntries();
   }, [drawId, loadEntries]);
+
+  // Animate the progress bar from 0 → real % whenever the counts load/change.
+  useEffect(() => {
+    const c = stats?.cap ?? draw?.cap ?? 0;
+    const s = stats?.soldEntries ?? total;
+    const p = c === -1 || c <= 0 ? 0 : Math.min(100, Math.round((s / c) * 100));
+    const t = setTimeout(() => setBarW(p), 80);
+    return () => clearTimeout(t);
+  }, [stats, total, draw]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,8 +222,8 @@ export default function DrawEntriesPage() {
           {!unlimited && (
             <div className="mt-3 h-2.5 w-full rounded-full bg-[#F0EEFB] overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] transition-all"
-                style={{ width: `${pct}%` }}
+                className="h-full rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] transition-[width] duration-1000 ease-out"
+                style={{ width: `${barW}%` }}
               />
             </div>
           )}
@@ -234,24 +245,22 @@ export default function DrawEntriesPage() {
 
         {/* Search */}
         <div className="bg-white rounded-2xl border border-[#E7E9F2] shadow-sm p-4 sm:p-5 mb-5">
-          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
-              <label htmlFor="search" className="block text-xs font-semibold text-gray-600 mb-1.5">
-                Search by entry number or order number
-              </label>
+          <form onSubmit={handleSearch}>
+            <label htmlFor="search" className="block text-xs font-semibold text-gray-600 mb-1.5">
+              Search by entry number or order number
+            </label>
+            <div className="flex items-center gap-2">
               <input
                 type="text"
                 id="search"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="e.g. 089754 or UNC123456"
-                className="w-full px-4 py-2.5 border border-[#E7E9F2] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20 focus:border-[#6356E5]"
+                className="min-w-0 flex-1 px-4 py-2.5 border border-[#E7E9F2] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20 focus:border-[#6356E5]"
               />
-            </div>
-            <div className="flex items-end gap-2">
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-[#6356E5] text-white rounded-xl text-sm font-semibold hover:bg-[#5648D8] transition"
+                className="shrink-0 px-4 sm:px-5 py-2.5 bg-[#6356E5] text-white rounded-xl text-sm font-semibold hover:bg-[#5648D8] transition"
               >
                 Search
               </button>
@@ -259,7 +268,7 @@ export default function DrawEntriesPage() {
                 <button
                   type="button"
                   onClick={handleClearSearch}
-                  className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200 transition"
+                  className="shrink-0 px-3 sm:px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200 transition"
                 >
                   Clear
                 </button>
@@ -375,42 +384,50 @@ export default function DrawEntriesPage() {
                 </table>
               </div>
 
-              {/* Mobile cards */}
-              <ul className="sm:hidden divide-y divide-[#F0EEFB]">
-                {entries.map((entry) => {
-                  const hl = highlightPos != null && entry.position === highlightPos;
-                  const num = formatEntryNumber(entry.ticketNumber);
-                  return (
-                    <li
-                      key={entry.id}
-                      className={`flex items-center gap-3 px-4 py-3 ${hl ? 'bg-[#F0EEFB]' : ''}`}
-                    >
-                      <span
-                        className={`inline-flex h-8 min-w-[2.25rem] shrink-0 items-center justify-center rounded-lg px-2 text-[13px] font-extrabold tabular-nums ${
-                          hl ? 'bg-[#6356E5] text-white' : 'bg-[#F4F1FB] text-[#6356E5]'
-                        }`}
+              {/* Mobile header + cards */}
+              <div className="sm:hidden">
+                <div className="flex items-center gap-3 border-b border-[#E7E9F2] bg-[#FBFAFF] px-4 py-2">
+                  <span className="min-w-[2.25rem] shrink-0 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    Pos
+                  </span>
+                  <span className="flex-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    Member
+                  </span>
+                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    Entry No.
+                  </span>
+                </div>
+                <ul className="divide-y divide-[#F0EEFB]">
+                  {entries.map((entry) => {
+                    const hl = highlightPos != null && entry.position === highlightPos;
+                    const num = formatEntryNumber(entry.ticketNumber);
+                    return (
+                      <li
+                        key={entry.id}
+                        className={`flex items-center gap-3 px-4 py-3 ${hl ? 'bg-[#F0EEFB]' : ''}`}
                       >
-                        {entry.position ?? '—'}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-gray-900">
-                        {entry.maskedName || 'UNICASH Member'}
-                      </span>
-                      <span className="shrink-0 text-right leading-tight">
-                        <span className="block text-[9px] font-bold uppercase tracking-wider text-gray-400">
-                          Entry
+                        <span
+                          className={`inline-flex h-8 min-w-[2.25rem] shrink-0 items-center justify-center rounded-lg px-2 text-[13px] font-extrabold tabular-nums ${
+                            hl ? 'bg-[#6356E5] text-white' : 'bg-[#F4F1FB] text-[#6356E5]'
+                          }`}
+                        >
+                          {entry.position ?? '—'}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-gray-900">
+                          {entry.maskedName || 'UNICASH Member'}
                         </span>
                         <span
-                          className={`font-mono text-[13px] font-bold tracking-wider ${
+                          className={`shrink-0 font-mono text-[14px] font-bold tracking-wider ${
                             num === '—' ? 'text-gray-300' : 'text-gray-900'
                           }`}
                         >
                           {num}
                         </span>
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
 
               {/* Pagination */}
               {totalPages > 1 && (
