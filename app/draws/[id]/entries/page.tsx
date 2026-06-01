@@ -57,6 +57,7 @@ export default function DrawEntriesPage() {
   // "Go to Draw Position" — jumps to the page holding that position + highlights it.
   const [posInput, setPosInput] = useState('');
   const [highlightPos, setHighlightPos] = useState<number | null>(null);
+  const [jumpError, setJumpError] = useState<string | null>(null);
   // Free page-number jump.
   const [pageInput, setPageInput] = useState('');
 
@@ -129,7 +130,19 @@ export default function DrawEntriesPage() {
   const handleJumpToPosition = (e: React.FormEvent) => {
     e.preventDefault();
     const pos = parseInt(posInput.trim(), 10);
-    if (!Number.isFinite(pos) || pos < 1) return;
+    if (!Number.isFinite(pos) || pos < 1) {
+      setJumpError('Enter a Draw Position of 1 or higher.');
+      setHighlightPos(null);
+      return;
+    }
+    if (pos > total) {
+      setJumpError(
+        `This draw has ${total.toLocaleString()} ${total === 1 ? 'entry' : 'entries'} — position ${pos} doesn’t exist.`,
+      );
+      setHighlightPos(null);
+      return;
+    }
+    setJumpError(null);
     if (search) handleClearSearch(); // position numbering only applies to the full list
     setHighlightPos(pos);
     setCurrentPage(Math.ceil(pos / PAGE_SIZE));
@@ -276,41 +289,51 @@ export default function DrawEntriesPage() {
           ) : (
             <>
               {/* Go to Draw Position — for the live random draw */}
-              <form
-                onSubmit={handleJumpToPosition}
-                className="flex flex-wrap items-center gap-2 border-b border-[#E7E9F2] bg-[#FBFAFF] px-4 sm:px-6 py-3"
-              >
-                <label htmlFor="posjump" className="text-xs font-semibold text-gray-600">
-                  Go to Draw Position
-                </label>
-                <input
-                  id="posjump"
-                  type="number"
-                  min={1}
-                  value={posInput}
-                  onChange={(e) => setPosInput(e.target.value)}
-                  placeholder="e.g. 3847"
-                  className="w-28 rounded-lg border border-[#E7E9F2] px-3 py-1.5 text-sm focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
-                />
-                <button
-                  type="submit"
-                  className="rounded-lg bg-[#6356E5] px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-[#5648D8]"
-                >
-                  Go
-                </button>
-                {highlightPos != null && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setHighlightPos(null);
-                      setPosInput('');
+              <div className="border-b border-[#E7E9F2] bg-[#FBFAFF] px-4 sm:px-6 py-3">
+                <form onSubmit={handleJumpToPosition} className="flex flex-wrap items-center gap-2">
+                  <label htmlFor="posjump" className="text-xs font-semibold text-gray-600">
+                    Go to Draw Position
+                  </label>
+                  <input
+                    id="posjump"
+                    type="number"
+                    min={1}
+                    value={posInput}
+                    onChange={(e) => {
+                      setPosInput(e.target.value);
+                      if (jumpError) setJumpError(null);
                     }}
-                    className="px-2 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700"
+                    placeholder={`1–${total.toLocaleString()}`}
+                    className="w-28 rounded-lg border border-[#E7E9F2] px-3 py-1.5 text-sm focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-[#6356E5] px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-[#5648D8]"
                   >
-                    Clear highlight
+                    Go
                   </button>
-                )}
-              </form>
+                  {highlightPos != null && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHighlightPos(null);
+                        setPosInput('');
+                        setJumpError(null);
+                      }}
+                      className="px-2 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700"
+                    >
+                      Clear highlight
+                    </button>
+                  )}
+                </form>
+                {jumpError ? (
+                  <p className="mt-1.5 text-xs text-red-500">{jumpError}</p>
+                ) : highlightPos != null ? (
+                  <p className="mt-1.5 text-xs text-gray-500">
+                    Highlighting Draw Position {highlightPos.toLocaleString()}.
+                  </p>
+                ) : null}
+              </div>
 
               {/* Desktop table */}
               <div className="hidden sm:block overflow-x-auto">
