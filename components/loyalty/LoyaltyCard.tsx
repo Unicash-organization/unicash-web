@@ -27,7 +27,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Sparkles, AlertTriangle, RefreshCw, ChevronRight, Calendar, Flame } from 'lucide-react';
+import { Sparkles, AlertTriangle, RefreshCw, ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api';
 import { LoyaltyStatusBadge } from './LoyaltyStatusBadge';
 import { LoyaltySummary, MilestoneSchedule, SUBSOURCE_GROUP, LoyaltySubsource } from './types';
@@ -242,10 +242,6 @@ function EligibleLoyaltyCard({ summary }: { summary: LoyaltySummary }) {
     ? fromLedger.total
     : tenureEarned + anniversaryEarned + streakEarned;
 
-  // Cycles paid so far — for the Tenure stat hint ("0 mo × 4" was the
-  // bug; member at signup has 1 cycle paid, not 0).
-  const cyclesPaid = Math.max(0, summary.tenureMonths) + 1;
-
   // Projection slider — initialized to "now"; member drags to see future.
   const [projectMonth, setProjectMonth] = useState<number>(summary.tenureMonths);
 
@@ -287,54 +283,14 @@ function EligibleLoyaltyCard({ summary }: { summary: LoyaltySummary }) {
         </p>
       </div>
 
-      {/* 3-stat breakdown */}
-      <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
-        <BreakdownStat
-          icon={<Calendar className="h-3.5 w-3.5" aria-hidden />}
-          label="Tenure"
-          value={tenureEarned}
-          hint={`${cyclesPaid} cycle${cyclesPaid === 1 ? '' : 's'} × ${summary.monthlyAccrual}`}
-        />
-        <BreakdownStat
-          icon={<Sparkles className="h-3.5 w-3.5" aria-hidden />}
-          label="Anniversary"
-          value={anniversaryEarned}
-          hint={`${countCrossed(schedule, summary.tenureMonths, 'anniversary')} milestones`}
-          tone="gold"
-        />
-        <BreakdownStat
-          icon={<Flame className="h-3.5 w-3.5" aria-hidden />}
-          label="Streak"
-          value={streakEarned}
-          hint={`${summary.streakMonths} mo unbroken`}
-        />
-      </div>
-
-      {/* Anniversary milestone timeline */}
-      <MilestoneRow
-        title="Anniversary milestones"
-        kind="anniversary"
-        currentMonth={summary.tenureMonths}
-        schedule={schedule}
-      />
-
-      {/* Streak milestone timeline */}
-      <MilestoneRow
-        title="Streak milestones"
-        kind="streak"
-        currentMonth={summary.streakMonths}
-        schedule={schedule}
-        tone="streak"
-      />
-
       {/* Projection scrubber */}
       <div className="mt-6 overflow-hidden rounded-2xl border border-[#E0DAFF] bg-gradient-to-br from-[#FBFAFF] to-[#F4F1FB] p-4 sm:p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#6356E5]">
-            Project your earnings
+            See your entries grow
           </p>
           <p className="text-[11px] text-[#667085]">
-            Drag the slider to see how entries grow with tenure.
+            Drag to see how many entries you’ll have the longer you stay a member.
           </p>
         </div>
 
@@ -389,70 +345,15 @@ function EligibleLoyaltyCard({ summary }: { summary: LoyaltySummary }) {
         </div>
 
         <p className="mt-3 text-[10.5px] leading-relaxed text-[#667085]">
-          Projection assumes an unbroken active membership at the {tierLabel} tier. A pause or
-          cancel resets the streak clock and freezes accrual until you resume.
+          This is an estimate if you stay an active {tierLabel} member. If you pause or cancel,
+          your entries stop growing until you start again.
         </p>
-      </div>
-
-      <div className="mt-4 flex justify-end">
-        <Link
-          href="/account/loyalty"
-          className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-[#6356E5] hover:text-[#5648D8]"
-        >
-          View full history <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-        </Link>
       </div>
     </article>
   );
 }
 
 /* ─── Sub-components ────────────────────────────────────────────────── */
-
-function countCrossed(
-  schedule: MilestoneSchedule | null,
-  currentMonth: number,
-  kind: 'anniversary' | 'streak',
-): number {
-  if (!schedule) return 0;
-  let count = 0;
-  const milestones = kind === 'anniversary' ? ANNIVERSARY_MILESTONES : STREAK_MILESTONES;
-  for (const ms of milestones) if (currentMonth >= ms) count++;
-  if (kind === 'anniversary' && currentMonth >= 36) {
-    count += Math.floor((currentMonth - 24) / 12);
-  }
-  return count;
-}
-
-function BreakdownStat({
-  icon,
-  label,
-  value,
-  hint,
-  tone = 'purple',
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  hint: string;
-  tone?: 'purple' | 'gold';
-}) {
-  const palette =
-    tone === 'gold'
-      ? { bg: 'bg-[#FFF6DA]', text: 'text-[#9C5410]', ring: 'ring-[#FFC85D]/40' }
-      : { bg: 'bg-[#F4F1FB]', text: 'text-[#6356E5]', ring: 'ring-[#E0DAFF]' };
-  return (
-    <div className={`rounded-2xl p-3 ring-1 ${palette.bg} ${palette.ring}`}>
-      <div className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.1em] ${palette.text}`}>
-        {icon}
-        <span>{label}</span>
-      </div>
-      <p className="mt-1 text-[20px] font-extrabold leading-none tracking-tight text-[#0F1222] tabular-nums sm:text-[22px]">
-        +{value.toLocaleString()}
-      </p>
-      <p className="mt-1 text-[10.5px] text-[#667085]">{hint}</p>
-    </div>
-  );
-}
 
 function ProjectionStat({
   label,
@@ -474,133 +375,3 @@ function ProjectionStat({
   );
 }
 
-function MilestoneRow({
-  title,
-  kind,
-  currentMonth,
-  schedule,
-  tone = 'anniversary',
-}: {
-  title: string;
-  kind: 'anniversary' | 'streak';
-  currentMonth: number;
-  schedule: MilestoneSchedule | null;
-  tone?: 'anniversary' | 'streak';
-}) {
-  const milestones = kind === 'anniversary'
-    ? ANNIVERSARY_MILESTONES.map((m) => ({
-        month: m,
-        bonus: schedule?.anniversary[String(m) as keyof typeof schedule.anniversary] as number,
-      }))
-    : STREAK_MILESTONES.map((m) => ({
-        month: m,
-        bonus: schedule?.streak[String(m) as keyof typeof schedule.streak] as number,
-      }));
-
-  const accent = tone === 'anniversary' ? 'text-[#9C5410]' : 'text-[#C84B4B]';
-  const dotEarned = tone === 'anniversary' ? 'bg-[#FFC85D]' : 'bg-[#FF7A7A]';
-  const lineEarned =
-    tone === 'anniversary'
-      ? 'bg-gradient-to-r from-[#FFC85D] to-[#FFE2B0]'
-      : 'bg-gradient-to-r from-[#FF7A7A] to-[#FFC5C5]';
-
-  return (
-    <div className="mt-5">
-      <p className={`text-[11px] font-bold uppercase tracking-[0.14em] ${accent}`}>{title}</p>
-
-      <div className="mt-2.5 grid items-stretch gap-2" style={{ gridTemplateColumns: `repeat(${milestones.length}, minmax(0, 1fr))` }}>
-        {milestones.map((m) => {
-          const isEarned = currentMonth >= m.month;
-          return (
-            <div
-              key={m.month}
-              className={`rounded-xl border p-2.5 ring-1 ${
-                isEarned
-                  ? 'border-transparent bg-gradient-to-br from-[#FFF6DA] to-[#FFE2B0] ring-[#FFC85D]/60'
-                  : 'border-[#E7E9F2] bg-[#FBFAFF] ring-[#E0DAFF]/40'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-1.5">
-                <span
-                  className={`inline-flex h-2.5 w-2.5 shrink-0 rounded-full ${
-                    isEarned ? dotEarned : 'bg-[#E0DAFF]'
-                  }`}
-                />
-                <span
-                  className={`text-[10.5px] font-bold uppercase tracking-[0.08em] ${
-                    isEarned ? 'text-[#7C5A00]' : 'text-[#667085]'
-                  }`}
-                >
-                  {kind === 'anniversary' && m.month === 12
-                    ? '1 yr'
-                    : kind === 'anniversary' && m.month === 24
-                      ? '2 yr'
-                      : `${m.month} mo`}
-                </span>
-              </div>
-              <p
-                className={`mt-1 text-[16px] font-extrabold leading-none tracking-tight tabular-nums ${
-                  isEarned ? 'text-[#7C5A00]' : 'text-[#667085]'
-                }`}
-              >
-                +{(m.bonus ?? 0).toLocaleString()}
-              </p>
-              <p className={`mt-1 text-[9.5px] ${isEarned ? 'text-[#9C5410]' : 'text-[#A3A8BE]'}`}>
-                {isEarned ? '✓ earned' : 'upcoming'}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Progress bar to next milestone */}
-      <MilestoneProgressBar
-        currentMonth={currentMonth}
-        milestones={milestones.map((m) => m.month)}
-        lineEarned={lineEarned}
-      />
-
-      {kind === 'anniversary' && currentMonth >= 24 && schedule?.anniversary.yearlyRecurringAfter24 && (
-        <p className="mt-2 text-[10.5px] leading-relaxed text-[#667085]">
-          After month 24, a recurring{' '}
-          <span className="font-bold text-[#9C5410]">
-            +{schedule.anniversary.yearlyRecurringAfter24}
-          </span>{' '}
-          yearly bonus fires every 12 months.
-        </p>
-      )}
-    </div>
-  );
-}
-
-function MilestoneProgressBar({
-  currentMonth,
-  milestones,
-  lineEarned,
-}: {
-  currentMonth: number;
-  milestones: number[];
-  lineEarned: string;
-}) {
-  const max = Math.max(...milestones, 1);
-  const pct = Math.min(100, (Math.min(currentMonth, max) / max) * 100);
-  const nextMilestone = milestones.find((m) => m > currentMonth);
-  return (
-    <div className="mt-3">
-      <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-[#F4F1FB]">
-        <div
-          className={`h-full rounded-full transition-all duration-300 ${lineEarned}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      {nextMilestone && (
-        <p className="mt-1.5 text-[10.5px] text-[#667085]">
-          Next:{' '}
-          <span className="font-bold text-[#0F1222]">{nextMilestone}-month milestone</span>{' '}
-          in {nextMilestone - currentMonth} month
-          {nextMilestone - currentMonth === 1 ? '' : 's'}.
-        </p>
-      )}
-    </div>
-  );
-}
