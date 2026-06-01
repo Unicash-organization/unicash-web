@@ -391,12 +391,19 @@ function EntryNumbersModal({
           <>
             {/* Count + reassurance + search (fixed above the scroll area) */}
             <div className="border-b border-[#E7E9F2] px-5 py-4">
-              <p className="text-[28px] font-extrabold leading-none tracking-tight text-[#0F1222] tabular-nums">
-                {count.toLocaleString()}
-              </p>
-              <p className="mt-1 text-[12.5px] text-[#667085]">
-                entry {count === 1 ? 'number' : 'numbers'} in this draw — you’re in. Winners are
-                drawn by a random Draw Position.
+              <div className="flex items-baseline gap-2">
+                <span className="text-[30px] font-extrabold leading-none tracking-tight text-[#0F1222] tabular-nums">
+                  {count.toLocaleString()}
+                </span>
+                <span className="text-[14px] font-semibold text-[#667085]">
+                  entry {count === 1 ? 'number' : 'numbers'}
+                </span>
+              </div>
+              <p className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-[#10B981]">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+                You’re entered in this draw.
               </p>
               <div className="relative mt-3">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9AA0B4]">
