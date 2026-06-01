@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 import Link from 'next/link';
@@ -266,6 +267,122 @@ function pickGradient(seed: string): string {
 
 /* ─── Sub-components ──────────────────────────────────────────────────── */
 
+/**
+ * Entry-numbers modal — lists the member's own entry (ticket) numbers for one
+ * draw, grouped by order. Bottom-sheet on mobile + centred on desktop, portals
+ * to document.body (transformed ancestors break position:fixed).
+ */
+function EntryNumbersModal({
+  drawId,
+  drawTitle,
+  onClose,
+}: {
+  drawId: string;
+  drawTitle: string;
+  onClose: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [count, setCount] = useState(0);
+  const [orders, setOrders] = useState<{ orderNo: string; entryNumbers: number[] }[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const res = await api.entries.getMyDrawEntryNumbers(drawId);
+        if (!active) return;
+        setCount(res.data.count);
+        setOrders(res.data.orders || []);
+      } catch (err: any) {
+        if (active) setError(err.response?.data?.message || 'Failed to load entry numbers');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [drawId]);
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center animate-[fadeIn_.15s_ease-out]"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md max-h-[85vh] overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-[#E7E9F2] px-5 py-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#6356E5]">
+              My entry numbers
+            </p>
+            <h3 className="mt-0.5 line-clamp-2 text-[15.5px] font-extrabold tracking-tight text-[#0F1222]">
+              {drawTitle}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-full p-1.5 text-[#667085] hover:bg-[#F4F1FB]"
+            aria-label="Close"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-5 w-5">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
+          {loading ? (
+            <div className="flex justify-center py-10">
+              <LoadingRing size="sm" label="Loading entry numbers" />
+            </div>
+          ) : error ? (
+            <p className="py-8 text-center text-[13px] text-red-600">{error}</p>
+          ) : count === 0 ? (
+            <p className="py-8 text-center text-[13px] text-[#667085]">No entry numbers found.</p>
+          ) : (
+            <>
+              <p className="mb-3 text-[12.5px] text-[#667085]">
+                You hold <span className="font-bold text-[#0F1222]">{count.toLocaleString()}</span>{' '}
+                {count === 1 ? 'entry number' : 'entry numbers'} in this draw.
+              </p>
+              <div className="space-y-3">
+                {orders.map((o) => (
+                  <div key={o.orderNo} className="rounded-2xl border border-[#E7E9F2] bg-[#FBFAFF] p-3">
+                    <p className="mb-2 text-[11px] font-semibold text-[#667085]">
+                      Order <span className="font-mono text-[#0F1222]">{o.orderNo}</span>
+                      <span className="ml-1.5 text-[#9AA0B4]">· {o.entryNumbers.length}</span>
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {o.entryNumbers.map((n) => (
+                        <span
+                          key={n}
+                          className="rounded-lg bg-white px-2 py-1 font-mono text-[12.5px] font-semibold text-[#6356E5] ring-1 ring-[#E0DAFF]"
+                        >
+                          {String(n).padStart(6, '0')}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function DrawCard({
   data,
   nowMs,
@@ -277,6 +394,7 @@ function DrawCard({
 }) {
   const { draw, userEntries, accumulatingEntries, purchasedEntries, hasLoyalty } = data;
   const { user } = useAuth();
+  const [showNumbers, setShowNumbers] = useState(false);
   const isWinner = !!(draw.winnerUserId && user?.id && draw.winnerUserId === user.id);
   const status = resolveStatus(draw, isWinner, nowMs);
 
@@ -295,6 +413,7 @@ function DrawCard({
   const showSourcePill = drawKind === 'mini' && hasLoyalty;
 
   return (
+    <>
     <Link
       href={href}
       className="group flex flex-col overflow-hidden rounded-3xl border border-[#E7E9F2] bg-white shadow-[0_1px_2px_rgba(15,18,34,.04)] transition-all hover:-translate-y-0.5 hover:border-[#D8D2F2] hover:shadow-[0_18px_40px_-20px_rgba(99,86,229,0.28)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2"
@@ -408,8 +527,30 @@ function DrawCard({
             </div>
           )}
         </div>
+
+        {/* View entry numbers — opens modal; stops the card's link navigation. */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setShowNumbers(true);
+          }}
+          className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-full border border-[#E0DAFF] bg-white px-4 py-2 text-[12.5px] font-bold text-[#6356E5] transition-colors hover:bg-[#F4F1FB]"
+        >
+          <Icon.Ticket className="h-3.5 w-3.5" />
+          View entry numbers
+        </button>
       </div>
     </Link>
+    {showNumbers && (
+      <EntryNumbersModal
+        drawId={draw.id}
+        drawTitle={draw.title}
+        onClose={() => setShowNumbers(false)}
+      />
+    )}
+    </>
   );
 }
 

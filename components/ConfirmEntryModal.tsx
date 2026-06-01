@@ -19,6 +19,8 @@ interface ConfirmEntryModalProps {
     cap: number;
     closedAt?: string;
     requiresMembership?: boolean;
+    entryLimitMode?: 'single' | 'multi';
+    maxEntriesPerMember?: number | null;
   };
   onSuccess?: () => void;
 }
@@ -80,10 +82,42 @@ export default function ConfirmEntryModal({
   const [checkingMembership, setCheckingMembership] = useState(false);
   const [showMembershipModal, setShowMembershipModal] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [quantity, setQuantity] = useState(1);
+  const [stats, setStats] = useState<{
+    entryLimitMode: 'single' | 'multi';
+    maxEntriesPerMember: number | null;
+    remaining: number | null;
+  } | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Load live entry stats (mode + per-member cap + remaining) when the modal opens.
+  useEffect(() => {
+    if (!isOpen) {
+      setQuantity(1);
+      return;
+    }
+    let active = true;
+    api.draws
+      .getEntryStats(draw.id)
+      .then((res) => {
+        if (active && res?.data) {
+          setStats({
+            entryLimitMode: res.data.entryLimitMode,
+            maxEntriesPerMember: res.data.maxEntriesPerMember,
+            remaining: res.data.remaining,
+          });
+        }
+      })
+      .catch(() => {
+        /* fall back to draw props below */
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, draw.id]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -113,8 +147,25 @@ export default function ConfirmEntryModal({
     }
   };
 
+  const isMulti =
+    (stats?.entryLimitMode ?? draw.entryLimitMode) === 'multi';
+  const maxPerMember = stats?.maxEntriesPerMember ?? draw.maxEntriesPerMember ?? null;
+  const remainingCapacity = stats?.remaining ?? null;
+  // Upper bound for the quantity stepper. Backend re-checks the real per-member
+  // limit (existing entries + qty) and rejects with a clear message if exceeded.
+  const maxQuantity = Math.max(
+    1,
+    Math.min(
+      isMulti ? 99 : 1,
+      maxPerMember ?? Infinity,
+      remainingCapacity ?? Infinity,
+    ),
+  );
+  const qty = Math.min(Math.max(1, quantity), maxQuantity);
+
   const totalCredits = (user?.membershipCredits || 0) + (user?.boostCredits || 0);
-  const hasEnoughCredits = totalCredits >= draw.costPerEntry;
+  const totalCost = draw.costPerEntry * qty;
+  const hasEnoughCredits = totalCredits >= totalCost;
   const isUnlimitedCapacity = draw.cap === -1;
   const isSoldOut = !isUnlimitedCapacity && (draw.state === 'soldOut' || draw.entrants >= draw.cap);
   const isClosedByDate = draw.closedAt ? new Date(draw.closedAt) < new Date() : false;
@@ -160,7 +211,7 @@ export default function ConfirmEntryModal({
          All API calls preserved exactly — same idempotency key, same enter endpoint,
          same refresh chain, just no longer serialized. */
       const idempotencyKey = `entry-${draw.id}-${user.id}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      await api.draws.enter(draw.id, idempotencyKey);
+      await api.draws.enter(draw.id, idempotencyKey, qty);
 
       // Brief ✓ success state in CTA (Solution 3)
       setLoading(false);
@@ -341,17 +392,61 @@ export default function ConfirmEntryModal({
 
             {/* Body */}
             <div className="px-6 pb-6 pt-5 sm:px-7 sm:pb-7 sm:pt-6">
+              {/* Quantity stepper — MULTI draws only */}
+              {isMulti && !isSoldOut && !isClosed && (
+                <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-[#E0DAFF] bg-white p-4">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#667085]">
+                      Entries
+                    </p>
+                    <p className="mt-0.5 text-[11.5px] text-[#9CA0B3]">
+                      {maxPerMember != null
+                        ? `Up to ${maxPerMember.toLocaleString()} per member`
+                        : 'Add as many as you like'}
+                    </p>
+                  </div>
+                  <div className="inline-flex items-center gap-1 rounded-full border border-[#E0DAFF] bg-[#FBFAFF] p-1">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      disabled={qty <= 1}
+                      aria-label="Decrease"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#6356E5] shadow-sm ring-1 ring-[#E0DAFF] transition hover:bg-[#F4F1FB] disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      –
+                    </button>
+                    <span className="w-9 text-center text-[16px] font-extrabold tabular-nums text-[#0F1222]">
+                      {qty}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.min(maxQuantity, q + 1))}
+                      disabled={qty >= maxQuantity}
+                      aria-label="Increase"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#6356E5] shadow-sm ring-1 ring-[#E0DAFF] transition hover:bg-[#F4F1FB] disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Cost summary card — entry cost + balance with semantic color + after-entry hint */}
               <div className="rounded-2xl border border-[#E0DAFF] bg-[#FBFAFF] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#667085]">
-                    Entry cost
+                    {qty > 1 ? `Total cost (${qty} entries)` : 'Entry cost'}
                   </span>
                   <span className="bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] bg-clip-text text-[26px] font-extrabold leading-none tracking-tight text-transparent tabular-nums">
-                    {draw.costPerEntry.toLocaleString()}
+                    {totalCost.toLocaleString()}
                     <span className="ml-1.5 text-[13px] font-semibold text-[#667085]">Points</span>
                   </span>
                 </div>
+                {qty > 1 && (
+                  <p className="mt-1 text-right text-[11px] text-[#9CA0B3] tabular-nums">
+                    {draw.costPerEntry.toLocaleString()} Points × {qty}
+                  </p>
+                )}
                 {user && (
                   <>
                     <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#E0DAFF] pt-3">
@@ -372,14 +467,14 @@ export default function ConfirmEntryModal({
                       <p className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#10B981]">
                         <CheckCircleIcon className="h-3 w-3" />
                         <span>
-                          {(totalCredits - draw.costPerEntry).toLocaleString()} Points remaining after entry
+                          {(totalCredits - totalCost).toLocaleString()} Points remaining after {qty > 1 ? 'entries' : 'entry'}
                         </span>
                       </p>
                     ) : (
                       <p className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#EF4444]">
                         <AlertIcon className="h-3 w-3" />
                         <span>
-                          Need {(draw.costPerEntry - totalCredits).toLocaleString()} more Points to enter
+                          Need {(totalCost - totalCredits).toLocaleString()} more Points to enter
                         </span>
                       </p>
                     )}

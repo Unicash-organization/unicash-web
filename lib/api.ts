@@ -173,13 +173,25 @@ export const api = {
     reminderStatus: (drawId: string) =>
       apiClient.get<{ subscribed: boolean }>(`/draws/${drawId}/remind-me`),
     myReminders: () => apiClient.get('/draws/me/reminders'),
-    enter: (drawId: string, idempotencyKey?: string) => {
+    enter: (drawId: string, idempotencyKey?: string, quantity?: number) => {
       const headers: any = {};
       if (idempotencyKey) {
         headers['idempotency-key'] = idempotencyKey;
       }
-      return apiClient.post(`/draws/${drawId}/enter`, {}, { headers });
+      const body: any = {};
+      if (quantity && quantity > 1) body.quantity = quantity;
+      return apiClient.post(`/draws/${drawId}/enter`, body, { headers });
     },
+    /** Public live entry counter + per-member entry mode for the draw detail page. */
+    getEntryStats: (drawId: string) =>
+      apiClient.get<{
+        drawId: string;
+        soldEntries: number;
+        cap: number;
+        remaining: number | null;
+        entryLimitMode: 'single' | 'multi';
+        maxEntriesPerMember: number | null;
+      }>(`/draws/${drawId}/entry-stats`),
   },
 
   // Membership Plans
@@ -271,6 +283,21 @@ export const api = {
     }) => apiClient.get('/entries/me/grouped', { params }),
     hasEntryForDraw: (drawId: string) =>
       apiClient.get<{ hasEntry: boolean }>(`/entries/me/has-entry/${drawId}`),
+    /** My Entries — expand one order to its entry (ticket) numbers. Scoped to the caller. */
+    getMyOrderEntries: (orderNo: string) =>
+      apiClient.get<{
+        orderNo: string;
+        drawId: string | null;
+        count: number;
+        entries: { id: string; ticketNumber: number | null; createdAt: string }[];
+      }>(`/entries/me/order/${encodeURIComponent(orderNo)}`),
+    /** My Entries — all of the caller's entry numbers in one draw, grouped by order. */
+    getMyDrawEntryNumbers: (drawId: string) =>
+      apiClient.get<{
+        drawId: string;
+        count: number;
+        orders: { orderNo: string; entryNumbers: number[] }[];
+      }>(`/entries/me/draw/${drawId}/numbers`),
     get: (id: string) => apiClient.get(`/entries/${id}`),
     getPublicDrawEntries: (
       drawId: string,

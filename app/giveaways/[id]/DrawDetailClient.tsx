@@ -197,6 +197,9 @@ export default function DrawDetailClient() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const { id } = params;
   const [draw, setDraw] = useState<any>(null);
+  // Live entry count from /draws/:id/entry-stats (authoritative — avoids the
+  // drifty draw.entrants column). Null until loaded; falls back to draw.entrants.
+  const [soldEntries, setSoldEntries] = useState<number | null>(null);
   const [relatedDraws, setRelatedDraws] = useState<any[]>([]);
   const [faqs, setFaqs] = useState<any[]>([]);
   const [rulesTerms, setRulesTerms] = useState<string>('');
@@ -219,6 +222,10 @@ export default function DrawDetailClient() {
     try {
       const drawRes = await api.draws.get(id as string);
       setDraw(drawRes.data);
+      api.draws
+        .getEntryStats(id as string)
+        .then((r) => setSoldEntries(r.data?.soldEntries ?? null))
+        .catch(() => {});
     } catch (error) {
       console.error('Error fetching draw:', error);
     }
@@ -239,6 +246,10 @@ export default function DrawDetailClient() {
           api.settings.getByKey('rules_and_terms').catch(() => ({ data: null })),
         ]);
         setDraw(drawRes.data);
+        api.draws
+          .getEntryStats(id as string)
+          .then((r) => setSoldEntries(r.data?.soldEntries ?? null))
+          .catch(() => {});
         setRelatedDraws(allDrawsRes.data.filter((d: any) => d.id !== id).slice(0, 3));
         setFaqs(faqsRes.data || []);
         setRulesTerms(settingsRes.data?.value || '');
@@ -458,7 +469,9 @@ export default function DrawDetailClient() {
         : [];
 
   const isUnlimited = draw.cap === -1;
-  const entrants = draw.entrants || 0;
+  // Prefer the live entry count from entry-stats; fall back to draw.entrants
+  // until it loads. cap = max number of TOTAL entries.
+  const entrants = soldEntries ?? draw.entrants ?? 0;
   const cap = draw.cap || 0;
   const pct = isUnlimited ? 0 : Math.min(100, Math.round((entrants / (cap || 1)) * 100));
 
@@ -1151,6 +1164,8 @@ export default function DrawDetailClient() {
             entrants: draw.entrants || 0,
             cap: draw.cap ?? 0, // Keep -1 for unlimited, default to 0 if null
             requiresMembership: draw.requiresMembership,
+            entryLimitMode: draw.entryLimitMode,
+            maxEntriesPerMember: draw.maxEntriesPerMember ?? null,
           }}
           onSuccess={() => {
             loadDraw();
