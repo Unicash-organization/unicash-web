@@ -22,6 +22,8 @@ interface ConfirmEntryModalProps {
     entryLimitMode?: 'single' | 'multi';
     maxEntriesPerMember?: number | null;
   };
+  /** Entries the member already holds in this draw (MULTI) — caps the stepper. */
+  alreadyEntered?: number;
   onSuccess?: () => void;
 }
 
@@ -67,6 +69,7 @@ export default function ConfirmEntryModal({
   isOpen,
   onClose,
   draw,
+  alreadyEntered = 0,
   onSuccess,
 }: ConfirmEntryModalProps) {
   /* ===== Logic preserved exactly — no changes ===== */
@@ -157,7 +160,8 @@ export default function ConfirmEntryModal({
     1,
     Math.min(
       isMulti ? 99 : 1,
-      maxPerMember ?? Infinity,
+      // Per-member cap minus what the member already holds.
+      maxPerMember != null ? maxPerMember - alreadyEntered : Infinity,
       remainingCapacity ?? Infinity,
     ),
   );

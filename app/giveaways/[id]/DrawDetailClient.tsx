@@ -205,6 +205,8 @@ export default function DrawDetailClient() {
   const [rulesTerms, setRulesTerms] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [hasEntered, setHasEntered] = useState(false);
+  // MULTI draws: how many valid entries the member already holds in this draw.
+  const [myEntryCount, setMyEntryCount] = useState(0);
   const [checkingEntry, setCheckingEntry] = useState(false);
   const [isOnWaitlist, setIsOnWaitlist] = useState(false);
   // eslint-disable-next-line no-unused-vars
@@ -286,10 +288,23 @@ export default function DrawDetailClient() {
     if (!user) return;
     setCheckingEntry(true);
     try {
+      // Use the precise count (drives MULTI per-member-limit logic). hasEntered
+      // derives from it. Falls back to the boolean endpoint on error.
       const res = await api.entries
-        .hasEntryForDraw(id as string)
-        .catch(() => ({ data: { hasEntry: false } }));
-      setHasEntered(!!res.data?.hasEntry);
+        .getMyDrawEntryNumbers(id as string)
+        .catch(() => null);
+      if (res?.data) {
+        const c = res.data.count ?? 0;
+        setMyEntryCount(c);
+        setHasEntered(c > 0);
+      } else {
+        const fallback = await api.entries
+          .hasEntryForDraw(id as string)
+          .catch(() => ({ data: { hasEntry: false } }));
+        const entered = !!fallback.data?.hasEntry;
+        setHasEntered(entered);
+        setMyEntryCount(entered ? 1 : 0);
+      }
     } catch (error) {
       console.error('Error checking user entry:', error);
     } finally {
@@ -489,8 +504,29 @@ export default function DrawDetailClient() {
     !membership.isPaused &&
     !periodEnded;
   const canEnterBonusDraw = !draw.requiresMembership || hasActiveMembership;
+
+  // Per-member entry mode. SINGLE: one entry blocks further entries. MULTI:
+  // member may enter again until they hit maxEntriesPerMember (null = unlimited).
+  const isMultiEntry = draw.entryLimitMode === 'multi';
+  const maxPerMember: number | null =
+    draw.maxEntriesPerMember != null ? Number(draw.maxEntriesPerMember) : null;
+  // True when the member can't enter again: SINGLE + already entered, or
+  // MULTI + reached the per-member cap.
+  const reachedEntryLimit = isMultiEntry
+    ? maxPerMember != null && myEntryCount >= maxPerMember
+    : hasEntered;
+  // MULTI draw where the member already has entries but can still add more.
+  const canEnterAgain = isMultiEntry && myEntryCount > 0 && !reachedEntryLimit;
+
+  // Human label for the per-member entry rule (chips).
+  const entryRuleLabel = !isMultiEntry
+    ? 'Max 1 entry per Member'
+    : maxPerMember != null
+      ? `Max ${maxPerMember.toLocaleString()} entries per Member`
+      : 'Multiple entries per Member';
+
   const isDisabled =
-    isClosed || isSoldOut || hasEntered || isCanceled || (draw.requiresMembership && !canEnterBonusDraw);
+    isClosed || isSoldOut || reachedEntryLimit || isCanceled || (draw.requiresMembership && !canEnterBonusDraw);
 
   const totalPoints = (user?.membershipCredits || 0) + (user?.boostCredits || 0);
   const hasEnoughPoints = totalPoints >= (draw.costPerEntry || 0);
@@ -547,7 +583,14 @@ export default function DrawDetailClient() {
 
   const entryState: { kind: EntryStateKind; ctaLabel: string; helper: string } = (() => {
     if (stillResolving) return { kind: 'resolving', ctaLabel: 'Checking…', helper: 'Checking your eligibility…' };
-    if (hasEntered) return { kind: 'entered', ctaLabel: '✓ Entered', helper: 'You are already entered in this Bonus Draw.' };
+    if (reachedEntryLimit)
+      return {
+        kind: 'entered',
+        ctaLabel: '✓ Entered',
+        helper: isMultiEntry
+          ? `You have ${myEntryCount} ${myEntryCount === 1 ? 'entry' : 'entries'} — the maximum for this Bonus Draw.`
+          : 'You are already entered in this Bonus Draw.',
+      };
     if (isClosed) return { kind: 'closed', ctaLabel: 'Closed', helper: 'This Bonus Draw has closed. Winners will be published after verification.' };
     if (isSoldOut) return { kind: 'full', ctaLabel: 'Full', helper: 'This Bonus Draw is full. Winners will be announced soon.' };
     if (draw.requiresMembership && isCanceled) return { kind: 'membership-cancelled', ctaLabel: 'Reactivate Membership', helper: 'Your Membership has been cancelled. Reactivate to enter member-only Bonus Draws.' };
@@ -556,6 +599,15 @@ export default function DrawDetailClient() {
     if (draw.requiresMembership && !hasActiveMembership) return { kind: 'membership-required', ctaLabel: 'Join to Access', helper: 'Bonus Draws are available to active UNICASH Members.' };
     if (!user) return { kind: 'login-required', ctaLabel: 'Log in to Enter', helper: 'Log in to use Points for this Bonus Draw.' };
     if (!hasEnoughPoints) return { kind: 'insufficient-points', ctaLabel: 'Get More Points', helper: 'Top up with a Point Booster or earn more Points from eligible receipts.' };
+    if (canEnterAgain) {
+      const remainingTxt =
+        maxPerMember != null ? ` You can add ${maxPerMember - myEntryCount} more.` : '';
+      return {
+        kind: 'available',
+        ctaLabel: 'Enter Again',
+        helper: `You have ${myEntryCount} ${myEntryCount === 1 ? 'entry' : 'entries'} in this Bonus Draw.${remainingTxt}`,
+      };
+    }
     return { kind: 'available', ctaLabel: 'Enter Bonus Draw', helper: 'Points are used only after you confirm your entry.' };
   })();
 
@@ -630,7 +682,7 @@ export default function DrawDetailClient() {
       <button
         type="button"
         onClick={() => {
-          if (isCanceled || isClosed || isSoldOut || hasEntered || !canEnterBonusDraw) return;
+          if (isCanceled || isClosed || isSoldOut || reachedEntryLimit || !canEnterBonusDraw) return;
           setShowConfirmModal(true);
         }}
         disabled={isDisabled}
@@ -661,7 +713,7 @@ export default function DrawDetailClient() {
     },
     {
       label: 'Entry rule',
-      value: 'Max 1 entry per Member',
+      value: entryRuleLabel,
       Icon: Icon.ShieldCheck,
       iconBg: 'bg-[#ECFDF5] ring-[#A7F3D0]',
       iconColor: 'text-[#10B981]',
@@ -835,7 +887,7 @@ export default function DrawDetailClient() {
                 <div className="mt-5 flex flex-wrap gap-2">
                   <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#FBFAFF] px-2.5 py-1.5 text-[12px] font-medium text-[#4B5563] ring-1 ring-[#EFEDF5]">
                     <Icon.Users className="h-3.5 w-3.5 text-[#6356E5]" />
-                    Max 1 entry per Member
+                    {entryRuleLabel}
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#FBFAFF] px-2.5 py-1.5 text-[12px] font-medium text-[#4B5563] ring-1 ring-[#EFEDF5]">
                     <Icon.CalendarClock className="h-3.5 w-3.5 text-[#6356E5]" />
@@ -1131,7 +1183,7 @@ export default function DrawDetailClient() {
       {/* ============================================================
           MOBILE STICKY CTA — only when actionable
       ============================================================ */}
-      {!hasEntered && !isClosed && !isSoldOut && (
+      {!reachedEntryLimit && !isClosed && !isSoldOut && (
         <>
           <div
             className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E7E9F2] bg-white/95 px-4 py-3 shadow-[0_-12px_30px_-12px_rgba(15,18,34,0.18)] backdrop-blur-xl lg:hidden"
@@ -1167,8 +1219,10 @@ export default function DrawDetailClient() {
             entryLimitMode: draw.entryLimitMode,
             maxEntriesPerMember: draw.maxEntriesPerMember ?? null,
           }}
+          alreadyEntered={myEntryCount}
           onSuccess={() => {
             loadDraw();
+            checkUserEntry();
           }}
         />
       )}
