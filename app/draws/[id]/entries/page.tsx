@@ -159,7 +159,7 @@ export default function DrawEntriesPage() {
         <div className="mb-6">
           <Link
             href={`/giveaways/${drawId}`}
-            className="text-primary-600 hover:text-primary-700 mb-3 inline-flex items-center gap-1 text-sm font-semibold"
+            className="text-[#6356E5] hover:text-[#5648D8] mb-3 inline-flex items-center gap-1 text-sm font-semibold"
           >
             ← Back to Draw
           </Link>
@@ -186,7 +186,7 @@ export default function DrawEntriesPage() {
             </div>
             {!unlimited && (
               <div className="text-right">
-                <p className="text-sm font-semibold text-primary-600">{pct}% filled</p>
+                <p className="text-sm font-semibold text-[#6356E5]">{pct}% filled</p>
                 {stats?.remaining != null && (
                   <p className="text-xs text-gray-400 mt-0.5">
                     {stats.remaining.toLocaleString()} remaining
@@ -232,13 +232,13 @@ export default function DrawEntriesPage() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="e.g. 089754 or UNC123456"
-                className="w-full px-4 py-2.5 border border-[#E7E9F2] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                className="w-full px-4 py-2.5 border border-[#E7E9F2] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20 focus:border-[#6356E5]"
               />
             </div>
             <div className="flex items-end gap-2">
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition"
+                className="px-5 py-2.5 bg-[#6356E5] text-white rounded-xl text-sm font-semibold hover:bg-[#5648D8] transition"
               >
                 Search
               </button>
@@ -290,11 +290,11 @@ export default function DrawEntriesPage() {
                   value={posInput}
                   onChange={(e) => setPosInput(e.target.value)}
                   placeholder="e.g. 3847"
-                  className="w-28 rounded-lg border border-[#E7E9F2] px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  className="w-28 rounded-lg border border-[#E7E9F2] px-3 py-1.5 text-sm focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
                 />
                 <button
                   type="submit"
-                  className="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-primary-700"
+                  className="rounded-lg bg-[#6356E5] px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-[#5648D8]"
                 >
                   Go
                 </button>
@@ -330,7 +330,7 @@ export default function DrawEntriesPage() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
                               className={`inline-flex min-w-[2.75rem] items-center justify-center rounded-lg px-2.5 py-1 text-sm font-extrabold tabular-nums ${
-                                hl ? 'bg-primary-600 text-white' : 'bg-[#F4F1FB] text-primary-700'
+                                hl ? 'bg-[#6356E5] text-white' : 'bg-[#F4F1FB] text-[#6356E5]'
                               }`}
                             >
                               {entry.position ?? '—'}
@@ -363,7 +363,7 @@ export default function DrawEntriesPage() {
                       <span className="flex min-w-0 items-center gap-2.5">
                         <span
                           className={`inline-flex min-w-[2.25rem] shrink-0 items-center justify-center rounded-lg px-2 py-0.5 text-xs font-extrabold tabular-nums ${
-                            hl ? 'bg-primary-600 text-white' : 'bg-[#F4F1FB] text-primary-700'
+                            hl ? 'bg-[#6356E5] text-white' : 'bg-[#F4F1FB] text-[#6356E5]'
                           }`}
                         >
                           {entry.position ?? '—'}
@@ -398,7 +398,7 @@ export default function DrawEntriesPage() {
                         onChange={(e) => setPageInput(e.target.value)}
                         placeholder={String(currentPage)}
                         aria-label="Jump to page"
-                        className="w-14 rounded-lg border border-[#E7E9F2] px-2 py-1.5 text-center text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                        className="w-14 rounded-lg border border-[#E7E9F2] px-2 py-1.5 text-center text-sm focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
                       />
                       <span className="text-sm text-gray-500">/ {totalPages}</span>
                     </form>
