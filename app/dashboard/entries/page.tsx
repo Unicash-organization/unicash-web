@@ -267,10 +267,22 @@ function pickGradient(seed: string): string {
 
 /* ─── Sub-components ──────────────────────────────────────────────────── */
 
+/** Zero-padded 6-digit entry number. */
+function fmtEntryNo(n: number): string {
+  return String(n).padStart(6, '0');
+}
+
+/** Pills rendered per "page" inside an expanded order (bounds the DOM). */
+const NUM_CHUNK = 120;
+/** Orders with at most this many numbers auto-expand; larger stay collapsed. */
+const AUTO_EXPAND_MAX = 60;
+/** Cap how many search matches we render at once. */
+const MATCH_CAP = 240;
+
 /**
- * Entry-numbers modal — lists the member's own entry (ticket) numbers for one
- * draw, grouped by order. Bottom-sheet on mobile + centred on desktop, portals
- * to document.body (transformed ancestors break position:fixed).
+ * Entry-numbers modal — count-first, with a "check a number" search and
+ * collapsible orders (large orders stay collapsed, expand renders in chunks).
+ * Bottom-sheet on mobile + centred on desktop; portals to document.body.
  */
 function EntryNumbersModal({
   drawId,
@@ -285,6 +297,9 @@ function EntryNumbersModal({
   const [error, setError] = useState('');
   const [count, setCount] = useState(0);
   const [orders, setOrders] = useState<{ orderNo: string; entryNumbers: number[] }[]>([]);
+  const [query, setQuery] = useState('');
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [visible, setVisible] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let active = true;
@@ -295,7 +310,16 @@ function EntryNumbersModal({
         const res = await api.entries.getMyDrawEntryNumbers(drawId);
         if (!active) return;
         setCount(res.data.count);
-        setOrders(res.data.orders || []);
+        const list = res.data.orders || [];
+        setOrders(list);
+        const exp: Record<string, boolean> = {};
+        const vis: Record<string, number> = {};
+        list.forEach((o) => {
+          exp[o.orderNo] = o.entryNumbers.length <= AUTO_EXPAND_MAX;
+          vis[o.orderNo] = NUM_CHUNK;
+        });
+        setExpanded(exp);
+        setVisible(vis);
       } catch (err: any) {
         if (active) setError(err.response?.data?.message || 'Failed to load entry numbers');
       } finally {
@@ -307,17 +331,33 @@ function EntryNumbersModal({
     };
   }, [drawId]);
 
+  const q = query.trim();
+  const matches = useMemo(() => {
+    if (!q) return null;
+    const out: { orderNo: string; n: number }[] = [];
+    for (const o of orders) {
+      for (const n of o.entryNumbers) {
+        if (fmtEntryNo(n).includes(q)) {
+          out.push({ orderNo: o.orderNo, n });
+          if (out.length >= MATCH_CAP + 1) return out;
+        }
+      }
+    }
+    return out;
+  }, [q, orders]);
+
   if (typeof document === 'undefined') return null;
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center animate-[fadeIn_.15s_ease-out]"
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4 animate-[fadeIn_.15s_ease-out]"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md max-h-[85vh] overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl"
+        className="flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-h-[85vh] sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-[#E7E9F2] px-5 py-4">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#6356E5]">
@@ -339,44 +379,160 @@ function EntryNumbersModal({
           </button>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
-          {loading ? (
-            <div className="flex justify-center py-10">
-              <LoadingRing size="sm" label="Loading entry numbers" />
-            </div>
-          ) : error ? (
-            <p className="py-8 text-center text-[13px] text-red-600">{error}</p>
-          ) : count === 0 ? (
-            <p className="py-8 text-center text-[13px] text-[#667085]">No entry numbers found.</p>
-          ) : (
-            <>
-              <p className="mb-3 text-[12.5px] text-[#667085]">
-                You hold <span className="font-bold text-[#0F1222]">{count.toLocaleString()}</span>{' '}
-                {count === 1 ? 'entry number' : 'entry numbers'} in this draw.
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <LoadingRing size="sm" label="Loading entry numbers" />
+          </div>
+        ) : error ? (
+          <p className="py-10 text-center text-[13px] text-red-600">{error}</p>
+        ) : count === 0 ? (
+          <p className="py-10 text-center text-[13px] text-[#667085]">No entry numbers found.</p>
+        ) : (
+          <>
+            {/* Count + reassurance + search (fixed above the scroll area) */}
+            <div className="border-b border-[#E7E9F2] px-5 py-4">
+              <p className="text-[28px] font-extrabold leading-none tracking-tight text-[#0F1222] tabular-nums">
+                {count.toLocaleString()}
               </p>
-              <div className="space-y-3">
-                {orders.map((o) => (
-                  <div key={o.orderNo} className="rounded-2xl border border-[#E7E9F2] bg-[#FBFAFF] p-3">
-                    <p className="mb-2 text-[11px] font-semibold text-[#667085]">
-                      Order <span className="font-mono text-[#0F1222]">{o.orderNo}</span>
-                      <span className="ml-1.5 text-[#9AA0B4]">· {o.entryNumbers.length}</span>
+              <p className="mt-1 text-[12.5px] text-[#667085]">
+                entry {count === 1 ? 'number' : 'numbers'} in this draw — you’re in. Winners are
+                drawn by a random Draw Position.
+              </p>
+              <div className="relative mt-3">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9AA0B4]">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Check a number — e.g. 089754"
+                  className="h-11 w-full rounded-xl border border-[#E7E9F2] pl-9 pr-9 text-sm focus:border-[#6356E5] focus:outline-none focus:ring-2 focus:ring-[#6356E5]/20"
+                />
+                {q && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery('')}
+                    aria-label="Clear"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-[#9AA0B4] hover:bg-[#F4F1FB] hover:text-[#667085]"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-4 w-4">
+                      <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Scrollable list */}
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {matches !== null ? (
+                /* Search results */
+                matches.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <p className="text-[13px] font-semibold text-[#0F1222]">No match in your numbers</p>
+                    <p className="mt-1 text-[12px] text-[#667085]">
+                      “{q}” isn’t one of your entry numbers in this draw.
                     </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {o.entryNumbers.map((n) => (
+                  </div>
+                ) : (
+                  <>
+                    <p className="mb-2.5 text-[12px] font-semibold text-[#667085]">
+                      {matches.length > MATCH_CAP ? `${MATCH_CAP}+` : matches.length}{' '}
+                      {matches.length === 1 ? 'match' : 'matches'} in your numbers
+                    </p>
+                    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                      {matches.slice(0, MATCH_CAP).map((m) => (
                         <span
-                          key={n}
-                          className="rounded-lg bg-white px-2 py-1 font-mono text-[12.5px] font-semibold text-[#6356E5] ring-1 ring-[#E0DAFF]"
+                          key={`${m.orderNo}-${m.n}`}
+                          className="rounded-lg bg-[#F4F1FB] px-2 py-1.5 text-center font-mono text-[12.5px] font-bold text-[#6356E5] ring-1 ring-[#E0DAFF]"
                         >
-                          {String(n).padStart(6, '0')}
+                          {fmtEntryNo(m.n)}
                         </span>
                       ))}
                     </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+                    {matches.length > MATCH_CAP && (
+                      <p className="mt-3 text-center text-[11.5px] text-[#9AA0B4]">
+                        Showing first {MATCH_CAP}. Type more digits to narrow it down.
+                      </p>
+                    )}
+                  </>
+                )
+              ) : (
+                /* Orders, collapsible */
+                <div className="space-y-2.5">
+                  {orders.map((o) => {
+                    const isOpen = !!expanded[o.orderNo];
+                    const shown = visible[o.orderNo] ?? NUM_CHUNK;
+                    const slice = isOpen ? o.entryNumbers.slice(0, shown) : [];
+                    const more = o.entryNumbers.length - slice.length;
+                    return (
+                      <div key={o.orderNo} className="overflow-hidden rounded-2xl border border-[#E7E9F2]">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpanded((s) => ({ ...s, [o.orderNo]: !s[o.orderNo] }))
+                          }
+                          className="flex w-full items-center justify-between gap-2 bg-[#FBFAFF] px-3.5 py-2.5 text-left"
+                        >
+                          <span className="min-w-0 truncate text-[12.5px] font-semibold text-[#667085]">
+                            Order <span className="font-mono text-[#0F1222]">{o.orderNo}</span>
+                          </span>
+                          <span className="flex shrink-0 items-center gap-2">
+                            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-[#6356E5] ring-1 ring-[#E0DAFF] tabular-nums">
+                              {o.entryNumbers.length.toLocaleString()}
+                            </span>
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className={`h-4 w-4 text-[#9AA0B4] transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                            >
+                              <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                          </span>
+                        </button>
+                        {isOpen && (
+                          <div className="border-t border-[#E7E9F2] p-3">
+                            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                              {slice.map((n) => (
+                                <span
+                                  key={n}
+                                  className="rounded-lg bg-[#F4F1FB] px-2 py-1.5 text-center font-mono text-[12.5px] font-bold text-[#6356E5] ring-1 ring-[#E0DAFF]"
+                                >
+                                  {fmtEntryNo(n)}
+                                </span>
+                              ))}
+                            </div>
+                            {more > 0 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setVisible((s) => ({
+                                    ...s,
+                                    [o.orderNo]: (s[o.orderNo] ?? NUM_CHUNK) + NUM_CHUNK,
+                                  }))
+                                }
+                                className="mt-3 w-full rounded-xl border border-[#E0DAFF] bg-white py-2 text-[12.5px] font-bold text-[#6356E5] hover:bg-[#F4F1FB]"
+                              >
+                                Show {Math.min(more, NUM_CHUNK).toLocaleString()} more
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>,
     document.body,
