@@ -54,6 +54,11 @@ export default function DrawEntriesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  // "Go to Draw Position" — jumps to the page holding that position + highlights it.
+  const [posInput, setPosInput] = useState('');
+  const [highlightPos, setHighlightPos] = useState<number | null>(null);
+  // Free page-number jump.
+  const [pageInput, setPageInput] = useState('');
 
   const loadDraw = useCallback(async () => {
     try {
@@ -114,6 +119,28 @@ export default function DrawEntriesPage() {
     setSearchInput('');
     setSearch('');
     setCurrentPage(1);
+  };
+
+  const goToPage = (p: number) => {
+    const target = Math.min(Math.max(1, p), totalPages);
+    setCurrentPage(target);
+  };
+
+  const handleJumpToPosition = (e: React.FormEvent) => {
+    e.preventDefault();
+    const pos = parseInt(posInput.trim(), 10);
+    if (!Number.isFinite(pos) || pos < 1) return;
+    if (search) handleClearSearch(); // position numbering only applies to the full list
+    setHighlightPos(pos);
+    setCurrentPage(Math.ceil(pos / PAGE_SIZE));
+  };
+
+  const handleJumpToPage = (e: React.FormEvent) => {
+    e.preventDefault();
+    const p = parseInt(pageInput.trim(), 10);
+    if (!Number.isFinite(p)) return;
+    goToPage(p);
+    setPageInput('');
   };
 
   if (loading && !draw) {
@@ -248,91 +275,135 @@ export default function DrawEntriesPage() {
             </div>
           ) : (
             <>
+              {/* Go to Draw Position — for the live random draw */}
+              <form
+                onSubmit={handleJumpToPosition}
+                className="flex flex-wrap items-center gap-2 border-b border-[#E7E9F2] bg-[#FBFAFF] px-4 sm:px-6 py-3"
+              >
+                <label htmlFor="posjump" className="text-xs font-semibold text-gray-600">
+                  Go to Draw Position
+                </label>
+                <input
+                  id="posjump"
+                  type="number"
+                  min={1}
+                  value={posInput}
+                  onChange={(e) => setPosInput(e.target.value)}
+                  placeholder="e.g. 3847"
+                  className="w-28 rounded-lg border border-[#E7E9F2] px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                />
+                <button
+                  type="submit"
+                  className="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-primary-700"
+                >
+                  Go
+                </button>
+                {highlightPos != null && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHighlightPos(null);
+                      setPosInput('');
+                    }}
+                    className="px-2 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700"
+                  >
+                    Clear highlight
+                  </button>
+                )}
+              </form>
+
               {/* Desktop table */}
               <div className="hidden sm:block overflow-x-auto">
                 <table className="min-w-full divide-y divide-[#E7E9F2]">
-                  <thead className="bg-[#FBFAFF]">
+                  <thead className="bg-white">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Draw Position</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Member</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Entry Number</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Order Number</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Source</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400">Draw Position</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400">Member</th>
+                      <th className="px-6 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-gray-400">Entry Number</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F0EEFB]">
-                    {entries.map((entry) => (
-                      <tr key={entry.id} className="hover:bg-[#FBFAFF]">
-                        <td className="px-6 py-3.5 whitespace-nowrap text-sm font-bold text-gray-900 tabular-nums">
-                          {entry.position ?? '—'}
-                        </td>
-                        <td className="px-6 py-3.5 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {entry.maskedName || 'UNICASH Member'}
-                        </td>
-                        <td className="px-6 py-3.5 whitespace-nowrap">
-                          <span className="text-sm font-mono font-semibold text-primary-700">
-                            {formatEntryNumber(entry.ticketNumber)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-3.5 whitespace-nowrap text-sm font-mono text-gray-500">{entry.orderNo}</td>
-                        <td className="px-6 py-3.5 whitespace-nowrap text-sm text-gray-700">{getSourceLabel(entry.source)}</td>
-                        <td className="px-6 py-3.5 whitespace-nowrap text-sm text-gray-400">
-                          {require('@/lib/timezone').formatSydneyDate(entry.createdAt)}
-                        </td>
-                      </tr>
-                    ))}
+                    {entries.map((entry) => {
+                      const hl = highlightPos != null && entry.position === highlightPos;
+                      return (
+                        <tr key={entry.id} className={hl ? 'bg-[#F0EEFB]' : 'hover:bg-[#FBFAFF]'}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex min-w-[2.75rem] items-center justify-center rounded-lg px-2.5 py-1 text-sm font-extrabold tabular-nums ${
+                                hl ? 'bg-primary-600 text-white' : 'bg-[#F4F1FB] text-primary-700'
+                              }`}
+                            >
+                              {entry.position ?? '—'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                            {entry.maskedName || 'UNICASH Member'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <span className="font-mono text-sm font-bold tracking-wider text-gray-900">
+                              {formatEntryNumber(entry.ticketNumber)}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
 
               {/* Mobile cards */}
               <ul className="sm:hidden divide-y divide-[#F0EEFB]">
-                {entries.map((entry) => (
-                  <li key={entry.id} className="px-4 py-3.5">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="flex items-center gap-2 min-w-0">
-                        <span className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[#F0EEFB] px-2 py-0.5 text-xs font-bold text-primary-700 tabular-nums">
-                          #{entry.position ?? '—'}
+                {entries.map((entry) => {
+                  const hl = highlightPos != null && entry.position === highlightPos;
+                  return (
+                    <li
+                      key={entry.id}
+                      className={`flex items-center justify-between gap-3 px-4 py-3.5 ${hl ? 'bg-[#F0EEFB]' : ''}`}
+                    >
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <span
+                          className={`inline-flex min-w-[2.25rem] shrink-0 items-center justify-center rounded-lg px-2 py-0.5 text-xs font-extrabold tabular-nums ${
+                            hl ? 'bg-primary-600 text-white' : 'bg-[#F4F1FB] text-primary-700'
+                          }`}
+                        >
+                          {entry.position ?? '—'}
                         </span>
-                        <span className="truncate text-sm font-medium text-gray-900">
+                        <span className="truncate text-sm font-semibold text-gray-900">
                           {entry.maskedName || 'UNICASH Member'}
                         </span>
                       </span>
-                      <span className="shrink-0 text-sm font-mono font-semibold text-primary-700">
+                      <span className="shrink-0 font-mono text-sm font-bold tracking-wider text-gray-900">
                         {formatEntryNumber(entry.ticketNumber)}
                       </span>
-                    </div>
-                    <div className="mt-1 flex items-center justify-between text-xs text-gray-400">
-                      <span className="font-mono">{entry.orderNo}</span>
-                      <span>{getSourceLabel(entry.source)}</span>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="bg-[#FBFAFF] px-4 sm:px-6 py-3.5 flex items-center justify-between border-t border-[#E7E9F2]">
-                  <p className="text-xs sm:text-sm text-gray-500">
+                <div className="flex flex-col gap-3 border-t border-[#E7E9F2] bg-[#FBFAFF] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                  <p className="text-xs text-gray-500 sm:text-sm">
                     Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, total)} of {total.toLocaleString()}
                   </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1.5 border border-[#E7E9F2] bg-white rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      Previous
-                    </button>
-                    <span className="px-3 py-1.5 text-sm text-gray-500">{currentPage} / {totalPages}</span>
-                    <button
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-1.5 border border-[#E7E9F2] bg-white rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      Next
-                    </button>
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => goToPage(1)} disabled={currentPage === 1} className="rounded-lg border border-[#E7E9F2] bg-white px-2.5 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">«</button>
+                    <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} className="rounded-lg border border-[#E7E9F2] bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">Prev</button>
+                    <form onSubmit={handleJumpToPage} className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min={1}
+                        max={totalPages}
+                        value={pageInput}
+                        onChange={(e) => setPageInput(e.target.value)}
+                        placeholder={String(currentPage)}
+                        aria-label="Jump to page"
+                        className="w-14 rounded-lg border border-[#E7E9F2] px-2 py-1.5 text-center text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                      />
+                      <span className="text-sm text-gray-500">/ {totalPages}</span>
+                    </form>
+                    <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} className="rounded-lg border border-[#E7E9F2] bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+                    <button onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages} className="rounded-lg border border-[#E7E9F2] bg-white px-2.5 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">»</button>
                   </div>
                 </div>
               )}
