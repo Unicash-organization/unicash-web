@@ -1201,7 +1201,8 @@ export default function DrawDetailClient() {
             <div className="mx-auto flex max-w-md items-center gap-2.5">
               <span className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F1FB] px-3.5 text-[13px] font-extrabold tracking-tight tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF]">
                 <Icon.Coins className="h-3.5 w-3.5 shrink-0" />
-                {entryState.kind === 'insufficient-points' ? `Need ${pointsLabel}` : pointsLabel}
+                {entryState.kind === 'insufficient-points' ? 'Need ' : ''}
+                {(draw.costPerEntry || 0).toLocaleString()} Pts
               </span>
               <div className="min-w-0 flex-1">{renderPrimaryButton()}</div>
             </div>
