@@ -139,7 +139,11 @@ export default function MobileBottomNav() {
     <>
       <nav
         aria-label="Quick actions"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-[#EFEDF5] bg-white/95 backdrop-blur-md sm:hidden"
+        /* Solid bg (no backdrop-blur): a `position: fixed` element with
+           backdrop-filter intermittently drifts mid-page on iOS Safari during
+           scroll/repaint — the cause of the "bottom nav stuck in the middle"
+           glitch. Solid white pins reliably and looks identical. */
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-[#EFEDF5] bg-white sm:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}
       >
         <ul className="grid grid-cols-5">
