@@ -262,7 +262,7 @@ function EligibleLoyaltyCard({ summary }: { summary: LoyaltySummary }) {
             Loyalty Entries · {tierLabel}
           </p>
           <h2 className="mt-1 text-[20px] font-extrabold leading-tight tracking-tight text-[#0F1222] sm:text-[22px]">
-            Your stake in every open Major Draw
+            Your entries in every Major Draw
           </h2>
         </div>
         {summary.loyaltyStatus !== 'none' && (

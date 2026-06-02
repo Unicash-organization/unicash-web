@@ -398,9 +398,10 @@ export default function MyReceiptsPage() {
       {/* ============== FILTER PILLS + LIST ============== */}
       {isActiveMember && (
         <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-6">
-          {/* Filter pills */}
-          <div className="overflow-x-auto">
-            <div className="inline-flex rounded-full bg-[#F4F1FB] p-0.5 ring-1 ring-[#E0DAFF]">
+          {/* Filter pills — -mb-1/pb-1 give the active pill's shadow vertical room
+              so the overflow-x scroll container doesn't clip it. */}
+          <div className="-mb-1 flex overflow-x-auto pb-1">
+            <div className="inline-flex items-center gap-1 rounded-full bg-[#F4F1FB] p-1 ring-1 ring-[#E0DAFF]">
               {FILTERS.map((f) => {
                 const active = filter === f.key;
                 return (
@@ -409,9 +410,9 @@ export default function MyReceiptsPage() {
                     type="button"
                     onClick={() => setFilter(f.key)}
                     aria-pressed={active}
-                    className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[12px] font-bold transition-colors ${
+                    className={`whitespace-nowrap rounded-full px-4 py-1.5 text-[12px] font-bold transition-colors ${
                       active
-                        ? 'bg-white text-[#0F1222] shadow-[0_1px_2px_rgba(15,18,34,.06)]'
+                        ? 'bg-white text-[#0F1222] shadow-[0_1px_3px_rgba(15,18,34,.10)]'
                         : 'text-[#667085] hover:text-[#0F1222]'
                     }`}
                   >
