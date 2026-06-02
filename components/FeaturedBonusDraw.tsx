@@ -332,9 +332,6 @@ export default function FeaturedBonusDraw() {
               <h3 className="text-[22px] font-extrabold leading-tight tracking-tight text-[#0F1222] sm:text-[26px] md:text-[30px]">
                 {featuredDraw.title}
               </h3>
-              <p className="mt-2 text-[14px] leading-relaxed text-[#4B5563] sm:text-[14.5px]">
-                Use Points to access this capped member-only Bonus Draw.
-              </p>
 
               {/* Stats row — Max entry + Ends */}
               <div className="mt-5 flex flex-wrap gap-2">
