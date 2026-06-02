@@ -186,6 +186,76 @@ const FAQ_FALLBACK = [
 ];
 
 
+/* Live entry-list card — recent public entries scroll in a ticker with a LIVE
+   badge. Reads the public entry list (masked names only). The whole card links
+   to the full Entry List. */
+function LiveEntryListCard({ drawId, href }: { drawId: string; href: string }) {
+  const [rows, setRows] = useState<{ name: string; num: string }[]>([]);
+  useEffect(() => {
+    let active = true;
+    api.entries
+      .getPublicDrawEntries(drawId, undefined, 1, 8)
+      .then((res: any) => {
+        const data = res?.data?.data ?? (Array.isArray(res?.data) ? res.data : []);
+        if (!active) return;
+        setRows(
+          (data || []).map((e: any) => ({
+            name: e.maskedName || 'UNICASH Member',
+            num: e.ticketNumber != null ? String(e.ticketNumber).padStart(6, '0') : '—',
+          })),
+        );
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [drawId]);
+
+  const loop = rows.length > 0 ? [...rows, ...rows] : [];
+  const dur = `${Math.max(6, rows.length * 1.6)}s`;
+
+  return (
+    <Link
+      href={href}
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-[#E7E9F2] bg-white p-4 shadow-[0_1px_2px_rgba(15,18,34,.04)] transition-all hover:-translate-y-0.5 hover:border-[#6356E5] hover:shadow-[0_8px_24px_-12px_rgba(99,86,229,0.20)] sm:p-5"
+    >
+      {/* LIVE badge */}
+      <span className="absolute right-3.5 top-3.5 inline-flex items-center gap-1 rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-[#10B981] ring-1 ring-[#A7F3D0]">
+        <span className="relative inline-flex h-1.5 w-1.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#10B981] opacity-75" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#10B981]" />
+        </span>
+        Live
+      </span>
+
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#F4F1FB] ring-1 ring-[#E0DAFF]">
+        <Icon.Eye className="h-4 w-4 text-[#6356E5]" />
+      </span>
+      <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#667085]">Live entry list</p>
+
+      {loop.length > 0 ? (
+        <div className="uc-ticker-mask mt-1.5 h-9 overflow-hidden">
+          <div className="uc-ticker flex flex-col gap-1" style={{ ['--uc-ticker-dur' as never]: dur }}>
+            {loop.map((r, i) => (
+              <span key={i} className="flex items-center justify-between gap-2 text-[11.5px] leading-[17px]">
+                <span className="truncate font-semibold text-[#0F1222]">{r.name}</span>
+                <span className="shrink-0 font-mono font-bold text-[#6356E5]">{r.num}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="mt-1.5 text-[12px] text-[#9AA0B4]">No entries yet — be the first.</p>
+      )}
+
+      <p className="mt-2 inline-flex items-center gap-1 text-[12px] font-extrabold text-[#6356E5]">
+        View all entries
+        <Icon.ArrowRight className="h-3.5 w-3.5 shrink-0" />
+      </p>
+    </Link>
+  );
+}
+
 /* -----------------------------------------------------------------------
    Page component — ALL logic preserved, JSX simplified
 ----------------------------------------------------------------------- */
@@ -704,18 +774,29 @@ export default function DrawDetailClient() {
     );
   };
 
-  /* Short detail facts — at-a-glance row with icons */
-  const detailFacts: { label: string; value: string; Icon: React.FC<{ className?: string }>; iconBg: string; iconColor: string }[] = [
+  /* Close date — weekday + date, e.g. "Monday 23 June". */
+  const closeDateLabel = (() => {
+    const d = new Date(draw.closedAt);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-AU', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      timeZone: 'Australia/Sydney',
+    });
+  })();
+
+  /* Info cards (the live Entry List card is rendered separately, first). */
+  const detailFacts: {
+    label: string;
+    value: string;
+    Icon: React.FC<{ className?: string }>;
+    iconBg: string;
+    iconColor: string;
+  }[] = [
     {
-      label: 'Points required',
-      value: (draw.costPerEntry || 0).toLocaleString() + ' Points',
-      Icon: Icon.Coins,
-      iconBg: 'bg-[#F4F1FB] ring-[#E0DAFF]',
-      iconColor: 'text-[#6356E5]',
-    },
-    {
-      label: 'Member limit',
-      value: isUnlimited ? 'Unlimited' : cap.toLocaleString() + ' Members',
+      label: 'Entry cap',
+      value: isUnlimited ? 'Unlimited' : cap.toLocaleString() + ' entries',
       Icon: Icon.Users,
       iconBg: 'bg-[#F4F1FB] ring-[#E0DAFF]',
       iconColor: 'text-[#6356E5]',
@@ -728,9 +809,9 @@ export default function DrawDetailClient() {
       iconColor: 'text-[#10B981]',
     },
     {
-      label: 'Outcome',
-      value: 'Winners published after close',
-      Icon: Icon.Trophy,
+      label: isClosed ? 'Closed' : 'Closes',
+      value: closeDateLabel,
+      Icon: Icon.CalendarClock,
       iconBg: 'bg-[#FFF6DA] ring-[#FFC85D]/40',
       iconColor: 'text-[#C49A2C]',
     },
@@ -877,6 +958,9 @@ export default function DrawDetailClient() {
 
               {/* CONTENT — right on desktop (42% width), below on mobile */}
               <div className="flex flex-col p-6 sm:p-8 lg:col-span-5 lg:p-8">
+                {/* Centered content group — vertically balanced so the column has no
+                    awkward void; the trust footer stays pinned below it. */}
+                <div className="flex flex-1 flex-col justify-center">
                 {/* Eyebrow */}
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6356E5]">
                   {draw.requiresMembership ? 'Member-only Bonus Draw' : 'Bonus Draw'}
@@ -886,18 +970,6 @@ export default function DrawDetailClient() {
                 <h1 className="mt-1 text-[24px] font-extrabold leading-[1.15] tracking-tight text-[#0F1222] sm:text-[28px] md:text-[32px]">
                   {draw.title}
                 </h1>
-
-                {/* Stat pills — Max entry + Closing time */}
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#FBFAFF] px-2.5 py-1.5 text-[12px] font-medium text-[#4B5563] ring-1 ring-[#EFEDF5]">
-                    <Icon.Users className="h-3.5 w-3.5 text-[#6356E5]" />
-                    {entryRuleLabel}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#FBFAFF] px-2.5 py-1.5 text-[12px] font-medium text-[#4B5563] ring-1 ring-[#EFEDF5]">
-                    <Icon.CalendarClock className="h-3.5 w-3.5 text-[#6356E5]" />
-                    {closingLabel}
-                  </span>
-                </div>
 
                 {/* Member progress */}
                 {!isUnlimited ? (
@@ -926,9 +998,6 @@ export default function DrawDetailClient() {
                   </p>
                 )}
 
-                {/* Spacer pushes CTA to card bottom for visual weight */}
-                <div className="flex-1" />
-
                 {/* CTA row — Points chip + state-driven button on one row (all sizes).
                     Mobile shortens "Points"→"Pts" so both fit beside each other. */}
                 <div className="mt-6 grid grid-cols-[auto_minmax(0,1fr)] items-stretch gap-2 sm:gap-2.5">
@@ -955,10 +1024,11 @@ export default function DrawDetailClient() {
                     hasActiveMembership={hasActiveMembership}
                   />
                 )}
+                </div>
 
-                {/* Trust footer — icon-led row, View Entry List as separate link */}
-                <div className="mt-4 flex flex-col gap-2.5 border-t border-[#EFEDF5] pt-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[11px] text-[#4B5563] sm:justify-start">
+                {/* Trust footer — chips only (View Entry List moved to the live card below) */}
+                <div className="mt-4 border-t border-[#EFEDF5] pt-4">
+                  <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[11px] text-[#4B5563]">
                     <span className="inline-flex items-center gap-1">
                       <Icon.ShieldCheck className="h-3 w-3 text-[#10B981]" />
                       <span className="font-semibold">Capped</span>
@@ -968,14 +1038,12 @@ export default function DrawDetailClient() {
                       <Icon.Trophy className="h-3 w-3 text-[#C49A2C]" />
                       <span className="font-semibold">Winners published</span>
                     </span>
+                    <span aria-hidden className="text-[#cfc8e8]">·</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Icon.Coins className="h-3 w-3 text-[#6356E5]" />
+                      <span className="font-semibold">Points-based</span>
+                    </span>
                   </div>
-                  <Link
-                    href={`/draws/${id}/entries`}
-                    className="inline-flex items-center justify-center gap-1.5 self-center text-[11.5px] font-semibold text-[#6356E5] transition-colors hover:text-[#5346D6] sm:self-auto"
-                  >
-                    <Icon.Eye className="h-3.5 w-3.5" />
-                    View Entry List
-                  </Link>
                 </div>
               </div>
             </div>
@@ -1010,8 +1078,9 @@ export default function DrawDetailClient() {
             </span>
           </div>
 
-          {/* Stat grid — each card has icon + label + value */}
+          {/* Stat grid — live Entry List card first, then info cards */}
           <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 lg:gap-5">
+            <LiveEntryListCard drawId={id as string} href={`/draws/${id}/entries`} />
             {detailFacts.map((fact) => {
               const FactIcon = fact.Icon;
               return (
@@ -1023,7 +1092,7 @@ export default function DrawDetailClient() {
                     <FactIcon className={`h-4 w-4 ${fact.iconColor}`} />
                   </span>
                   <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#667085]">{fact.label}</p>
-                  <p className="mt-1 text-[14px] font-extrabold leading-tight tracking-tight text-[#0F1222] tabular-nums sm:text-[14.5px]">
+                  <p className="mt-1 text-[14px] font-extrabold leading-tight tracking-tight text-[#0F1222] sm:text-[14.5px]">
                     {fact.value}
                   </p>
                 </div>
@@ -1248,8 +1317,12 @@ export default function DrawDetailClient() {
           100% { transform: translateX(220%); }
         }
         .uc-bdd-shimmer { animation: uc-bdd-shimmer-anim 2.4s ease-in-out infinite; will-change: transform; }
+        /* Live entry ticker — seamless vertical scroll (list is duplicated, move up 50%). */
+        @keyframes uc-ticker-scroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+        .uc-ticker { animation: uc-ticker-scroll var(--uc-ticker-dur, 8s) linear infinite; will-change: transform; }
+        .uc-ticker-mask { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 25%, #000 75%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 25%, #000 75%, transparent); }
         @media (prefers-reduced-motion: reduce) {
-          .uc-bdd-shimmer { animation: none !important; }
+          .uc-bdd-shimmer, .uc-ticker { animation: none !important; }
         }
       ` }} />
     </div>
