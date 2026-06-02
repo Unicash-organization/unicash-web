@@ -274,37 +274,22 @@ export function BrandCard({
           art (blurred, scaled copy) + the sharp card floating on top. Falls back
           to the brand colour + wordmark when there's no usable image. */}
       <div
-        className="relative w-full overflow-hidden rounded-2xl ring-1 ring-[#E7E9F2] transition-transform duration-300 group-hover:scale-[1.01]"
+        className="relative w-full overflow-hidden rounded-2xl ring-1 ring-[#E7E9F2]"
         style={{ aspectRatio: '1.586 / 1', background: brand.heroColor }}
       >
         {showImg ? (
           <>
-            {/* Ambient backdrop — same image blown up + softly blurred → gentle
-                per-brand colour wash (muted, not vivid). */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              aria-hidden
-              src={cardImg as string}
-              alt=""
-              loading="lazy"
-              className="absolute inset-0 h-full w-full scale-[1.7] object-cover opacity-90 blur-3xl saturate-125"
-            />
-            {/* white veil mutes the colour; radial vignette softens edges + focuses a glow */}
-            <span aria-hidden className="pointer-events-none absolute inset-0 bg-white/25" />
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-0"
-              style={{ background: 'radial-gradient(72% 72% at 50% 42%, transparent 38%, rgba(15,18,34,0.16) 100%)' }}
-            />
-            {/* Floating card — sharp, larger, soft diffuse shadow */}
+            {/* Full-bleed card art — fills the tile edge-to-edge */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={cardImg as string}
               alt={brand.name}
               loading="lazy"
               onError={() => setImgError(true)}
-              className="absolute left-1/2 top-1/2 max-h-[78%] w-[82%] -translate-x-1/2 -translate-y-1/2 rounded-lg object-contain shadow-[0_22px_48px_-16px_rgba(15,18,34,0.45)] transition-transform duration-300 group-hover:-translate-y-[54%] group-hover:scale-[1.03]"
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
             />
+            {/* subtle top gloss for depth */}
+            <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-2/5 bg-gradient-to-b from-white/15 to-transparent" />
           </>
         ) : (
           <>
