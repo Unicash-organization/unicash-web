@@ -250,6 +250,13 @@ export function BrandCard({
   isMember: boolean;
   onClick: () => void;
 }) {
+  const [imgError, setImgError] = useState(false);
+  // Admin-uploaded card art wins; else the Prezzee logo. Full art fills the
+  // tile (object-cover); a logo is centred (object-contain) on the brand colour.
+  const cardImg = brand.cardImageUrl || brand.logoUrl;
+  const isFullArt = !!brand.cardImageUrl;
+  const showImg = !!cardImg && !imgError;
+
   const smallest = [...brand.denominations]
     .filter((d) => d.active)
     .sort((a, b) => a.valueAud - b.valueAud)[0];
@@ -264,13 +271,40 @@ export function BrandCard({
       aria-label={`Open ${brand.name} gift card`}
       className="group relative flex flex-col items-stretch gap-3 rounded-2xl border border-[#E7E9F2] bg-white p-4 text-left shadow-[0_1px_2px_rgba(15,18,34,0.04)] transition-shadow hover:shadow-[0_10px_30px_-12px_rgba(99,86,229,0.18)]"
     >
+      {/* Branded gift-card tile — real-card aspect, brand-colour fill + sheen + logo */}
       <div
-        className="flex h-20 w-full items-center justify-center rounded-xl"
-        style={{ background: `${brand.heroColor}14` }}
+        className="relative w-full overflow-hidden rounded-xl shadow-[0_8px_20px_-10px_rgba(15,18,34,0.4)] ring-1 ring-black/5 transition-transform duration-300 group-hover:scale-[1.02]"
+        style={{ aspectRatio: '1.586 / 1', background: brand.heroColor }}
       >
-        <span className="text-[20px] font-extrabold tracking-tight" style={{ color: brand.heroColor }}>
-          {brand.name}
+        {/* depth: top-left highlight → bottom-right shade (covered by full art) */}
+        <span aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/20" />
+        {/* diagonal gloss sweep */}
+        <span aria-hidden className="pointer-events-none absolute -left-1/4 top-0 h-full w-1/2 -skew-x-12 bg-white/10" />
+        {/* image (full-bleed art or centred logo) — painted above the depth layers */}
+        {showImg && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={cardImg as string}
+            alt={brand.name}
+            loading="lazy"
+            onError={() => setImgError(true)}
+            className={
+              isFullArt
+                ? 'absolute inset-0 h-full w-full object-cover'
+                : 'absolute inset-0 m-auto max-h-[48%] max-w-[72%] object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.28)]'
+            }
+          />
+        )}
+        {/* eGift tag — always on top */}
+        <span className="absolute right-2 top-2 rounded-md bg-white/25 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-white backdrop-blur-sm">
+          eGift
         </span>
+        {/* wordmark fallback when no usable image */}
+        {!showImg && (
+          <span className="absolute inset-0 flex items-center justify-center px-3 text-center text-[19px] font-extrabold leading-tight tracking-tight text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.3)]">
+            {brand.name}
+          </span>
+        )}
       </div>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">

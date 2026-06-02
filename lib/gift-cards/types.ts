@@ -59,6 +59,8 @@ export interface Brand {
   name: string;
   category: GiftCardCategory;
   logoUrl: string;
+  /** Admin-uploaded card art — preferred over logoUrl on the card tile. */
+  cardImageUrl?: string | null;
   heroColor: string;
   description: string;
   terms: string;
