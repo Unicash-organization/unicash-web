@@ -466,8 +466,9 @@ export default function BrandDetailPage() {
 
       {/* Sticky bottom CTA — mobile only, when a denomination is picked */}
       {selected && (
-        <div className="sm:hidden fixed bottom-0 inset-x-0 z-10 border-t border-[#E7E9F2] bg-white/95 backdrop-blur p-3">
-          <div className="flex items-center justify-between gap-3">
+        <div className="sm:hidden fixed bottom-0 inset-x-0 z-10 border-t border-[#E7E9F2] p-3">
+          <div aria-hidden className="absolute inset-0 -z-10 bg-white/80 backdrop-blur-xl" />
+          <div className="relative flex items-center justify-between gap-3">
             <div>
               <div className="text-[11px] text-[#667085]">Points required</div>
               <div className="text-[18px] font-extrabold tabular-nums text-[#0F1222]">

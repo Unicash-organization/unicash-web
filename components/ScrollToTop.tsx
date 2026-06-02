@@ -30,7 +30,7 @@ export default function ScrollToTop() {
       type="button"
       onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
       aria-label="Scroll to top"
-      className={`fixed bottom-6 right-6 z-30 h-11 w-11 items-center justify-center rounded-full bg-white/95 backdrop-blur-md ring-1 ring-[#E0DAFF] shadow-[0_12px_28px_-10px_rgba(99,86,229,0.30)] transition-all duration-200 ease-out hover:ring-[#6356E5] hover:shadow-[0_16px_36px_-12px_rgba(99,86,229,0.45)] hover:-translate-y-0.5 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2 ${
+      className={`fixed bottom-6 right-6 z-30 h-11 w-11 items-center justify-center rounded-full bg-white ring-1 ring-[#E0DAFF] shadow-[0_12px_28px_-10px_rgba(99,86,229,0.30)] transition-all duration-200 ease-out hover:ring-[#6356E5] hover:shadow-[0_16px_36px_-12px_rgba(99,86,229,0.45)] hover:-translate-y-0.5 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2 ${
         bottomNavVisible ? 'hidden sm:inline-flex' : 'inline-flex'
       }`}
     >

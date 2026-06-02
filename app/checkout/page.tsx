@@ -1558,9 +1558,12 @@ function CheckoutContent() {
 
       {/* Sticky mobile CTA bar — Step 1 has button, Step 2 shows total only (Stripe form has its own pay button) */}
       <div
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E7E9F2] bg-white/95 backdrop-blur-xl shadow-[0_-12px_30px_-12px_rgba(15,18,34,0.18)] lg:hidden"
+        /* Glass blur without iOS drift: fixed wrapper has NO backdrop-filter;
+           the frosted layer is a separate -z-10 child so it stays pinned. */
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E7E9F2] shadow-[0_-12px_30px_-12px_rgba(15,18,34,0.18)] lg:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
+        <div aria-hidden className="absolute inset-0 -z-10 bg-white/80 backdrop-blur-xl" />
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
           <div className="min-w-0 flex-1">
             <p className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#667085]">Total today</p>

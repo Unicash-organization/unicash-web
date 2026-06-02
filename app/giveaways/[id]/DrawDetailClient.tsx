@@ -1196,9 +1196,12 @@ export default function DrawDetailClient() {
       {!reachedEntryLimit && !isClosed && !isSoldOut && (
         <>
           <div
-            className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E7E9F2] bg-white/95 px-4 py-3 shadow-[0_-12px_30px_-12px_rgba(15,18,34,0.18)] backdrop-blur-xl lg:hidden"
+            /* Glass blur without iOS drift: fixed wrapper has NO backdrop-filter;
+               the frosted layer is a separate -z-10 child so it stays pinned. */
+            className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E7E9F2] px-4 py-3 shadow-[0_-12px_30px_-12px_rgba(15,18,34,0.18)] lg:hidden"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
           >
+            <div aria-hidden className="absolute inset-0 -z-10 bg-white/80 backdrop-blur-xl" />
             <div className="mx-auto flex max-w-md items-center gap-2.5">
               <span className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F1FB] px-3.5 text-[13px] font-extrabold tracking-tight tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF]">
                 <Icon.Coins className="h-3.5 w-3.5 shrink-0" />
