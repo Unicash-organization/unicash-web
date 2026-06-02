@@ -234,6 +234,21 @@ export default function FeaturedBonusDraw() {
     return `${verb} ${datePart} · ${timePart}`;
   })();
 
+  /* Short closing label for the mobile image overlay — weekday + date, no time/zone.
+     e.g. "Closed Monday 30 May" / "Ends Monday 30 May". */
+  const closingLabelShort = (() => {
+    const d = new Date(featuredDraw.closedAt);
+    if (isNaN(d.getTime())) return '';
+    const verb = new Date() > d ? 'Closed' : 'Ends';
+    const datePart = d.toLocaleDateString('en-AU', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'Australia/Sydney',
+    });
+    return `${verb} ${datePart}`;
+  })();
+
   const pointsLabel = `${(featuredDraw.costPerEntry || 0).toLocaleString()} Points`;
 
   /* CTA decision — show neutral state while membership/entry are still resolving
@@ -325,6 +340,14 @@ export default function FeaturedBonusDraw() {
                 </div>
               )}
 
+              {/* Mobile-only closing pill — bottom-left over the image (short label) */}
+              {closingLabelShort && (
+                <span className="absolute bottom-4 left-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-bold text-[#0F1222] shadow-[0_6px_16px_-4px_rgba(15,18,34,0.35)] sm:hidden">
+                  <CalendarClockIcon className="h-3.5 w-3.5 text-[#6356E5]" />
+                  {closingLabelShort}
+                </span>
+              )}
+
             </div>
 
             {/* Body */}
@@ -339,7 +362,9 @@ export default function FeaturedBonusDraw() {
                   <UsersIcon className="h-3.5 w-3.5 text-[#6356E5]" />
                   Max 1 entry per Member
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#FBFAFF] px-2.5 py-1.5 text-[12px] font-medium text-[#4B5563] ring-1 ring-[#EFEDF5]">
+                {/* Desktop: full closing label in stats row. Mobile shows the short
+                    pill over the image instead (above). */}
+                <span className="hidden items-center gap-1.5 rounded-lg bg-[#FBFAFF] px-2.5 py-1.5 text-[12px] font-medium text-[#4B5563] ring-1 ring-[#EFEDF5] sm:inline-flex">
                   <CalendarClockIcon className="h-3.5 w-3.5 text-[#6356E5]" />
                   {closingLabel}
                 </span>
@@ -351,7 +376,7 @@ export default function FeaturedBonusDraw() {
                   <div className="flex items-center justify-between text-[12.5px]">
                     <span className="text-[#4B5563]">
                       <span className="font-extrabold text-[#0F1222] tabular-nums">{entrants.toLocaleString()}</span>
-                      <span className="text-[#667085]"> / {cap.toLocaleString()} Members joined</span>
+                      <span className="text-[#667085]"> / {cap.toLocaleString()} entries</span>
                     </span>
                     <span className="rounded-full bg-[#F4F1FB] px-2 py-0.5 text-[11px] font-bold tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF]">{entrantsProgress}%</span>
                   </div>
@@ -366,7 +391,7 @@ export default function FeaturedBonusDraw() {
                 </div>
               ) : (
                 <p className="mt-6 text-[13px] italic text-[#667085]">
-                  Unlimited entries · {entrants.toLocaleString()} Members joined
+                  Unlimited · {entrants.toLocaleString()} entries so far
                 </p>
               )}
 
@@ -375,13 +400,14 @@ export default function FeaturedBonusDraw() {
               {/* CTA row — Points chip + action button (side-by-side, matches DrawCard pattern).
                   stopPropagation prevents double-navigation since whole card is clickable. */}
               <div className="mt-6">
-                {/* CTA layout — stacks vertically on narrow mobile so 4-digit Points
-                    values don't squeeze the button text. Side-by-side from sm+ where
-                    horizontal pattern reads better. */}
-                <div className="flex flex-col gap-2.5 sm:grid sm:grid-cols-[auto_minmax(0,1fr)] sm:items-stretch">
-                  <span className="inline-flex h-12 w-full shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F1FB] px-4 text-[14px] font-extrabold tracking-tight tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF] sm:w-auto">
+                {/* CTA layout — Points chip + action on one row (all sizes). On mobile the
+                    unit shortens to "Pts" and the CTA to "Enter Draw" so both fit. */}
+                <div className="grid grid-cols-[auto_minmax(0,1fr)] items-stretch gap-2 sm:gap-2.5">
+                  <span className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F1FB] px-3 text-[14px] font-extrabold tracking-tight tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF] sm:px-4">
                     <CoinsIcon className="h-4 w-4 shrink-0" />
-                    {pointsLabel}
+                    {(featuredDraw.costPerEntry || 0).toLocaleString()}
+                    <span className="sm:hidden">&nbsp;Pts</span>
+                    <span className="hidden sm:inline">&nbsp;Points</span>
                   </span>
                   {(() => {
                     const ctaPrimaryCls = 'uc-lift-sm inline-flex h-12 w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 text-[15px] font-bold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2 bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] hover:from-[#5346D6] hover:to-[#7867EC]';
@@ -447,7 +473,10 @@ export default function FeaturedBonusDraw() {
                         aria-label={`Enter Bonus Draw · ${featuredDraw.title}`}
                         className={ctaPrimaryCls}
                       >
-                        <span className="truncate">Enter Bonus Draw</span>
+                        <span className="truncate">
+                          <span className="sm:hidden">Enter Draw</span>
+                          <span className="hidden sm:inline">Enter Bonus Draw</span>
+                        </span>
                         <ArrowRight className="h-4 w-4 shrink-0" />
                       </button>
                     );

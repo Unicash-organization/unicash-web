@@ -635,7 +635,7 @@ function DrawCard({
               <span>
                 <span className="font-bold text-[#0F1222] tabular-nums">{entrants.toLocaleString()}</span>
                 {' / '}
-                {capacity.toLocaleString()} members joined
+                {capacity.toLocaleString()} entries
               </span>
               <span className="rounded-full bg-[#F4F1FB] px-2 py-0.5 text-[10.5px] font-bold text-[#6356E5] ring-1 ring-[#E0DAFF] tabular-nums">
                 {pct}%

@@ -437,7 +437,10 @@ export default function DrawCard({
           aria-label={`Enter Bonus Draw · ${title}`}
           className={`${ctaBaseCls} bg-[#6356e5] text-white shadow-[0_10px_24px_-12px_rgba(99,86,229,0.6)] hover:bg-[#5346d6]`}
         >
-          <span className="truncate">Enter Bonus Draw</span>
+          <span className="truncate">
+            <span className="sm:hidden">Enter Draw</span>
+            <span className="hidden sm:inline">Enter Bonus Draw</span>
+          </span>
           <Icon.ArrowRight className="h-3.5 w-3.5 shrink-0" />
         </button>
       );
@@ -579,7 +582,7 @@ export default function DrawCard({
             <div className="flex items-center justify-between text-[12px]">
               <span className="text-[#4B5563]">
                 <span className="font-semibold text-[#0f1222] tabular-nums">{entrants.toLocaleString()}</span>
-                <span className="text-[#667085]"> / {cap.toLocaleString()} members joined</span>
+                <span className="text-[#667085]"> / {cap.toLocaleString()} entries</span>
               </span>
               <span className="rounded-full bg-[#F4F1FB] px-2 py-0.5 text-[11px] font-bold tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF]">{pct}%</span>
             </div>
@@ -678,10 +681,13 @@ export default function DrawCard({
         {/* CTA row — Points chip + action button.
             Stacks vertically below md (mobile + sm 2-col where each card is narrow);
             switches to horizontal grid at md+ where card has enough width for both. */}
-        <div className="mt-5 flex flex-col gap-2 md:grid md:grid-cols-[auto_minmax(0,1fr)] md:items-stretch">
-          <span className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F1FB] px-3.5 text-[12.5px] font-extrabold tracking-tight tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF] md:w-auto">
+        {/* One row on mobile (full-width card) + md+; stacked only on sm (narrow 2-col). */}
+        <div className="mt-5 grid grid-cols-[auto_minmax(0,1fr)] items-stretch gap-2 sm:flex sm:flex-col md:grid md:grid-cols-[auto_minmax(0,1fr)]">
+          <span className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F1FB] px-3 text-[12.5px] font-extrabold tracking-tight tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF] sm:px-3.5 md:w-auto">
             <Icon.Coins className="h-3.5 w-3.5 shrink-0" />
-            {pointsLabel}
+            {creditsPerEntry.toLocaleString()}
+            <span className="sm:hidden">&nbsp;Pts</span>
+            <span className="hidden sm:inline">&nbsp;Points</span>
           </span>
           {renderCta()}
         </div>

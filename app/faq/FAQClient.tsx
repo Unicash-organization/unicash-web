@@ -361,7 +361,7 @@ const FAQ_DATA: Record<CategoryKey, FaqItem[]> = {
     },
     {
       q: 'Are Bonus Draw limits shown upfront?',
-      a: 'Yes. Each Bonus Draw shows the Points required, member limit, Members joined, and closing time before you enter.',
+      a: 'Yes. Each Bonus Draw shows the Points required, entry limit, total entries, and closing time before you enter.',
     },
     {
       q: 'How does UNICASH keep Bonus Draws clear?',
@@ -729,7 +729,7 @@ export default function FAQClient() {
                     {
                       icon: Icon.ShieldCheck,
                       title: 'Trust & transparency',
-                      body: 'Bonus Draw limits, Members joined, and Winners are published clearly.',
+                      body: 'Bonus Draw limits, entries, and Winners are published clearly.',
                     },
                     {
                       icon: Icon.Sparkles,

@@ -216,13 +216,13 @@ export default function GiveawaysPageClient() {
                   </div>
                 </div>
 
-                {/* Floating Members joined chip */}
+                {/* Floating entries chip */}
                 <div className="uc-bd-side-chip absolute -left-6 top-1/2 hidden -translate-y-1/2 items-center gap-2 rounded-2xl border border-[#E0DAFF] bg-white/95 px-3 py-2 shadow-[0_12px_30px_-12px_rgba(99,86,229,0.30)] backdrop-blur xl:inline-flex">
                   <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#F4F1FB] text-[#6356E5] ring-1 ring-[#E0DAFF]">
                     <UsersIcon className="h-4 w-4" />
                   </span>
                   <div>
-                    <p className="text-[9.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Members joined</p>
+                    <p className="text-[9.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Entries</p>
                     <p className="-mt-0.5 text-[13px] font-extrabold tracking-tight text-[#0F1222] tabular-nums">642 / 1,000</p>
                   </div>
                 </div>

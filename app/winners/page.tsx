@@ -606,7 +606,7 @@ function WinnerCard({ winner }: { winner: Winner }) {
                 <span className="font-semibold tabular-nums text-[#0f1222]">
                   {entrants!.toLocaleString()}
                 </span>
-                <span className="text-[#667085]"> / {cap!.toLocaleString()} members joined</span>
+                <span className="text-[#667085]"> / {cap!.toLocaleString()} entries</span>
               </span>
               <span className="rounded-full bg-[#F4F1FB] px-2 py-0.5 text-[11px] font-bold tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF]">
                 {pct}%
