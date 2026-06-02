@@ -284,7 +284,6 @@ export default function DrawCard({
 
   /* ---- v4 visual derivations ---- */
   const pct = cap === -1 ? 0 : Math.min(100, Math.round((entrants / cap) * 100));
-  const pointsLabel = `${creditsPerEntry.toLocaleString()} Points`;
 
   /* v4 closing-date format: "Ends 28 May · 8:00 PM AEST" — date + time + tz abbreviation.
      Uses Australia/Sydney as the canonical UNICASH timezone (AEST/AEDT auto). */

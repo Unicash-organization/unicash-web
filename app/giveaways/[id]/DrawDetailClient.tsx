@@ -551,7 +551,6 @@ export default function DrawDetailClient() {
     return `${verb} ${datePart} · ${timePart}`;
   })();
 
-  const pointsLabel = `${(draw.costPerEntry || 0).toLocaleString()} Points`;
 
   /* Status badge — single source of truth.
      "Entered" intentionally omitted because the CTA button already shows

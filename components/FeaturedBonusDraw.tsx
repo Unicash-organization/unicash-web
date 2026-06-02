@@ -249,7 +249,6 @@ export default function FeaturedBonusDraw() {
     return `${verb} ${datePart}`;
   })();
 
-  const pointsLabel = `${(featuredDraw.costPerEntry || 0).toLocaleString()} Points`;
 
   /* CTA decision — show neutral state while membership/entry are still resolving
      to avoid flashing "Join to Access" before fetch completes. */
