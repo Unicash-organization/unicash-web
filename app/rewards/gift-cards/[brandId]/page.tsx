@@ -44,6 +44,7 @@ import {
   BalanceRow,
   BottomSheet,
   DenominationChip,
+  GiftCardArt,
 } from '@/components/gift-cards';
 import CheckoutFlow from '@/components/gift-cards/checkout-flow';
 import { getBrand, MOCK_REDEMPTIONS } from '@/lib/gift-cards/mock-data';
@@ -184,6 +185,14 @@ export default function BrandDetailPage() {
   const memberLocked = brand?.memberOnly && authState !== 'member';
   const loginRequired = authState === 'guest';
 
+  /* Clean the Prezzee description for display — strips raw exchange/retailer
+     URLs (and the "See available retailers …" lead-in) that leak sandbox links. */
+  const cleanDescription = (brand?.description ?? '')
+    .replace(/See available retailers[^.]*\.?/gi, '')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
   /* ──────────────────────────────────────────────────────────────
      Render guards
      ────────────────────────────────────────────────────────────── */
@@ -244,41 +253,38 @@ export default function BrandDetailPage() {
       </div>
 
       <div className="mx-auto max-w-3xl px-4 sm:px-6 py-6 space-y-6">
-        {/* Brand hero */}
-        <section className="relative overflow-hidden rounded-3xl border border-[#E7E9F2] bg-white shadow-[0_1px_2px_rgba(15,18,34,0.04)]">
-          <div
-            className="h-32 sm:h-40 flex items-center justify-center"
-            style={{ background: `linear-gradient(135deg, ${brand.heroColor}22, ${brand.heroColor}08)` }}
-          >
-            <div className="text-[28px] sm:text-[36px] font-extrabold tracking-tight" style={{ color: brand.heroColor }}>
-              {brand.name}
+        {/* Brand hero — card art + details (2-col on desktop, stacked on mobile) */}
+        <section className="relative overflow-hidden rounded-3xl border border-[#E7E9F2] bg-white p-5 shadow-[0_1px_2px_rgba(15,18,34,0.04)] sm:p-6">
+          <div className="grid items-center gap-5 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_1.15fr]">
+            {/* Card art */}
+            <GiftCardArt brand={brand} className="shadow-[0_18px_44px_-18px_rgba(15,18,34,0.35)]" />
+            {/* Details */}
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-[#F6F4FF] text-[#5648D8] px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-widest">
+                  {brand.category}
+                </span>
+                {brand.deliveryType === 'instant' && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#ECFDF5] text-[#047857] px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest">
+                    <CheckCircle2 className="w-3 h-3" /> Instant delivery
+                  </span>
+                )}
+                {brand.deliveryType === 'review' && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#FFFBEB] text-[#B45309] px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest">
+                    <Clock className="w-3 h-3" /> Review required
+                  </span>
+                )}
+                {brand.memberOnly && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#F4F1FB] text-[#5648D8] px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest">
+                    <Lock className="w-3 h-3" /> Member-only
+                  </span>
+                )}
+              </div>
+              <h1 className="mt-3 text-[24px] sm:text-[28px] font-extrabold tracking-tight leading-[1.15] text-[#0F1222]">
+                {brand.name} gift card
+              </h1>
+              <p className="mt-2 text-[14px] leading-relaxed text-[#667085] line-clamp-5">{cleanDescription}</p>
             </div>
-          </div>
-          <div className="p-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-[#F6F4FF] text-[#5648D8] px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-widest">
-                {brand.category}
-              </span>
-              {brand.deliveryType === 'instant' && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#ECFDF5] text-[#047857] px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest">
-                  <CheckCircle2 className="w-3 h-3" /> Instant delivery
-                </span>
-              )}
-              {brand.deliveryType === 'review' && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#FFFBEB] text-[#B45309] px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest">
-                  <Clock className="w-3 h-3" /> Review required
-                </span>
-              )}
-              {brand.memberOnly && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#F4F1FB] text-[#5648D8] px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest">
-                  <Lock className="w-3 h-3" /> Member-only
-                </span>
-              )}
-            </div>
-            <h1 className="mt-3 text-[24px] sm:text-[28px] font-extrabold tracking-tight leading-[1.15] text-[#0F1222]">
-              {brand.name} gift card
-            </h1>
-            <p className="mt-1.5 text-[14px] text-[#667085]">{brand.description}</p>
           </div>
 
           {/* Member-only locked overlay */}
