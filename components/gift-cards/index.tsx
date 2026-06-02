@@ -254,7 +254,6 @@ export function BrandCard({
   // Admin-uploaded card art wins; else the Prezzee logo. Full art fills the
   // tile (object-cover); a logo is centred (object-contain) on the brand colour.
   const cardImg = brand.cardImageUrl || brand.logoUrl;
-  const isFullArt = !!brand.cardImageUrl;
   const showImg = !!cardImg && !imgError;
 
   const smallest = [...brand.denominations]
@@ -271,40 +270,48 @@ export function BrandCard({
       aria-label={`Open ${brand.name} gift card`}
       className="group relative flex flex-col items-stretch gap-3 rounded-2xl border border-[#E7E9F2] bg-white p-4 text-left shadow-[0_1px_2px_rgba(15,18,34,0.04)] transition-shadow hover:shadow-[0_10px_30px_-12px_rgba(99,86,229,0.18)]"
     >
-      {/* Branded gift-card tile — real-card aspect, brand-colour fill + sheen + logo */}
+      {/* Gift-card tile — ShopBack-style: ambient glow auto-coloured from the card
+          art (blurred, scaled copy) + the sharp card floating on top. Falls back
+          to the brand colour + wordmark when there's no usable image. */}
       <div
-        className="relative w-full overflow-hidden rounded-xl shadow-[0_8px_20px_-10px_rgba(15,18,34,0.4)] ring-1 ring-black/5 transition-transform duration-300 group-hover:scale-[1.02]"
+        className="relative w-full overflow-hidden rounded-2xl ring-1 ring-[#E7E9F2] transition-transform duration-300 group-hover:scale-[1.01]"
         style={{ aspectRatio: '1.586 / 1', background: brand.heroColor }}
       >
-        {/* depth: top-left highlight → bottom-right shade (covered by full art) */}
-        <span aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/20" />
-        {/* diagonal gloss sweep */}
-        <span aria-hidden className="pointer-events-none absolute -left-1/4 top-0 h-full w-1/2 -skew-x-12 bg-white/10" />
-        {/* image (full-bleed art or centred logo) — painted above the depth layers */}
-        {showImg && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={cardImg as string}
-            alt={brand.name}
-            loading="lazy"
-            onError={() => setImgError(true)}
-            className={
-              isFullArt
-                ? 'absolute inset-0 h-full w-full object-cover'
-                : 'absolute inset-0 m-auto max-h-[48%] max-w-[72%] object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.28)]'
-            }
-          />
+        {showImg ? (
+          <>
+            {/* Ambient backdrop — same image blown up + blurred → per-brand colour glow */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              aria-hidden
+              src={cardImg as string}
+              alt=""
+              loading="lazy"
+              className="absolute inset-0 h-full w-full scale-[1.6] object-cover blur-2xl saturate-150"
+            />
+            {/* soften so the floating card pops */}
+            <span aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/25 via-white/5 to-black/15" />
+            {/* Floating card — sharp, larger, soft shadow */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={cardImg as string}
+              alt={brand.name}
+              loading="lazy"
+              onError={() => setImgError(true)}
+              className="absolute left-1/2 top-1/2 max-h-[80%] w-[84%] -translate-x-1/2 -translate-y-1/2 rounded-lg object-contain shadow-[0_18px_40px_-12px_rgba(0,0,0,0.55)] transition-transform duration-300 group-hover:-translate-y-[54%] group-hover:scale-[1.04]"
+            />
+          </>
+        ) : (
+          <>
+            <span aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/20" />
+            <span className="absolute inset-0 flex items-center justify-center px-3 text-center text-[20px] font-extrabold leading-tight tracking-tight text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.3)]">
+              {brand.name}
+            </span>
+          </>
         )}
         {/* eGift tag — always on top */}
-        <span className="absolute right-2 top-2 rounded-md bg-white/25 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-white backdrop-blur-sm">
+        <span className="absolute right-2.5 top-2.5 z-10 rounded-md bg-white/80 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#6356E5] ring-1 ring-white/60 backdrop-blur-sm">
           eGift
         </span>
-        {/* wordmark fallback when no usable image */}
-        {!showImg && (
-          <span className="absolute inset-0 flex items-center justify-center px-3 text-center text-[19px] font-extrabold leading-tight tracking-tight text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.3)]">
-            {brand.name}
-          </span>
-        )}
       </div>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
