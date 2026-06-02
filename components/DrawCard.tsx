@@ -109,10 +109,6 @@ export default function DrawCard({
      Prevents flashing membership warnings during the ~1-2s async fetch window. */
   const [membershipReady, setMembershipReady] = useState(false);
 
-  // QW-9 / U5 — closing-soon reminder opt-in. `null` until we've fetched.
-  const [reminderOn, setReminderOn] = useState<boolean | null>(null);
-  const [reminderBusy, setReminderBusy] = useState(false);
-
   useEffect(() => {
     setTimeRemaining(formatTimeRemaining(closedAt));
     const interval = setInterval(() => {
@@ -130,7 +126,6 @@ export default function DrawCard({
     if (id) {
       checkUserEntry();
       checkWaitlistStatus();
-      checkReminder();
       if (requiresMembership) {
         checkMembership();
       } else {
@@ -140,53 +135,6 @@ export default function DrawCard({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, id, requiresMembership]);
-
-  const checkReminder = async () => {
-    if (!user) {
-      setReminderOn(false);
-      return;
-    }
-    try {
-      const res = await api.draws.reminderStatus(id);
-      setReminderOn(!!res.data?.subscribed);
-    } catch {
-      setReminderOn(false);
-    }
-  };
-
-  const toggleReminder = async (e?: React.MouseEvent | React.KeyboardEvent) => {
-    // The whole card is a click target → stop bubbling so the toggle
-    // doesn't also navigate to the draw detail page.
-    e?.stopPropagation?.();
-    e?.preventDefault?.();
-    if (!user || reminderBusy) return;
-    setReminderBusy(true);
-    // Optimistic — flip immediately; revert on failure
-    const next = !reminderOn;
-    setReminderOn(next);
-    // Dev-only breadcrumb so we can see the flip even on a slow network
-    if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
-      console.log(`[DrawCard] reminder toggle ${id.slice(0, 8)} → ${next}`);
-    }
-    try {
-      if (next) await api.draws.remindMe(id);
-      else await api.draws.unremindMe(id);
-    } catch (err: any) {
-      // Revert on error
-      setReminderOn(!next);
-      const serverMsg = err?.response?.data?.message;
-      showToast(
-        serverMsg ||
-          'We couldn’t update your reminder. Please try again.',
-        'error',
-      );
-      // eslint-disable-next-line no-console
-      console.error('[DrawCard] reminder toggle failed', err);
-    } finally {
-      setReminderBusy(false);
-    }
-  };
 
   const checkUserEntry = async () => {
     if (!user) return;
@@ -287,23 +235,19 @@ export default function DrawCard({
 
   /* v4 closing-date format: "Ends 28 May · 8:00 PM AEST" — date + time + tz abbreviation.
      Uses Australia/Sydney as the canonical UNICASH timezone (AEST/AEDT auto). */
-  const closingLabel = React.useMemo(() => {
+  /* Short closing label for the image overlay — weekday + date, no time/zone.
+     e.g. "Ends Monday 22 June" / "Closed Monday 22 June". */
+  const closingLabelShort = React.useMemo(() => {
     const d = new Date(closedAt);
     if (isNaN(d.getTime())) return '';
     const verb = new Date() > d ? 'Closed' : 'Ends';
     const datePart = d.toLocaleDateString('en-AU', {
+      weekday: 'long',
       day: 'numeric',
-      month: 'short',
+      month: 'long',
       timeZone: 'Australia/Sydney',
     });
-    const timePart = d.toLocaleTimeString('en-AU', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: 'Australia/Sydney',
-      timeZoneName: 'short',
-    });
-    return `${verb} ${datePart} · ${timePart}`;
+    return `${verb} ${datePart}`;
   }, [closedAt]);
 
   /* Animated progress fill — fills from 0 to pct when the bar scrolls into view,
@@ -534,6 +478,14 @@ export default function DrawCard({
           </span>
         )}
 
+        {/* Closing date — bottom-left of image (short label, no time/zone) */}
+        {closingLabelShort && (
+          <span className="absolute bottom-3 left-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#0f1222] backdrop-blur">
+            <Icon.CalendarClock className="h-3 w-3 shrink-0 text-[#6356E5]" />
+            {closingLabelShort}
+          </span>
+        )}
+
         {displayImageUrl ? (
           <Image
             src={displayImageUrl}
@@ -604,75 +556,6 @@ export default function DrawCard({
         ) : (
           <p className="mt-4 text-[12px] italic text-[#667085]">Unlimited entries</p>
         )}
-
-        {/* Closing date + reminder toggle.
-            U5 — opt-in "Remind me" sits next to the closing time so the
-            time-pressure context is right there. Hidden for guests,
-            already-entered members, and non-OPEN draws.
-            Layout uses justify-between so both pills stay on the same row
-            at every viewport — date on the left grows naturally, reminder
-            stays a fixed-width icon button so it never wraps. */}
-        <div className="mt-4 flex items-center justify-between gap-2">
-          <p className="inline-flex min-w-0 flex-1 items-center gap-1.5 rounded-lg bg-[#FBFAFF] px-2.5 py-1.5 text-[12px] font-medium text-[#4B5563] ring-1 ring-[#EFEDF5]">
-            <Icon.CalendarClock className="h-3.5 w-3.5 shrink-0 text-[#6356E5]" />
-            <span className="truncate">{closingLabel}</span>
-          </p>
-          {/*
-           * Only show on OPEN draws when the user hasn't entered yet and
-           * we know the subscription state. Closed / sold-out / canceled
-           * draws don't render this at all.
-           *
-           * Stop-propagation handlers below (mousedown/touchstart/click
-           * on the button itself) keep the outer <article onClick={navigate}>
-           * from hijacking the tap. We deliberately do NOT use
-           * onClickCapture — that fires before descendants and would
-           * kill the button's own onClick handler.
-           */}
-          {user && !hasEntered && status === 'open' && reminderOn !== null && (
-            <button
-              type="button"
-              onClick={toggleReminder}
-              onPointerDown={(e) => e.stopPropagation()}
-              onTouchStart={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.stopPropagation();
-                  toggleReminder(e);
-                }
-              }}
-              disabled={reminderBusy}
-              aria-pressed={reminderOn}
-              aria-label={reminderOn ? 'Reminder set — tap to remove' : 'Remind me before this Bonus Draw closes'}
-              title={reminderOn ? 'Reminder set — tap to remove' : 'Remind me before this Bonus Draw closes'}
-              /*
-               * Mobile: 36×36 icon-only square (fits next to the date pill
-               * without wrapping). Desktop sm+: same icon + short label.
-               * ON state is solid purple so the flip is obvious.
-               */
-              className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg text-[12px] font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5]/40 disabled:opacity-60 w-9 sm:w-auto sm:px-2.5 ${
-                reminderOn
-                  ? 'bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-white shadow-[0_4px_12px_-4px_rgba(99,86,229,0.5)] hover:from-[#5346D6] hover:to-[#7867EC]'
-                  : 'bg-white text-[#4B5563] ring-1 ring-[#EFEDF5] hover:text-[#6356E5] hover:ring-[#E0DAFF]'
-              }`}
-            >
-              {reminderOn ? (
-                <>
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5 shrink-0" aria-hidden>
-                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-                  </svg>
-                  <span className="hidden sm:inline">Reminder set</span>
-                </>
-              ) : (
-                <>
-                  <Icon.Bell className="h-3.5 w-3.5 shrink-0" />
-                  <span className="hidden sm:inline">Remind me</span>
-                </>
-              )}
-            </button>
-          )}
-        </div>
 
         {/* Spacer */}
         <div className="flex-1" />
