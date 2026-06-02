@@ -517,23 +517,11 @@ export default function DrawCard({
           {title}
         </h3>
 
-        {/* Entry rule + trust signal.
-            QW-9 — the "Verified & published" chip anchors the Bonus Draw
-            as a premium, transparent product (not gambling). Sits next to
-            the existing entry rule so it's part of the title group, not
-            visual clutter. */}
+        {/* Entry rule */}
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
           <span className="inline-flex items-center gap-1.5 text-[#667085]">
             <Icon.Users className="h-3.5 w-3.5 text-[#6356E5]" />
             {entryRuleLabel}
-          </span>
-          <span aria-hidden className="text-[#D1D5DB]">·</span>
-          <span
-            className="inline-flex items-center gap-1.5 text-[#0F766E]"
-            title="Winners are picked transparently and published when the draw closes."
-          >
-            <Icon.ShieldCheck className="h-3.5 w-3.5 text-[#10B981]" />
-            Verified &amp; published
           </span>
         </div>
 
