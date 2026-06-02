@@ -279,25 +279,31 @@ export function BrandCard({
       >
         {showImg ? (
           <>
-            {/* Ambient backdrop — same image blown up + blurred → per-brand colour glow */}
+            {/* Ambient backdrop — same image blown up + softly blurred → gentle
+                per-brand colour wash (muted, not vivid). */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               aria-hidden
               src={cardImg as string}
               alt=""
               loading="lazy"
-              className="absolute inset-0 h-full w-full scale-[1.6] object-cover blur-2xl saturate-150"
+              className="absolute inset-0 h-full w-full scale-[1.7] object-cover opacity-90 blur-3xl saturate-125"
             />
-            {/* soften so the floating card pops */}
-            <span aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/25 via-white/5 to-black/15" />
-            {/* Floating card — sharp, larger, soft shadow */}
+            {/* white veil mutes the colour; radial vignette softens edges + focuses a glow */}
+            <span aria-hidden className="pointer-events-none absolute inset-0 bg-white/25" />
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{ background: 'radial-gradient(72% 72% at 50% 42%, transparent 38%, rgba(15,18,34,0.16) 100%)' }}
+            />
+            {/* Floating card — sharp, larger, soft diffuse shadow */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={cardImg as string}
               alt={brand.name}
               loading="lazy"
               onError={() => setImgError(true)}
-              className="absolute left-1/2 top-1/2 max-h-[80%] w-[84%] -translate-x-1/2 -translate-y-1/2 rounded-lg object-contain shadow-[0_18px_40px_-12px_rgba(0,0,0,0.55)] transition-transform duration-300 group-hover:-translate-y-[54%] group-hover:scale-[1.04]"
+              className="absolute left-1/2 top-1/2 max-h-[78%] w-[82%] -translate-x-1/2 -translate-y-1/2 rounded-lg object-contain shadow-[0_22px_48px_-16px_rgba(15,18,34,0.45)] transition-transform duration-300 group-hover:-translate-y-[54%] group-hover:scale-[1.03]"
             />
           </>
         ) : (
