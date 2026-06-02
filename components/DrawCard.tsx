@@ -35,6 +35,8 @@ interface DrawCardProps {
   closedAt: string;
   state: string;
   requiresMembership?: boolean;
+  entryLimitMode?: 'single' | 'multi';
+  maxEntriesPerMember?: number | null;
 }
 
 /* Inline SVG helpers (avoids extra deps) */
@@ -93,7 +95,15 @@ export default function DrawCard({
   closedAt,
   state,
   requiresMembership = false,
+  entryLimitMode,
+  maxEntriesPerMember,
 }: DrawCardProps) {
+  const entryRuleLabel =
+    entryLimitMode === 'multi'
+      ? maxEntriesPerMember != null
+        ? `Max ${Number(maxEntriesPerMember).toLocaleString()} entries per member`
+        : 'Multiple entries per member'
+      : 'Max 1 entry per member';
   const displayImageUrl = getDisplayImageUrl({ image, images });
   const { user } = useAuth();
   const [timeRemaining, setTimeRemaining] = useState('');
@@ -515,7 +525,7 @@ export default function DrawCard({
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
           <span className="inline-flex items-center gap-1.5 text-[#667085]">
             <Icon.Users className="h-3.5 w-3.5 text-[#6356E5]" />
-            Max 1 entry per member
+            {entryRuleLabel}
           </span>
           <span aria-hidden className="text-[#D1D5DB]">·</span>
           <span

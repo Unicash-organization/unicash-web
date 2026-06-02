@@ -214,6 +214,14 @@ export default function FeaturedBonusDraw() {
     !periodEnded;
   const canEnterBonusDraw = !featuredDraw.requiresMembership || hasActiveMembership;
 
+  // Per-member entry rule label (reflects SINGLE/MULTI + per-member cap).
+  const entryRuleLabel =
+    featuredDraw.entryLimitMode === 'multi'
+      ? featuredDraw.maxEntriesPerMember != null
+        ? `Max ${Number(featuredDraw.maxEntriesPerMember).toLocaleString()} entries per member`
+        : 'Multiple entries per member'
+      : 'Max 1 entry per member';
+
   /* v4 closing-date format — same as DrawCard */
   const closingLabel = (() => {
     const d = new Date(featuredDraw.closedAt);
@@ -359,7 +367,7 @@ export default function FeaturedBonusDraw() {
               <div className="mt-5 flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#FBFAFF] px-2.5 py-1.5 text-[12px] font-medium text-[#4B5563] ring-1 ring-[#EFEDF5]">
                   <UsersIcon className="h-3.5 w-3.5 text-[#6356E5]" />
-                  Max 1 entry per Member
+                  {entryRuleLabel}
                 </span>
                 {/* Desktop: full closing label in stats row. Mobile shows the short
                     pill over the image instead (above). */}

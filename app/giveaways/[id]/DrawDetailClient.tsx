@@ -1118,6 +1118,8 @@ export default function DrawDetailClient() {
                   closedAt={relatedDraw.closedAt}
                   state={relatedDraw.state}
                   requiresMembership={relatedDraw.requiresMembership}
+                  entryLimitMode={relatedDraw.entryLimitMode}
+                  maxEntriesPerMember={relatedDraw.maxEntriesPerMember}
                 />
               ))}
             </div>

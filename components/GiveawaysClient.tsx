@@ -263,6 +263,8 @@ export default function GiveawaysClient() {
                   closedAt={draw.closedAt}
                   state={draw.state}
                   requiresMembership={draw.requiresMembership}
+                  entryLimitMode={draw.entryLimitMode}
+                  maxEntriesPerMember={draw.maxEntriesPerMember}
                 />
               ))}
             </div>

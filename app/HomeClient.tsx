@@ -1274,6 +1274,8 @@ export default function HomeClient() {
                       closedAt={draw.closedAt}
                       state={draw.state}
                       requiresMembership={draw.requiresMembership}
+                      entryLimitMode={draw.entryLimitMode}
+                      maxEntriesPerMember={draw.maxEntriesPerMember}
                     />
                   </ScrollReveal>
                 ))}
