@@ -94,9 +94,11 @@ export default function GiftCardsClient() {
   const router = useRouter();
   const balance = MOCK_MEMBER_BALANCE; // TODO: load member balance from auth context
 
-  // GP4 — fetch live catalog from backend; fall back to mock if API
-  // hasn't been migrated yet or call fails (graceful for local dev).
-  const [brands, setBrands] = useState<Brand[]>(MOCK_BRANDS);
+  // GP4 — fetch live catalog from backend. The MOCK_BRANDS fallback is for
+  // LOCAL DEV ONLY — never on production (it leaked fake Coles/Woolworths/BP
+  // cards on prod). In prod an empty/failed catalog shows the empty state.
+  const FALLBACK_BRANDS = process.env.NODE_ENV === 'production' ? [] : MOCK_BRANDS;
+  const [brands, setBrands] = useState<Brand[]>(FALLBACK_BRANDS);
   const [viewState, setViewState] = useState<ViewState>('loading');
 
   useEffect(() => {
@@ -106,12 +108,12 @@ export default function GiftCardsClient() {
       try {
         const res = await api.giftCards.list();
         if (!cancelled) {
-          setBrands(Array.isArray(res.data) && res.data.length ? (res.data as Brand[]) : MOCK_BRANDS);
+          setBrands(Array.isArray(res.data) && res.data.length ? (res.data as Brand[]) : FALLBACK_BRANDS);
           setViewState('ready');
         }
       } catch {
         if (!cancelled) {
-          setBrands(MOCK_BRANDS);
+          setBrands(FALLBACK_BRANDS);
           setViewState('ready');
         }
       }
@@ -119,6 +121,7 @@ export default function GiftCardsClient() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Filter state — lifted to page so chips + bottom-sheet share it.
@@ -345,6 +348,20 @@ export default function GiftCardsClient() {
               Couldn&apos;t load gift cards
             </p>
             <p className="mt-1 text-[13px] text-[#B91C1C]/80">Try refreshing the page.</p>
+          </div>
+        ) : brands.length === 0 ? (
+          <div className="rounded-2xl border border-[#E7E9F2] bg-[#FBFAFF] p-10 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#F4F1FB]">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-[#6356E5]">
+                <path d="M3 7h18v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                <path d="M12 7v13M3 11h18" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                <path d="M12 7c-1.5-3-5-3-5-1s3.5 1 5 1Zm0 0c1.5-3 5-3 5-1s-3.5 1-5 1Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <p className="mt-4 text-[16px] font-extrabold tracking-tight text-[#0F1222]">Gift cards are coming soon</p>
+            <p className="mx-auto mt-1.5 max-w-md text-[14px] leading-relaxed text-[#667085]">
+              We&apos;re finalising our gift card range. Check back shortly to redeem your Points for premium brands.
+            </p>
           </div>
         ) : (
           <>
