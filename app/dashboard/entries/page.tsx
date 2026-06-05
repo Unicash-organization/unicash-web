@@ -296,7 +296,16 @@ function EntryNumbersModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [count, setCount] = useState(0);
-  const [orders, setOrders] = useState<{ orderNo: string; entryNumbers: number[] }[]>([]);
+  const [orders, setOrders] = useState<
+    {
+      orderNo: string;
+      entryNumbers: number[];
+      count?: number;
+      numbersPending?: boolean;
+      source?: string;
+      subsource?: string | null;
+    }[]
+  >([]);
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [visible, setVisible] = useState<Record<string, number>>({});
@@ -345,6 +354,32 @@ function EntryNumbersModal({
     }
     return out;
   }, [q, orders]);
+
+  // Fold orders into 2 groups: Membership (all loyalty + legacy membership_credit
+  // — monthly/anniversary/streak) vs Purchased (paid, real numbers now). Keeps the
+  // modal compact even for long-tenure members with 15+ monthly grant orders.
+  const { membership, purchased } = useMemo(() => {
+    const cnt = (o: (typeof orders)[number]) => o.count ?? o.entryNumbers.length;
+    const isMembership = (o: (typeof orders)[number]) =>
+      o.source === 'loyalty' || o.source === 'membership_credit' || !o.source;
+    const mem = orders.filter(isMembership);
+    const pur = orders.filter((o) => !isMembership(o));
+    const sum = (arr: typeof orders) => arr.reduce((s, o) => s + cnt(o), 0);
+    const bySub = (pred: (s: string | null | undefined) => boolean) =>
+      sum(mem.filter((o) => pred(o.subsource)));
+    return {
+      membership: {
+        total: sum(mem),
+        monthly: bySub(
+          (s) => !s || s === 'draw_open_snapshot' || s === 'tenure_monthly',
+        ),
+        anniversary: bySub((s) => !!s && s.startsWith('anniversary')),
+        streak: bySub((s) => !!s && s.startsWith('streak')),
+        pending: mem.some((o) => o.numbersPending ?? o.entryNumbers.length < cnt(o)),
+      },
+      purchased: pur,
+    };
+  }, [orders]);
 
   if (typeof document === 'undefined') return null;
 
@@ -396,7 +431,7 @@ function EntryNumbersModal({
                   {count.toLocaleString()}
                 </span>
                 <span className="text-[14px] font-semibold text-[#667085]">
-                  entry {count === 1 ? 'number' : 'numbers'}
+                  {count === 1 ? 'entry' : 'entries'}
                 </span>
               </div>
               <p className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-[#10B981]">
@@ -468,73 +503,123 @@ function EntryNumbersModal({
                   </>
                 )
               ) : (
-                /* Orders, collapsible */
-                <div className="space-y-2.5">
-                  {orders.map((o) => {
-                    const isOpen = !!expanded[o.orderNo];
-                    const shown = visible[o.orderNo] ?? NUM_CHUNK;
-                    const slice = isOpen ? o.entryNumbers.slice(0, shown) : [];
-                    const more = o.entryNumbers.length - slice.length;
-                    return (
-                      <div key={o.orderNo} className="overflow-hidden rounded-2xl border border-[#E7E9F2]">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpanded((s) => ({ ...s, [o.orderNo]: !s[o.orderNo] }))
-                          }
-                          className="flex w-full items-center justify-between gap-2 bg-[#FBFAFF] px-3.5 py-2.5 text-left"
-                        >
-                          <span className="min-w-0 truncate text-[12.5px] font-semibold text-[#667085]">
-                            Order <span className="font-mono text-[#0F1222]">{o.orderNo}</span>
-                          </span>
-                          <span className="flex shrink-0 items-center gap-2">
-                            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-[#6356E5] ring-1 ring-[#E0DAFF] tabular-nums">
-                              {o.entryNumbers.length.toLocaleString()}
-                            </span>
-                            <svg
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className={`h-4 w-4 text-[#9AA0B4] transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                            >
-                              <polyline points="6 9 12 15 18 9" />
-                            </svg>
-                          </span>
-                        </button>
-                        {isOpen && (
-                          <div className="border-t border-[#E7E9F2] p-3">
-                            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
-                              {slice.map((n) => (
-                                <span
-                                  key={n}
-                                  className="rounded-lg bg-[#F4F1FB] px-2 py-1.5 text-center font-mono text-[12.5px] font-bold text-[#6356E5] ring-1 ring-[#E0DAFF]"
-                                >
-                                  {fmtEntryNo(n)}
-                                </span>
-                              ))}
-                            </div>
-                            {more > 0 && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setVisible((s) => ({
-                                    ...s,
-                                    [o.orderNo]: (s[o.orderNo] ?? NUM_CHUNK) + NUM_CHUNK,
-                                  }))
-                                }
-                                className="mt-3 w-full rounded-xl border border-[#E0DAFF] bg-white py-2 text-[12.5px] font-bold text-[#6356E5] hover:bg-[#F4F1FB]"
-                              >
-                                Show {Math.min(more, NUM_CHUNK).toLocaleString()} more
-                              </button>
-                            )}
+                /* Two groups: Membership (folded) + Purchased (per-order) */
+                <div className="space-y-3">
+                  {/* GROUP 1 — Membership entries (loyalty: monthly + anniversary + streak) */}
+                  {membership.total > 0 && (
+                    <div className="overflow-hidden rounded-2xl border border-[#E7E9F2]">
+                      <div className="flex items-center justify-between gap-2 bg-[#FBFAFF] px-3.5 py-2.5">
+                        <span className="text-[13px] font-bold text-[#0F1222]">Membership entries</span>
+                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-[#6356E5] ring-1 ring-[#E0DAFF] tabular-nums">
+                          {membership.total.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="space-y-1.5 px-3.5 py-3">
+                        {membership.monthly > 0 && (
+                          <div className="flex items-center justify-between text-[12.5px]">
+                            <span className="text-[#667085]">Monthly membership</span>
+                            <span className="font-semibold text-[#0F1222] tabular-nums">{membership.monthly.toLocaleString()}</span>
                           </div>
                         )}
+                        {membership.anniversary > 0 && (
+                          <div className="flex items-center justify-between text-[12.5px]">
+                            <span className="text-[#667085]">Anniversary bonuses</span>
+                            <span className="font-semibold text-[#0F1222] tabular-nums">{membership.anniversary.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {membership.streak > 0 && (
+                          <div className="flex items-center justify-between text-[12.5px]">
+                            <span className="text-[#667085]">Streak bonuses</span>
+                            <span className="font-semibold text-[#0F1222] tabular-nums">{membership.streak.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {membership.pending && (
+                          <p className="mt-1.5 rounded-lg bg-[#F6F4FF] px-3 py-2 text-[12px] leading-relaxed text-[#667085]">
+                            Entry numbers for membership entries are revealed when the draw closes.
+                          </p>
+                        )}
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
+
+                  {/* GROUP 2 — Purchased (real entry numbers now) */}
+                  {purchased.length > 0 && (
+                    <div className="space-y-2.5">
+                      <p className="px-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[#667085]">
+                        Purchased
+                      </p>
+                      {purchased.map((o) => {
+                        const isOpen = !!expanded[o.orderNo];
+                        const shown = visible[o.orderNo] ?? NUM_CHUNK;
+                        const slice = isOpen ? o.entryNumbers.slice(0, shown) : [];
+                        const more = o.entryNumbers.length - slice.length;
+                        return (
+                          <div key={o.orderNo} className="overflow-hidden rounded-2xl border border-[#E7E9F2]">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpanded((s) => ({ ...s, [o.orderNo]: !s[o.orderNo] }))
+                              }
+                              className="flex w-full items-center justify-between gap-2 bg-[#FBFAFF] px-3.5 py-2.5 text-left"
+                            >
+                              <span className="min-w-0 truncate text-[12.5px] font-semibold text-[#667085]">
+                                Order <span className="font-mono text-[#0F1222]">{o.orderNo}</span>
+                              </span>
+                              <span className="flex shrink-0 items-center gap-2">
+                                <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-[#6356E5] ring-1 ring-[#E0DAFF] tabular-nums">
+                                  {(o.count ?? o.entryNumbers.length).toLocaleString()}
+                                </span>
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className={`h-4 w-4 text-[#9AA0B4] transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                                >
+                                  <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                              </span>
+                            </button>
+                            {isOpen && (
+                              <div className="border-t border-[#E7E9F2] p-3">
+                                {o.numbersPending && o.entryNumbers.length === 0 && (
+                                  <p className="mb-2 rounded-lg bg-[#F6F4FF] px-3 py-2 text-[12px] leading-relaxed text-[#667085]">
+                                    Entry numbers are revealed when the draw closes.
+                                  </p>
+                                )}
+                                <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                                  {slice.map((n) => (
+                                    <span
+                                      key={n}
+                                      className="rounded-lg bg-[#F4F1FB] px-2 py-1.5 text-center font-mono text-[12.5px] font-bold text-[#6356E5] ring-1 ring-[#E0DAFF]"
+                                    >
+                                      {fmtEntryNo(n)}
+                                    </span>
+                                  ))}
+                                </div>
+                                {more > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setVisible((s) => ({
+                                        ...s,
+                                        [o.orderNo]: (s[o.orderNo] ?? NUM_CHUNK) + NUM_CHUNK,
+                                      }))
+                                    }
+                                    className="mt-3 w-full rounded-xl border border-[#E0DAFF] bg-white py-2 text-[12.5px] font-bold text-[#6356E5] hover:bg-[#F4F1FB]"
+                                  >
+                                    Show {Math.min(more, NUM_CHUNK).toLocaleString()} more
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

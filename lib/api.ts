@@ -296,7 +296,14 @@ export const api = {
       apiClient.get<{
         drawId: string;
         count: number;
-        orders: { orderNo: string; entryNumbers: number[] }[];
+        orders: {
+          orderNo: string;
+          entryNumbers: number[];
+          count?: number;
+          numbersPending?: boolean;
+          source?: string;
+          subsource?: string | null;
+        }[];
       }>(`/entries/me/draw/${drawId}/numbers`),
     get: (id: string) => apiClient.get(`/entries/${id}`),
     getPublicDrawEntries: (
