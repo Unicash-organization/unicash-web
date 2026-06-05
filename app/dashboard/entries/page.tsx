@@ -367,6 +367,9 @@ function EntryNumbersModal({
     const sum = (arr: typeof orders) => arr.reduce((s, o) => s + cnt(o), 0);
     const bySub = (pred: (s: string | null | undefined) => boolean) =>
       sum(mem.filter((o) => pred(o.subsource)));
+    const memNumbers = mem
+      .flatMap((o) => o.entryNumbers)
+      .sort((a, b) => a - b);
     return {
       membership: {
         total: sum(mem),
@@ -376,6 +379,7 @@ function EntryNumbersModal({
         anniversary: bySub((s) => !!s && s.startsWith('anniversary')),
         streak: bySub((s) => !!s && s.startsWith('streak')),
         pending: mem.some((o) => o.numbersPending ?? o.entryNumbers.length < cnt(o)),
+        numbers: memNumbers,
       },
       purchased: pur,
     };
@@ -537,6 +541,44 @@ function EntryNumbersModal({
                           <p className="mt-1.5 rounded-lg bg-[#F6F4FF] px-3 py-2 text-[12px] leading-relaxed text-[#667085]">
                             Entry numbers for membership entries are revealed when the draw closes.
                           </p>
+                        )}
+                        {membership.numbers.length > 0 && (
+                          <div className="mt-1.5 border-t border-[#E7E9F2] pt-2.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpanded((s) => ({ ...s, __mem__: !s.__mem__ }))
+                              }
+                              className="flex w-full items-center justify-between text-[12.5px] font-semibold text-[#6356E5]"
+                            >
+                              <span>View entry numbers</span>
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`h-4 w-4 transition-transform ${expanded.__mem__ ? 'rotate-180' : ''}`}>
+                                <polyline points="6 9 12 15 18 9" />
+                              </svg>
+                            </button>
+                            {expanded.__mem__ && (
+                              <>
+                                <div className="mt-2.5 grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                                  {membership.numbers.slice(0, visible.__mem__ ?? NUM_CHUNK).map((n) => (
+                                    <span key={n} className="rounded-lg bg-[#F4F1FB] px-2 py-1.5 text-center font-mono text-[12.5px] font-bold text-[#6356E5] ring-1 ring-[#E0DAFF]">
+                                      {fmtEntryNo(n)}
+                                    </span>
+                                  ))}
+                                </div>
+                                {membership.numbers.length > (visible.__mem__ ?? NUM_CHUNK) && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setVisible((s) => ({ ...s, __mem__: (s.__mem__ ?? NUM_CHUNK) + NUM_CHUNK }))
+                                    }
+                                    className="mt-3 w-full rounded-xl border border-[#E0DAFF] bg-white py-2 text-[12.5px] font-bold text-[#6356E5] hover:bg-[#F4F1FB]"
+                                  >
+                                    Show {Math.min(membership.numbers.length - (visible.__mem__ ?? NUM_CHUNK), NUM_CHUNK).toLocaleString()} more
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
