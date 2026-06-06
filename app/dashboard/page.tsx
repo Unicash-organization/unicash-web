@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import FreeDashboard from '@/components/FreeDashboard';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import Link from 'next/link';
@@ -520,6 +521,18 @@ export default function DashboardPage() {
     gold:     { iconBg: 'bg-[#FFF6DA] ring-[#FFC85D]/40', iconText: 'text-[#C49A2C]' },
     lavender: { iconBg: 'bg-[#FBFAFF] ring-[#E0DAFF]',    iconText: 'text-[#6356E5]' },
   };
+
+  /* =====================================================================
+     Free account — focused Scan → Earn → Redeem dashboard (no draws/boosters).
+     ===================================================================== */
+  if ((user as any).state === 'free') {
+    return (
+      <FreeDashboard
+        firstName={(user as any).firstName}
+        totalPoints={totalPoints}
+      />
+    );
+  }
 
   /* =====================================================================
      JSX
