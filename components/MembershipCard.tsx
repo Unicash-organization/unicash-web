@@ -119,7 +119,7 @@ const TIER_PERKS: Record<string, string[]> = {
     'Earn Points from eligible **everyday receipts**',
     'Earn **boosted Points** from eligible fuel receipts',
     'Add Point Boosters anytime',
-    'Gift Card redemption from **2,000 Points**',
+    'Gift Card redemption from **20,000 Points**',
     'Cancel anytime',
   ],
   uni_plus: [
@@ -127,7 +127,7 @@ const TIER_PERKS: Record<string, string[]> = {
     'Earn **2 Points per $1** from eligible fuel receipts',
     '**Better monthly value** for active members',
     'Access selected **exclusive Bonus Draws**',
-    'Gift Card redemption from **2,000 Points**',
+    'Gift Card redemption from **20,000 Points**',
     'Cancel anytime',
   ],
   uni_max: [

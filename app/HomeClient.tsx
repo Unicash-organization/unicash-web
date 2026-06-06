@@ -258,7 +258,7 @@ function FuelRewards() {
   const fuelSteps = [
     { n: '01', Icon: Icon.Fuel, title: 'Fill up', body: 'Fuel up at eligible Australian service stations.' },
     { n: '02', Icon: Icon.ScanLine, title: 'Scan receipt', body: 'Upload your receipt in the UNICASH app and track its review status.' },
-    { n: '03', Icon: Icon.Coins, title: 'Use your Points', body: 'Use approved Points for Bonus Draws or redeem selected Gift Cards from 2,000 Points.' },
+    { n: '03', Icon: Icon.Coins, title: 'Use your Points', body: 'Use approved Points for Bonus Draws or redeem selected Gift Cards from 20,000 Points.' },
   ];
   const fuelTierRates = [
     { plan: 'UniOne', rate: '1 Pt / $1' },

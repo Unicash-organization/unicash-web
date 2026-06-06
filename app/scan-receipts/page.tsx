@@ -1274,7 +1274,7 @@ export default function ScanReceiptsPage() {
                       <Lock className="h-4 w-4" aria-hidden />
                     </span>
                     <div>
-                      <p className="text-[14px] font-semibold" style={{ color: BRAND.ink }}>Redeem 2,000 Points → $20 gift card</p>
+                      <p className="text-[14px] font-semibold" style={{ color: BRAND.ink }}>Redeem 20,000 Points → $20 gift card</p>
                       <p className="text-[12px]" style={{ color: BRAND.muted }}>Active UNICASH Membership required to redeem</p>
                     </div>
                   </div>

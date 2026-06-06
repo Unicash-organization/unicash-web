@@ -200,7 +200,7 @@ const PRODUCT_PILLARS: { icon: IconCmp; tone: 'purple' | 'gold' | 'warm'; title:
     icon: Icon.Trophy,
     tone: 'gold',
     title: 'Redeem Gift Cards',
-    body: 'Convert eligible Points into selected Gift Cards from 2,000 Points.',
+    body: 'Convert eligible Points into selected Gift Cards from 20,000 Points.',
   },
 ];
 

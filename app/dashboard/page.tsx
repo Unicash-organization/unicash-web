@@ -718,8 +718,11 @@ export default function DashboardPage() {
             <p className="mt-1 bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] bg-clip-text text-[40px] font-extrabold leading-none tracking-tight text-transparent tabular-nums sm:text-[52px]">
               {totalPoints.toLocaleString()}
             </p>
+            <p className="mt-1 text-[12.5px] font-semibold text-[#667085]">
+              ≈ {(totalPoints / 1000).toLocaleString('en-AU', { style: 'currency', currency: 'AUD' })} in gift cards
+            </p>
             <p className="mt-2 text-[12.5px] leading-relaxed text-[#4B5563]">
-              Use Points for member-only Bonus Draws or to Redeem Gift Cards from 2,000 Points.
+              Use Points for member-only Bonus Draws or to Redeem Gift Cards · 1,000 Points = A$1.
             </p>
           </div>
           <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#F4F1FB] to-[#FBFAFF] text-[#6356E5] ring-1 ring-[#E0DAFF] sm:inline-flex">

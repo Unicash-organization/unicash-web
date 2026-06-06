@@ -227,7 +227,7 @@ const FAQ_DATA: Record<CategoryKey, FaqItem[]> = {
     },
     {
       q: 'How many Points do I need to redeem a Gift Card?',
-      a: 'Selected Gift Cards can be redeemed from 2,000 Points, equal to a A$20 selected Gift Card.',
+      a: 'Selected Gift Cards can be redeemed from 20,000 Points, equal to a A$20 selected Gift Card.',
     },
   ],
   'bonus-draws': [
@@ -281,7 +281,7 @@ const FAQ_DATA: Record<CategoryKey, FaqItem[]> = {
     },
     {
       q: 'Which Point Boosters are available?',
-      a: 'Booster Spark gives 250 Points for A$4.99, Booster Pulse gives 1,200 Points for A$19.99, and Booster Surge gives 2,000 Points for A$29.99.',
+      a: 'Booster Spark gives 2,500 Points for A$4.99, Booster Pulse gives 12,000 Points for A$19.99, and Booster Surge gives 20,000 Points for A$29.99.',
     },
     {
       q: 'Do I need to buy Point Boosters?',
@@ -321,7 +321,7 @@ const FAQ_DATA: Record<CategoryKey, FaqItem[]> = {
     },
     {
       q: 'What is the redemption benchmark?',
-      a: '2,000 Points can be redeemed for a A$20 selected Gift Card.',
+      a: '20,000 Points can be redeemed for a A$20 selected Gift Card.',
     },
     {
       q: 'Are all Gift Cards always available?',
@@ -734,7 +734,7 @@ export default function FAQClient() {
                     {
                       icon: Icon.Sparkles,
                       title: 'Premium rewards',
-                      body: 'Use Points for Bonus Draws or Redeem Gift Cards from 2,000 Points.',
+                      body: 'Use Points for Bonus Draws or Redeem Gift Cards from 20,000 Points.',
                     },
                     {
                       icon: Icon.HelpCircle,

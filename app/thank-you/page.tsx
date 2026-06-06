@@ -806,7 +806,7 @@ function ThankYouContent() {
                   </li>
                   <li className="flex items-start gap-2">
                     <Icon.Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#10B981]" />
-                    <span>Gift Card redemption from 2,000 Points</span>
+                    <span>Gift Card redemption from 20,000 Points</span>
                   </li>
                 </ul>
               </div>

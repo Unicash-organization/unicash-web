@@ -844,7 +844,7 @@ export default function MembershipPage() {
             </li>
             <li className="flex items-start gap-2">
               <Icon.Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#10B981]" />
-              <span>Redeem Gift Cards from 2,000 Points</span>
+              <span>Redeem Gift Cards from 20,000 Points</span>
             </li>
           </ul>
         </article>
