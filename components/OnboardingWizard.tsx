@@ -115,6 +115,9 @@ export default function OnboardingWizard() {
 
   const firstName = user.firstName || 'there';
   const pointsBalance = (user.membershipCredits || 0) + (user.boostCredits || 0);
+  // Free accounts can't use Points on Bonus Draws — tailor the loop to
+  // Scan → Earn → Redeem (gift cards) and keep draws as a soft upsell.
+  const isFree = (user as { state?: string }).state === 'free';
 
   /* Step 1 — Welcome + value prop */
   const renderStep1 = () => (
@@ -145,8 +148,12 @@ export default function OnboardingWizard() {
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white ring-1 ring-[#E0DAFF] text-[#6356E5]">
             <Icon.Trophy className="h-4 w-4" />
           </span>
-          <span className="text-[11.5px] font-semibold leading-tight text-[#0F1222]">Bonus Draws</span>
-          <span className="text-[10.5px] text-[#667085]">Use Points</span>
+          <span className="text-[11.5px] font-semibold leading-tight text-[#0F1222]">
+            {isFree ? 'Fuel Rewards' : 'Bonus Draws'}
+          </span>
+          <span className="text-[10.5px] text-[#667085]">
+            {isFree ? 'Earn extra' : 'Use Points'}
+          </span>
         </div>
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-[#EFEDF5] bg-[#FBFAFF] px-2 py-4">
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white ring-1 ring-[#E0DAFF] text-[#6356E5]">
@@ -210,8 +217,33 @@ export default function OnboardingWizard() {
     </div>
   );
 
-  /* Step 3 — Use Points on Bonus Draws */
-  const renderStep3 = () => (
+  /* Step 3 — Redeem (Free) / Use Points on Bonus Draws (paid) */
+  const renderStep3 = () =>
+    isFree ? (
+      <div className="text-center">
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0EDFB] ring-1 ring-[#E0DAFF]">
+          <Icon.Gift className="h-6 w-6 text-[#6356E5]" />
+        </div>
+        <span className="inline-flex items-center gap-2 rounded-full border border-[#e7e9f2] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#6356e5]">
+          <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-[#6356e5]" />
+          Step 2 · Redeem
+        </span>
+        <h2 className="mt-3 text-[22px] font-extrabold leading-[1.1] tracking-tight text-[#0F1222] sm:text-[26px]">
+          Redeem <span className="uc-gold-gradient">gift cards</span>.
+        </h2>
+        <p className="mx-auto mt-2 max-w-sm text-[14px] leading-relaxed text-[#4B5563]">
+          Turn your Points into real gift cards — Coles, Woolworths, BP and more.
+          1,000 Points = A$1. Your Points never expire.
+        </p>
+        <div className="mt-5 rounded-2xl border border-[#EFEDF5] bg-[#FBFAFF] p-4 text-left">
+          <p className="text-[12.5px] font-semibold text-[#0F1222]">Want more?</p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-[#4B5563]">
+            Upgrade to Membership for Bonus Draws, up to 3× faster Points, a higher
+            monthly cap and Point Boosters.
+          </p>
+        </div>
+      </div>
+    ) : (
     <div className="text-center">
       <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0EDFB] ring-1 ring-[#E0DAFF]">
         <Icon.Trophy className="h-6 w-6 text-[#6356E5]" />
@@ -352,11 +384,11 @@ export default function OnboardingWizard() {
                 <>
                   <button
                     type="button"
-                    onClick={() => finish('completed', '/giveaways')}
+                    onClick={() => finish('completed', isFree ? '/rewards/gift-cards' : '/giveaways')}
                     disabled={submitting}
                     className="uc-lift-sm relative inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-[15px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2 disabled:opacity-60"
                   >
-                    Browse Bonus Draws
+                    {isFree ? 'Redeem gift cards' : 'Browse Bonus Draws'}
                     <Icon.ArrowRight className="h-4 w-4" />
                   </button>
                   <div className="flex gap-2">
