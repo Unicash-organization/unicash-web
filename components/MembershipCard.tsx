@@ -539,7 +539,7 @@ export default function MembershipCard({
           Points moved into the perks list below. */}
       {(isFree || drawEntries !== null) && (
         <div
-          className={`relative -mx-7 mt-6 grid grid-cols-2 divide-x border-y sm:-mx-8 ${
+          className={`relative -mx-7 mt-6 grid h-[104px] grid-cols-2 divide-x border-y sm:-mx-8 ${
             isPopular
               ? 'border-white/15 divide-white/15 bg-white/10'
               : isBest
@@ -549,22 +549,22 @@ export default function MembershipCard({
         >
           {isFree ? (
             <>
-              <div className="flex min-h-[112px] flex-col justify-center py-4 pl-7 pr-4 sm:pl-8">
-                <p className={`text-[22px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Points</p>
+              <div className="flex h-full flex-col justify-center px-4">
+                <p className={`text-[18px] font-extrabold leading-none whitespace-nowrap ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Points</p>
                 <p className={`mt-2 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>On every receipt</p>
               </div>
-              <div className="flex min-h-[112px] flex-col justify-center py-4 pl-4 pr-7 sm:pr-8">
-                <p className={`text-[22px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Gift cards</p>
+              <div className="flex h-full flex-col justify-center px-4">
+                <p className={`text-[18px] font-extrabold leading-none whitespace-nowrap ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Gift cards</p>
                 <p className={`mt-2 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>Redeem anytime</p>
               </div>
             </>
           ) : (
             <>
-              <div className="flex min-h-[112px] flex-col justify-center py-4 pl-7 pr-4 sm:pl-8">
+              <div className="flex h-full flex-col justify-center px-4">
                 <p className={`text-[24px] font-extrabold leading-none ${statValue}`}>{drawEntries}</p>
                 <p className={`mt-2 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>Major Draw entries / mo</p>
               </div>
-              <div className="flex min-h-[112px] flex-col justify-center py-4 pl-4 pr-7 sm:pr-8">
+              <div className="flex h-full flex-col justify-center px-4">
                 <p className={`text-[24px] font-extrabold leading-none ${statValue}`}>
                   {monthlyPoints !== null ? Number(monthlyPoints).toLocaleString() : '—'}
                 </p>
