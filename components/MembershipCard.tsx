@@ -523,7 +523,7 @@ export default function MembershipCard({
 
       {/* Tagline */}
       {plan.description && (
-        <p className={`relative mt-3 min-h-[44px] line-clamp-2 text-[13.5px] leading-[1.5] ${taglineColor}`}>{rewriteCreditsToPoints(plan.description)}</p>
+        <p className={`relative mt-3 min-h-[34px] line-clamp-2 text-[12.5px] leading-snug ${taglineColor}`}>{rewriteCreditsToPoints(plan.description)}</p>
       )}
 
       {/* Price */}
@@ -539,7 +539,7 @@ export default function MembershipCard({
           Points moved into the perks list below. */}
       {(isFree || drawEntries !== null) && (
         <div
-          className={`relative -mx-6 mt-6 grid h-[104px] grid-cols-2 divide-x border-y sm:-mx-7 ${
+          className={`relative -mx-6 mt-6 grid h-[92px] grid-cols-2 divide-x border-y sm:-mx-7 ${
             isPopular
               ? 'border-white/15 divide-white/15 bg-white/10'
               : isBest
@@ -580,7 +580,7 @@ export default function MembershipCard({
 
       {/* Perks — flex-1 pushes CTA to bottom. Free shows its own benefit list;
           paid prepends a Monthly Points line (moved out of the hero stat box). */}
-      <ul className="relative mt-5 flex-1 space-y-2.5 text-[13.5px]">
+      <ul className="relative mt-5 space-y-2.5 text-[13.5px]">
         {isFree ? (
           [
             'Free for everyone',
@@ -613,7 +613,7 @@ export default function MembershipCard({
         )}
       </ul>
 
-      <div className="relative mt-6">
+      <div className="relative mt-auto pt-6">
         {isFree && (
           <p className={`mb-2.5 text-center text-[12px] ${statLabel}`}>No credit card needed</p>
         )}
