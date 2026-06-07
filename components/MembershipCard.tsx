@@ -538,21 +538,34 @@ export default function MembershipCard({
           Free = "Points on every receipt"; paid = Major Draw entries. Monthly
           Points moved into the perks list below. */}
       {(isFree || drawEntries !== null) && (
-        <div className={`relative mt-5 flex items-center justify-between rounded-xl px-3.5 py-2.5 ${statsBg}`}>
+        <div
+          className={`relative mt-5 grid grid-cols-2 divide-x overflow-hidden rounded-2xl ${statsBg} ${
+            isPopular ? 'divide-white/15' : isBest ? 'divide-[#FFC85D]/40' : 'divide-[#E0DAFF]'
+          }`}
+        >
           {isFree ? (
             <>
-              <span className={`text-[10px] font-bold uppercase tracking-[0.14em] ${statLabel}`}>Earn</span>
-              <span className={`text-[15px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>
-                Points <span className={`text-[11px] font-medium ${statLabel}`}>/ receipt</span>
-              </span>
+              <div className="px-4 py-3.5">
+                <p className={`text-[19px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Points</p>
+                <p className={`mt-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>On every receipt</p>
+              </div>
+              <div className="px-4 py-3.5">
+                <p className={`text-[19px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Gift cards</p>
+                <p className={`mt-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>Redeem anytime</p>
+              </div>
             </>
           ) : (
             <>
-              <span className={`text-[10px] font-bold uppercase tracking-[0.14em] ${statLabel}`}>Major Draw</span>
-              <span className={`leading-none ${statValue}`}>
-                <span className="text-[20px] font-extrabold">{drawEntries}</span>{' '}
-                <span className={`text-[11px] font-medium ${statLabel}`}>{drawEntries === 1 ? 'entry' : 'entries'}/mo</span>
-              </span>
+              <div className="px-4 py-3.5">
+                <p className={`text-[24px] font-extrabold leading-none ${statValue}`}>{drawEntries}</p>
+                <p className={`mt-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>Major Draw entries / mo</p>
+              </div>
+              <div className="px-4 py-3.5">
+                <p className={`text-[24px] font-extrabold leading-none ${statValue}`}>
+                  {monthlyPoints !== null ? Number(monthlyPoints).toLocaleString() : '—'}
+                </p>
+                <p className={`mt-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>Monthly Points</p>
+              </div>
             </>
           )}
         </div>
@@ -566,6 +579,7 @@ export default function MembershipCard({
       <ul className="relative mt-5 flex-1 space-y-2.5 text-[13.5px]">
         {isFree ? (
           [
+            'Free for everyone',
             'Earn Points from eligible receipts, including fuel',
             'Redeem all gift cards',
             'Points never expire',
@@ -578,12 +592,6 @@ export default function MembershipCard({
           ))
         ) : (
           <>
-            {monthlyPoints !== null && monthlyPoints > 0 && (
-              <li className="flex items-start gap-2">
-                <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
-                <span className={perkText}>{Number(monthlyPoints).toLocaleString()} Monthly Points for Bonus Draws</span>
-              </li>
-            )}
             {perks.length > 0 ? (
               perks.map((perk, i) => (
                 <li key={i} className="flex items-start gap-2">
@@ -601,6 +609,9 @@ export default function MembershipCard({
         )}
       </ul>
 
+      {isFree && (
+        <p className={`relative mb-3 mt-2 text-center text-[12px] ${statLabel}`}>No credit card needed</p>
+      )}
       {renderCta()}
     </div>
   );
