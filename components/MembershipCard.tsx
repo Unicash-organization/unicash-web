@@ -280,10 +280,10 @@ export default function MembershipCard({
 
   /* Card shell — three visual variants: popular (purple gradient), best (white + gold ring), default (white) */
   const cardCls = isPopular
-    ? 'relative flex h-full flex-col rounded-3xl bg-gradient-to-br from-[#5346d6] via-[#6356e5] to-[#7b6cec] p-7 text-white shadow-[0_30px_80px_-30px_rgba(99,86,229,0.55)] sm:p-8'
+    ? 'relative flex h-full flex-col rounded-3xl bg-gradient-to-br from-[#5346d6] via-[#6356e5] to-[#7b6cec] p-6 text-white shadow-[0_30px_80px_-30px_rgba(99,86,229,0.55)] sm:p-7'
     : isBest
-      ? 'relative flex h-full flex-col rounded-3xl bg-white p-7 ring-2 ring-[#FFC85D]/50 shadow-[0_10px_28px_-12px_rgba(255,200,93,.25)] sm:p-8'
-      : 'relative flex h-full flex-col rounded-3xl bg-white p-7 ring-1 ring-[#E7E2F4]/60 shadow-[0_10px_28px_-12px_rgba(99,86,229,.20)] sm:p-8';
+      ? 'relative flex h-full flex-col rounded-3xl bg-white p-6 ring-2 ring-[#FFC85D]/50 shadow-[0_10px_28px_-12px_rgba(255,200,93,.25)] sm:p-7'
+      : 'relative flex h-full flex-col rounded-3xl bg-white p-6 ring-1 ring-[#E7E2F4]/60 shadow-[0_10px_28px_-12px_rgba(99,86,229,.20)] sm:p-7';
 
   const tierIconBg = isPopular ? 'bg-white/15 ring-1 ring-white/20 backdrop-blur' : 'bg-[#F0EDFB] ring-1 ring-[#E0DAFF]';
   const tierIconColor = isPopular ? 'text-[#FFE2B0]' : isBest ? 'text-[#C49A2C]' : 'text-[#6356e5]';
@@ -539,7 +539,7 @@ export default function MembershipCard({
           Points moved into the perks list below. */}
       {(isFree || drawEntries !== null) && (
         <div
-          className={`relative -mx-7 mt-6 grid h-[104px] grid-cols-2 divide-x border-y sm:-mx-8 ${
+          className={`relative -mx-6 mt-6 grid h-[104px] grid-cols-2 divide-x border-y sm:-mx-7 ${
             isPopular
               ? 'border-white/15 divide-white/15 bg-white/10'
               : isBest
