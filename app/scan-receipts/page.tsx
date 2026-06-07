@@ -717,7 +717,9 @@ export default function ScanReceiptsPage() {
      silently falling through to the empty state. */
   const [receiptsError, setReceiptsError] = useState<string | null>(null);
 
-  const isActiveMember = user?.state === 'memberActive';
+  // Free accounts can scan receipts and earn Points too — it's the core Free
+  // benefit. So this gate covers both paid active members and Free users.
+  const isActiveMember = user?.state === 'memberActive' || user?.state === 'free';
 
   /* Open scan flow with auth + membership gate. */
   const handleScanClick = useCallback(() => {
