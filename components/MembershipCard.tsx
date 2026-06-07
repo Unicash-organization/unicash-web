@@ -276,10 +276,11 @@ export default function MembershipCard({
 
   const tier = tierMeta(plan.tier);
   const { drawEntries, monthlyPoints, perks } = extractStats(plan);
+  const isFree = plan.tier === 'free';
 
   /* Card shell — three visual variants: popular (purple gradient), best (white + gold ring), default (white) */
   const cardCls = isPopular
-    ? 'relative flex h-full flex-col rounded-3xl bg-gradient-to-br from-[#5346d6] via-[#6356e5] to-[#7b6cec] p-7 text-white shadow-[0_30px_80px_-30px_rgba(99,86,229,0.55)] sm:p-8 lg:-mt-4 lg:z-10 lg:scale-[1.03]'
+    ? 'relative flex h-full flex-col rounded-3xl bg-gradient-to-br from-[#5346d6] via-[#6356e5] to-[#7b6cec] p-7 text-white shadow-[0_30px_80px_-30px_rgba(99,86,229,0.55)] sm:p-8'
     : isBest
       ? 'relative flex h-full flex-col rounded-3xl bg-white p-7 ring-2 ring-[#FFC85D]/50 shadow-[0_10px_28px_-12px_rgba(255,200,93,.25)] sm:p-8'
       : 'relative flex h-full flex-col rounded-3xl bg-white p-7 ring-1 ring-[#E7E2F4]/60 shadow-[0_10px_28px_-12px_rgba(99,86,229,.20)] sm:p-8';
@@ -345,6 +346,19 @@ export default function MembershipCard({
         >
           {loading ? 'Loading…' : 'Enter now'}
         </button>
+      );
+    }
+
+    /* Free plan — new visitor / non-member → payment-FREE signup, never Stripe
+       checkout. (Current-Free → "Current Plan" via hasThisPlan; paid user
+       viewing Free → "Downgrade" via isDowngrade — both handled below.) */
+    if (isFree && !hasThisPlan && !isUpgrade && !isDowngrade) {
+      return (
+        <Link href="/register">
+          <button type="button" disabled={loading} className={`${ctaBaseCls} ${pickCtaCls}`}>
+            {loading ? 'Loading…' : 'Get started free'}
+          </button>
+        </Link>
       );
     }
 
@@ -520,90 +534,69 @@ export default function MembershipCard({
         <span className={`text-[13px] font-medium ${priceUnitColor}`}>/month</span>
       </div>
 
-      {/* Stats panel — Major Draw entries + Monthly Points (if available) */}
-      {(drawEntries !== null || monthlyPoints !== null) && (
-        <div className={`relative mt-5 rounded-2xl p-3.5 sm:p-4 ${statsBg}`}>
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            {drawEntries !== null && (
-              <div className="flex min-w-0 items-center gap-2">
-                <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${statIconBg}`}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-3.5 w-3.5 ${statIconCol}`} aria-hidden>
-                    <path d="M6 9H4a2 2 0 0 1-2-2V5h4" />
-                    <path d="M18 9h2a2 2 0 0 0 2-2V5h-4" />
-                    <path d="M4 22h16" />
-                    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
-                    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
-                    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-                  </svg>
-                </span>
-                <div className="min-w-0">
-                  <p className={`text-[9.5px] font-bold uppercase tracking-[0.14em] ${statLabel}`}>Major Draw</p>
-                  <p className={`mt-0.5 whitespace-nowrap text-[13.5px] font-bold leading-tight ${statValue}`}>
-                    {drawEntries}
-                    <span className={`ml-1 text-[11px] font-medium ${statLabel}`}>{drawEntries === 1 ? 'entry' : 'entries'}</span>
-                  </p>
-                </div>
-              </div>
-            )}
-            {monthlyPoints !== null && (
-              <div className="flex min-w-0 items-center gap-2">
-                <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${statIconBg}`}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-3.5 w-3.5 ${statIconCol}`} aria-hidden>
-                    <circle cx="8" cy="8" r="6" />
-                    <path d="M18.09 10.37A6 6 0 1 1 10.34 18" />
-                    <path d="M7 6h1v4" />
-                    <path d="m16.71 13.88.7.71-2.82 2.82" />
-                  </svg>
-                </span>
-                <div className="min-w-0">
-                  <p className={`text-[9.5px] font-bold uppercase tracking-[0.14em] ${statLabel}`}>Monthly</p>
-                  <p className={`mt-0.5 whitespace-nowrap text-[13.5px] font-bold leading-tight ${statValue}`}>
-                    {Number(monthlyPoints).toLocaleString()}
-                    <span className={`ml-1 text-[11px] font-medium ${statLabel}`}>Points</span>
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
+      {/* Stats panel — ONE hero stat so it survives the narrow 4-column width.
+          Free = "Points on every receipt"; paid = Major Draw entries. Monthly
+          Points moved into the perks list below. */}
+      {(isFree || drawEntries !== null) && (
+        <div className={`relative mt-5 rounded-2xl p-4 text-center ${statsBg}`}>
+          {isFree ? (
+            <>
+              <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${statLabel}`}>Earn</p>
+              <p className={`mt-1 text-[20px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Points</p>
+              <p className={`mt-1 text-[11.5px] ${statLabel}`}>on every receipt</p>
+            </>
+          ) : (
+            <>
+              <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${statLabel}`}>Major Draw</p>
+              <p className={`mt-1 text-[26px] font-extrabold leading-none ${statValue}`}>{drawEntries}</p>
+              <p className={`mt-1 text-[11.5px] ${statLabel}`}>{drawEntries === 1 ? 'entry' : 'entries'} / month</p>
+            </>
+          )}
         </div>
       )}
 
       {/* Divider */}
       <div className={`relative mt-6 h-px ${isPopular ? 'bg-white/15' : 'bg-[#e7e9f2]'}`} />
 
-      {/* Perks — flex-1 pushes CTA to bottom. **bold** markers render as <strong>. */}
-      {perks.length > 0 && (
-        <ul className="relative mt-5 flex-1 space-y-2.5 text-[13.5px]">
-          {perks.map((perk, i) => (
+      {/* Perks — flex-1 pushes CTA to bottom. Free shows its own benefit list;
+          paid prepends a Monthly Points line (moved out of the hero stat box). */}
+      <ul className="relative mt-5 flex-1 space-y-2.5 text-[13.5px]">
+        {isFree ? (
+          [
+            'Earn Points from eligible receipts, including fuel',
+            'Redeem all gift cards',
+            'Points never expire',
+            'Cancel anytime',
+          ].map((perk, i) => (
             <li key={i} className="flex items-start gap-2">
               <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
-              <span className={perkText}>{renderPerkText(perk, isPopular)}</span>
+              <span className={perkText}>{perk}</span>
             </li>
-          ))}
-        </ul>
-      )}
-
-      {/* Always-present perk: Cancel anytime — for product clarity */}
-      {perks.length === 0 && (
-        <ul className="relative mt-5 flex-1 space-y-2.5 text-[13.5px]">
-          {drawEntries !== null && (
-            <li className="flex items-start gap-2">
-              <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
-              <span className={perkText}>{drawEntries} {drawEntries === 1 ? 'entry' : 'entries'} to Major Draws every month</span>
-            </li>
-          )}
-          {monthlyPoints !== null && (
-            <li className="flex items-start gap-2">
-              <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
-              <span className={perkText}>+{Number(monthlyPoints).toLocaleString()} Monthly Points</span>
-            </li>
-          )}
-          <li className="flex items-start gap-2">
-            <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
-            <span className={perkText}>Cancel anytime</span>
-          </li>
-        </ul>
-      )}
+          ))
+        ) : (
+          <>
+            {monthlyPoints !== null && monthlyPoints > 0 && (
+              <li className="flex items-start gap-2">
+                <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
+                <span className={perkText}>{Number(monthlyPoints).toLocaleString()} Monthly Points for Bonus Draws</span>
+              </li>
+            )}
+            {perks.length > 0 ? (
+              perks.map((perk, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
+                  <span className={perkText}>{renderPerkText(perk, isPopular)}</span>
+                </li>
+              ))
+            ) : (
+              <li className="flex items-start gap-2">
+                <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
+                <span className={perkText}>Cancel anytime</span>
+              </li>
+            )}
+          </>
+        )}
+      </ul>
 
       {renderCta()}
     </div>

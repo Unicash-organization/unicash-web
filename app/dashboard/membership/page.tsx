@@ -879,7 +879,7 @@ export default function MembershipPage() {
             </div>
           )}
 
-          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
             {availablePlans.map((plan) => {
               const isUpgrade = membership?.plan ? isPlanUpgrade(membership.plan, plan) : false;
               const hasPendingDowngrade = membership?.pendingDowngradePlanId === plan.id;

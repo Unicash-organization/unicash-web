@@ -1071,8 +1071,8 @@ export default function HomeClient() {
 
           {loading ? (
             /* Plans skeleton — 3-card grid mirroring final MembershipCard layout */
-            <div className="mt-10 grid grid-cols-1 items-stretch gap-5 pt-2 sm:mt-14 md:mt-16 md:grid-cols-3 md:gap-5 md:pt-6 lg:gap-6">
-              {[0, 1, 2].map((i) => (
+            <div className="mt-10 grid grid-cols-1 items-stretch gap-5 pt-2 sm:mt-14 md:mt-16 sm:grid-cols-2 lg:grid-cols-4 md:gap-5 md:pt-6 lg:gap-6">
+              {[0, 1, 2, 3].map((i) => (
                 <article key={i} className="rounded-3xl border border-[#E7E9F2] bg-white p-6 sm:p-7">
                   <div className="space-y-3">
                     <div className="h-5 w-24 animate-pulse rounded-full bg-[#F4F1FB]" />
@@ -1093,7 +1093,7 @@ export default function HomeClient() {
               ))}
             </div>
           ) : (
-            <div className="mt-10 grid grid-cols-1 items-stretch gap-5 pt-2 sm:mt-14 md:mt-16 md:grid-cols-3 md:gap-5 md:pt-6 lg:gap-6">
+            <div className="mt-10 grid grid-cols-1 items-stretch gap-5 pt-2 sm:mt-14 md:mt-16 sm:grid-cols-2 lg:grid-cols-4 md:gap-5 md:pt-6 lg:gap-6">
               {plans
                 .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
                 .map((plan: any, index: number) => (
