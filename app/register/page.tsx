@@ -102,7 +102,7 @@ export default function RegisterPage() {
   const { setAuth } = useAuth();
   const router = useRouter();
 
-  const [formData, setFormData] = useState({ firstName: '', email: '', password: '' });
+  const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -120,6 +120,10 @@ export default function RegisterPage() {
     setEmailExists(false);
 
     const email = formData.email.trim();
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      setError('Please enter your first and last name.');
+      return;
+    }
     if (!email || !formData.password) {
       setError('Please enter your email and a password.');
       return;
@@ -136,6 +140,7 @@ export default function RegisterPage() {
         email,
         password: formData.password,
         firstName: formData.firstName.trim() || undefined,
+        lastName: formData.lastName.trim() || undefined,
         deviceId,
       });
       const { token, user } = res.data;
@@ -209,21 +214,41 @@ export default function RegisterPage() {
 
             {/* Form */}
             <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
-              <div>
-                <label htmlFor="firstName" className="block text-[12.5px] font-semibold text-[#0f1222]">
-                  First name <span className="font-normal text-[#a3a8be]">(optional)</span>
-                </label>
-                <input
-                  id="firstName"
-                  type="text"
-                  name="firstName"
-                  autoComplete="given-name"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  placeholder="Your first name"
-                  disabled={loading}
-                  className={`mt-1.5 ${inputCls}`}
-                />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="firstName" className="block text-[12.5px] font-semibold text-[#0f1222]">
+                    First name
+                  </label>
+                  <input
+                    id="firstName"
+                    type="text"
+                    name="firstName"
+                    required
+                    autoComplete="given-name"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    placeholder="First name"
+                    disabled={loading}
+                    className={`mt-1.5 ${inputCls}`}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="lastName" className="block text-[12.5px] font-semibold text-[#0f1222]">
+                    Last name
+                  </label>
+                  <input
+                    id="lastName"
+                    type="text"
+                    name="lastName"
+                    required
+                    autoComplete="family-name"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    placeholder="Last name"
+                    disabled={loading}
+                    className={`mt-1.5 ${inputCls}`}
+                  />
+                </div>
               </div>
 
               <div>
