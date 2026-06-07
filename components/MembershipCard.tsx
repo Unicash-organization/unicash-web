@@ -549,26 +549,26 @@ export default function MembershipCard({
         >
           {isFree ? (
             <>
-              <div className="py-4 pl-7 pr-4 sm:pl-8">
-                <p className={`text-[19px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Points</p>
-                <p className={`mt-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>On every receipt</p>
+              <div className="flex min-h-[92px] flex-col justify-center py-4 pl-7 pr-4 sm:pl-8">
+                <p className={`text-[22px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Points</p>
+                <p className={`mt-2 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>On every receipt</p>
               </div>
-              <div className="py-4 pl-4 pr-7 sm:pr-8">
-                <p className={`text-[19px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Gift cards</p>
-                <p className={`mt-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>Redeem anytime</p>
+              <div className="flex min-h-[92px] flex-col justify-center py-4 pl-4 pr-7 sm:pr-8">
+                <p className={`text-[22px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Gift cards</p>
+                <p className={`mt-2 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>Redeem anytime</p>
               </div>
             </>
           ) : (
             <>
-              <div className="py-4 pl-7 pr-4 sm:pl-8">
+              <div className="flex min-h-[92px] flex-col justify-center py-4 pl-7 pr-4 sm:pl-8">
                 <p className={`text-[24px] font-extrabold leading-none ${statValue}`}>{drawEntries}</p>
-                <p className={`mt-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>Major Draw entries / mo</p>
+                <p className={`mt-2 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>Major Draw entries / mo</p>
               </div>
-              <div className="py-4 pl-4 pr-7 sm:pr-8">
+              <div className="flex min-h-[92px] flex-col justify-center py-4 pl-4 pr-7 sm:pr-8">
                 <p className={`text-[24px] font-extrabold leading-none ${statValue}`}>
                   {monthlyPoints !== null ? Number(monthlyPoints).toLocaleString() : '—'}
                 </p>
-                <p className={`mt-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>Monthly Points</p>
+                <p className={`mt-2 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>Monthly Points</p>
               </div>
             </>
           )}
@@ -613,10 +613,12 @@ export default function MembershipCard({
         )}
       </ul>
 
-      {isFree && (
-        <p className={`relative mb-3 mt-2 text-center text-[12px] ${statLabel}`}>No credit card needed</p>
-      )}
-      {renderCta()}
+      <div className="relative mt-6">
+        {isFree && (
+          <p className={`mb-2.5 text-center text-[12px] ${statLabel}`}>No credit card needed</p>
+        )}
+        {renderCta()}
+      </div>
     </div>
   );
 }
