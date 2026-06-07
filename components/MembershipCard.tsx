@@ -523,7 +523,7 @@ export default function MembershipCard({
 
       {/* Tagline */}
       {plan.description && (
-        <p className={`relative mt-3 text-[13.5px] ${taglineColor}`}>{rewriteCreditsToPoints(plan.description)}</p>
+        <p className={`relative mt-3 min-h-[40px] text-[13.5px] ${taglineColor}`}>{rewriteCreditsToPoints(plan.description)}</p>
       )}
 
       {/* Price */}
@@ -538,18 +538,21 @@ export default function MembershipCard({
           Free = "Points on every receipt"; paid = Major Draw entries. Monthly
           Points moved into the perks list below. */}
       {(isFree || drawEntries !== null) && (
-        <div className={`relative mt-5 rounded-2xl p-4 text-center ${statsBg}`}>
+        <div className={`relative mt-5 flex items-center justify-between rounded-xl px-3.5 py-2.5 ${statsBg}`}>
           {isFree ? (
             <>
-              <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${statLabel}`}>Earn</p>
-              <p className={`mt-1 text-[20px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Points</p>
-              <p className={`mt-1 text-[11.5px] ${statLabel}`}>on every receipt</p>
+              <span className={`text-[10px] font-bold uppercase tracking-[0.14em] ${statLabel}`}>Earn</span>
+              <span className={`text-[15px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>
+                Points <span className={`text-[11px] font-medium ${statLabel}`}>/ receipt</span>
+              </span>
             </>
           ) : (
             <>
-              <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${statLabel}`}>Major Draw</p>
-              <p className={`mt-1 text-[26px] font-extrabold leading-none ${statValue}`}>{drawEntries}</p>
-              <p className={`mt-1 text-[11.5px] ${statLabel}`}>{drawEntries === 1 ? 'entry' : 'entries'} / month</p>
+              <span className={`text-[10px] font-bold uppercase tracking-[0.14em] ${statLabel}`}>Major Draw</span>
+              <span className={`leading-none ${statValue}`}>
+                <span className="text-[20px] font-extrabold">{drawEntries}</span>{' '}
+                <span className={`text-[11px] font-medium ${statLabel}`}>{drawEntries === 1 ? 'entry' : 'entries'}/mo</span>
+              </span>
             </>
           )}
         </div>
