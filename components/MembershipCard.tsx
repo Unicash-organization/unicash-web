@@ -517,7 +517,7 @@ export default function MembershipCard({
           {tier.label && (
             <p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${tierLabelColor}`}>{tier.label}</p>
           )}
-          <h3 className={`-mt-0.5 text-[22px] font-extrabold tracking-tight ${planNameColor}`}>{plan.name}</h3>
+          <h3 className={`-mt-0.5 text-[22px] font-extrabold tracking-tight ${planNameColor}`}>{isFree ? `${plan.name} Starter` : plan.name}</h3>
         </div>
       </div>
 
@@ -539,28 +539,32 @@ export default function MembershipCard({
           Points moved into the perks list below. */}
       {(isFree || drawEntries !== null) && (
         <div
-          className={`relative mt-5 grid grid-cols-2 divide-x overflow-hidden rounded-2xl ${statsBg} ${
-            isPopular ? 'divide-white/15' : isBest ? 'divide-[#FFC85D]/40' : 'divide-[#E0DAFF]'
+          className={`relative -mx-7 mt-6 grid grid-cols-2 divide-x border-y sm:-mx-8 ${
+            isPopular
+              ? 'border-white/15 divide-white/15 bg-white/10'
+              : isBest
+                ? 'border-[#FFC85D]/40 divide-[#FFC85D]/40 bg-[#FFF6E2]'
+                : 'border-[#E0DAFF] divide-[#E0DAFF] bg-[#F4F1FB]'
           }`}
         >
           {isFree ? (
             <>
-              <div className="px-4 py-3.5">
+              <div className="py-4 pl-7 pr-4 sm:pl-8">
                 <p className={`text-[19px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Points</p>
                 <p className={`mt-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>On every receipt</p>
               </div>
-              <div className="px-4 py-3.5">
+              <div className="py-4 pl-4 pr-7 sm:pr-8">
                 <p className={`text-[19px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Gift cards</p>
                 <p className={`mt-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>Redeem anytime</p>
               </div>
             </>
           ) : (
             <>
-              <div className="px-4 py-3.5">
+              <div className="py-4 pl-7 pr-4 sm:pl-8">
                 <p className={`text-[24px] font-extrabold leading-none ${statValue}`}>{drawEntries}</p>
                 <p className={`mt-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>Major Draw entries / mo</p>
               </div>
-              <div className="px-4 py-3.5">
+              <div className="py-4 pl-4 pr-7 sm:pr-8">
                 <p className={`text-[24px] font-extrabold leading-none ${statValue}`}>
                   {monthlyPoints !== null ? Number(monthlyPoints).toLocaleString() : '—'}
                 </p>
