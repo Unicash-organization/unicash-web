@@ -523,7 +523,7 @@ export default function MembershipCard({
 
       {/* Tagline */}
       {plan.description && (
-        <p className={`relative mt-3 min-h-[40px] text-[13.5px] ${taglineColor}`}>{rewriteCreditsToPoints(plan.description)}</p>
+        <p className={`relative mt-3 min-h-[44px] line-clamp-2 text-[13.5px] leading-[1.5] ${taglineColor}`}>{rewriteCreditsToPoints(plan.description)}</p>
       )}
 
       {/* Price */}
