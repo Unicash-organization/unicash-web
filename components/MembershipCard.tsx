@@ -353,6 +353,16 @@ export default function MembershipCard({
        checkout. (Current-Free → "Current Plan" via hasThisPlan; paid user
        viewing Free → "Downgrade" via isDowngrade — both handled below.) */
     if (isFree && !hasThisPlan && !isUpgrade && !isDowngrade) {
+      // A logged-in user who isn't on a paid plan IS effectively on Free
+      // (derived state, no membership row) — show "Current Plan", not a signup
+      // CTA. Only guests get the payment-free "Get started free" → /register.
+      if (user) {
+        return (
+          <button type="button" disabled className={`${ctaBaseCls} ${ctaDisabledCls}`}>
+            Current Plan
+          </button>
+        );
+      }
       return (
         <Link href="/register">
           <button type="button" disabled={loading} className={`${ctaBaseCls} ${pickCtaCls}`}>
