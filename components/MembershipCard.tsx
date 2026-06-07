@@ -539,7 +539,7 @@ export default function MembershipCard({
           Points moved into the perks list below. */}
       {(isFree || drawEntries !== null) && (
         <div
-          className={`relative -mx-6 grid h-[92px] grid-cols-2 divide-x border-y sm:-mx-7 ${isFree ? 'mt-9' : 'mt-6'} ${
+          className={`relative -mx-6 grid h-[92px] grid-cols-2 divide-x border-y sm:-mx-7 ${isFree ? 'mt-7' : 'mt-6'} ${
             isPopular
               ? 'border-white/15 divide-white/15 bg-white/10'
               : isBest
