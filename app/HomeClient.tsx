@@ -1070,7 +1070,7 @@ export default function HomeClient() {
           </div>
 
           {loading ? (
-            /* Plans skeleton — 3-card grid mirroring final MembershipCard layout */
+            /* Plans skeleton — grid mirroring final MembershipCard layout */
             <div className="mt-10 grid grid-cols-1 items-stretch gap-5 pt-2 sm:mt-14 md:mt-16 sm:grid-cols-2 lg:grid-cols-4 md:gap-5 md:pt-6 lg:gap-6">
               {[0, 1, 2, 3].map((i) => (
                 <article key={i} className="rounded-3xl border border-[#E7E9F2] bg-white p-6 sm:p-7">
@@ -1093,8 +1093,12 @@ export default function HomeClient() {
               ))}
             </div>
           ) : (
-            <div className="mt-10 grid grid-cols-1 items-stretch gap-5 pt-2 sm:mt-14 md:mt-16 sm:grid-cols-2 lg:grid-cols-4 md:gap-5 md:pt-6 lg:gap-6">
+            <div className={`mt-10 grid grid-cols-1 items-stretch gap-5 pt-2 sm:mt-14 md:mt-16 sm:grid-cols-2 md:gap-5 md:pt-6 lg:gap-6 ${!!membership?.plan && membership.plan.tier !== 'free' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
               {plans
+                /* Hide the Free plan from paid members — a downgrade-to-Free
+                   CTA on the pricing grid isn't useful for them. Guests and
+                   Free users still see it. */
+                .filter((plan: any) => !(plan.tier === 'free' && !!membership?.plan && membership.plan.tier !== 'free'))
                 .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
                 .map((plan: any, index: number) => (
                   <ScrollReveal key={plan.id} delay={index * 150} className="h-full">
