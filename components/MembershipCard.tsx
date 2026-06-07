@@ -328,7 +328,7 @@ export default function MembershipCard({
     : 'bg-gray-200 text-gray-500 cursor-not-allowed';
 
   const ctaBaseCls =
-    'relative mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-[15px] font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2';
+    'relative inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-[15px] font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2';
 
   /* -----------------------------------------------------------------
      Render the CTA button — preserves every state branch from the
@@ -549,22 +549,22 @@ export default function MembershipCard({
         >
           {isFree ? (
             <>
-              <div className="flex min-h-[92px] flex-col justify-center py-4 pl-7 pr-4 sm:pl-8">
+              <div className="flex min-h-[112px] flex-col justify-center py-4 pl-7 pr-4 sm:pl-8">
                 <p className={`text-[22px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Points</p>
                 <p className={`mt-2 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>On every receipt</p>
               </div>
-              <div className="flex min-h-[92px] flex-col justify-center py-4 pl-4 pr-7 sm:pr-8">
+              <div className="flex min-h-[112px] flex-col justify-center py-4 pl-4 pr-7 sm:pr-8">
                 <p className={`text-[22px] font-extrabold leading-none ${isPopular ? 'text-white' : 'text-[#6356e5]'}`}>Gift cards</p>
                 <p className={`mt-2 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>Redeem anytime</p>
               </div>
             </>
           ) : (
             <>
-              <div className="flex min-h-[92px] flex-col justify-center py-4 pl-7 pr-4 sm:pl-8">
+              <div className="flex min-h-[112px] flex-col justify-center py-4 pl-7 pr-4 sm:pl-8">
                 <p className={`text-[24px] font-extrabold leading-none ${statValue}`}>{drawEntries}</p>
                 <p className={`mt-2 text-[10px] font-bold uppercase leading-tight tracking-[0.1em] ${statLabel}`}>Major Draw entries / mo</p>
               </div>
-              <div className="flex min-h-[92px] flex-col justify-center py-4 pl-4 pr-7 sm:pr-8">
+              <div className="flex min-h-[112px] flex-col justify-center py-4 pl-4 pr-7 sm:pr-8">
                 <p className={`text-[24px] font-extrabold leading-none ${statValue}`}>
                   {monthlyPoints !== null ? Number(monthlyPoints).toLocaleString() : '—'}
                 </p>
