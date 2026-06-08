@@ -967,7 +967,7 @@ export default function HomeClient() {
     if (
       newTierOrder === oldTierOrder &&
       newPlan.priceMonthly === oldPlan.priceMonthly &&
-      newPlan.freeCreditsPerPeriod > oldPlan.freeCreditsPerPeriod
+      (newPlan.monthlyPointsGrant ?? newPlan.freeCreditsPerPeriod ?? 0) > (oldPlan.monthlyPointsGrant ?? oldPlan.freeCreditsPerPeriod ?? 0)
     ) return true;
     return false;
   };

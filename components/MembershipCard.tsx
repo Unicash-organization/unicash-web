@@ -39,6 +39,9 @@ interface MembershipCardProps {
     };
     /* Major Draw entries per month — canonical source for the entries stat. */
     majorDrawEntriesPerPeriod?: number;
+    /* Monthly Points grant — canonical (API serialises this property; the DB
+       column is still freeCreditsPerPeriod). */
+    monthlyPointsGrant?: number;
     /* Legacy fields — retained for backend compatibility / fallback */
     freeCreditsPerPeriod?: number;
     grandPrizeEntriesPerPeriod?: number;
@@ -178,6 +181,7 @@ function extractStats(plan: MembershipCardProps['plan']) {
 
   const monthlyPoints =
     typeof pointsFeat?.value === 'number' ? pointsFeat.value :
+    typeof plan.monthlyPointsGrant === 'number' ? plan.monthlyPointsGrant :
     typeof plan.freeCreditsPerPeriod === 'number' ? plan.freeCreditsPerPeriod : null;
 
   /* SINGLE SOURCE OF TRUTH — perks come from the admin-managed

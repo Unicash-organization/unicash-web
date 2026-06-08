@@ -265,7 +265,7 @@ function resolvePlan(payment: any, membership: any) {
     return {
       name: membership.plan.name,
       priceMonthly: membership.plan.priceMonthly,
-      monthlyPoints: membership.plan.freeCreditsPerPeriod || 0,
+      monthlyPoints: (membership.plan.monthlyPointsGrant ?? membership.plan.freeCreditsPerPeriod ?? 0),
       majorDrawEntries: (membership.plan.majorDrawEntriesPerPeriod ?? membership.plan.grandPrizeEntriesPerPeriod ?? 0),
     };
   }
@@ -274,7 +274,7 @@ function resolvePlan(payment: any, membership: any) {
     return {
       name: payment.plan.name,
       priceMonthly: payment.plan.priceMonthly,
-      monthlyPoints: payment.plan.freeCreditsPerPeriod || 0,
+      monthlyPoints: (payment.plan.monthlyPointsGrant ?? payment.plan.freeCreditsPerPeriod ?? 0),
       majorDrawEntries: (payment.plan.majorDrawEntriesPerPeriod ?? payment.plan.grandPrizeEntriesPerPeriod ?? 0),
     };
   }

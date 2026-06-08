@@ -371,7 +371,7 @@ export default function MembershipPage() {
     const newTierOrder = tierOrder[newPlan.tier] || 0;
     if (newTierOrder > oldTierOrder) return true;
     if (newTierOrder === oldTierOrder && newPlan.priceMonthly > oldPlan.priceMonthly) return true;
-    if (newTierOrder === oldTierOrder && newPlan.priceMonthly === oldPlan.priceMonthly && newPlan.freeCreditsPerPeriod > oldPlan.freeCreditsPerPeriod) return true;
+    if (newTierOrder === oldTierOrder && newPlan.priceMonthly === oldPlan.priceMonthly && (newPlan.monthlyPointsGrant ?? newPlan.freeCreditsPerPeriod ?? 0) > (oldPlan.monthlyPointsGrant ?? oldPlan.freeCreditsPerPeriod ?? 0)) return true;
     return false;
   };
 
@@ -497,7 +497,7 @@ export default function MembershipPage() {
 
   const planName = membership?.plan?.name || 'Membership';
   const planPrice = parseFloat(membership?.plan?.priceMonthly || '0');
-  const monthlyPoints = Number(membership?.plan?.freeCreditsPerPeriod || 0);
+  const monthlyPoints = Number(membership?.plan?.monthlyPointsGrant ?? membership?.plan?.freeCreditsPerPeriod ?? 0);
   const majorDrawEntries = Number(membership?.plan?.majorDrawEntriesPerPeriod ?? membership?.plan?.grandPrizeEntriesPerPeriod ?? 0);
 
   const availablePlans = plans.filter((p) => p.id !== membership?.planId);
@@ -655,7 +655,7 @@ export default function MembershipPage() {
           {!isScheduledCancel && membership?.pendingUpgradePlanId && (() => {
             const pendingPlan = plans.find((p) => p.id === membership.pendingUpgradePlanId);
             const pendingName = pendingPlan?.name || 'a higher plan';
-            const pendingPoints = Number(pendingPlan?.freeCreditsPerPeriod || 0);
+            const pendingPoints = Number(pendingPlan?.monthlyPointsGrant ?? pendingPlan?.freeCreditsPerPeriod ?? 0);
             return (
               <div className="border-b border-[#E0DAFF] bg-[#F4F1FB] px-5 py-3 sm:px-7">
                 <div className="flex items-start gap-2">
@@ -681,7 +681,7 @@ export default function MembershipPage() {
           {!isScheduledCancel && !membership?.pendingUpgradePlanId && membership?.pendingDowngradePlanId && (() => {
             const pendingPlan = plans.find((p) => p.id === membership.pendingDowngradePlanId);
             const pendingName = pendingPlan?.name || 'a lower plan';
-            const pendingPoints = Number(pendingPlan?.freeCreditsPerPeriod || 0);
+            const pendingPoints = Number(pendingPlan?.monthlyPointsGrant ?? pendingPlan?.freeCreditsPerPeriod ?? 0);
             return (
               <div className="border-b border-[#E0DAFF] bg-[#F4F1FB] px-5 py-3 sm:px-7">
                 <div className="flex items-start gap-2">
@@ -891,7 +891,7 @@ export default function MembershipPage() {
               const canDowngrade = isUpgrade || !hasPendingDowngradeOther;
               const canPerformAction = canUpgrade && canDowngrade && !isProcessingChange && !isPaymentDue;
               const planPlanPrice = plan?.priceMonthly ? formatCurrency(plan.priceMonthly) : '—';
-              const planPlanPoints = Number(plan?.freeCreditsPerPeriod || 0);
+              const planPlanPoints = Number(plan?.monthlyPointsGrant ?? plan?.freeCreditsPerPeriod ?? 0);
               const planMajorDraw = Number(plan?.majorDrawEntriesPerPeriod ?? plan?.grandPrizeEntriesPerPeriod ?? 0);
 
               return (
