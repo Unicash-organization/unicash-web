@@ -27,9 +27,9 @@ export default function FreeDashboard({
   });
 
   return (
-    <div className="mx-auto max-w-md px-4 py-6 sm:max-w-2xl">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-[22px] font-extrabold tracking-tight text-[#0F1222]">
+    <div className="mx-auto max-w-md px-4 py-6 sm:max-w-2xl lg:max-w-5xl lg:py-8">
+      <div className="mb-4 flex items-center justify-between lg:mb-6">
+        <h1 className="text-[22px] font-extrabold tracking-tight text-[#0F1222] lg:text-[26px]">
           {firstName ? `Hi, ${firstName}` : 'Welcome'}
         </h1>
         <span className="rounded-full border border-[#E7E9F2] px-3 py-1 text-[12px] font-semibold text-[#667085]">
@@ -37,8 +37,11 @@ export default function FreeDashboard({
         </span>
       </div>
 
+      {/* Two-column on desktop: earn loop (left) + redeem/upgrade (right). */}
+      <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+      <div>
       {/* Points balance */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#6356E5] to-[#8B7BFF] p-5 text-white shadow-[0_18px_44px_-22px_rgba(99,86,229,0.6)]">
+      <div className="rounded-2xl bg-gradient-to-br from-[#6356E5] to-[#8B7BFF] p-5 text-white shadow-[0_18px_44px_-22px_rgba(99,86,229,0.6)] lg:p-6">
         <p className="text-[12px] font-medium text-[#E0DAFF]">Available Points</p>
         <p className="mt-1 text-[34px] font-extrabold leading-none tracking-tight tabular-nums">
           {totalPoints.toLocaleString()}
@@ -82,9 +85,11 @@ export default function FreeDashboard({
           <span className="text-[11.5px] font-medium text-[#667085]">Redeem</span>
         </Link>
       </div>
+      </div>
 
+      <div>
       {/* Redeem gift cards */}
-      <div className="mt-6 flex items-baseline justify-between">
+      <div className="mt-6 flex items-baseline justify-between lg:mt-0">
         <h2 className="text-[16px] font-extrabold tracking-tight text-[#0F1222]">
           Redeem gift cards
         </h2>
@@ -124,8 +129,10 @@ export default function FreeDashboard({
           View membership plans
         </Link>
       </div>
+      </div>
+      </div>
 
-      <div className="mt-5 flex items-center justify-center gap-5 text-[12.5px] font-semibold text-[#667085]">
+      <div className="mt-6 flex items-center justify-center gap-5 text-[12.5px] font-semibold text-[#667085]">
         <Link href="/dashboard/purchases" className="hover:text-[#6356E5]">Points history</Link>
         <span className="text-[#E7E9F2]">·</span>
         <Link href="/dashboard/redemptions" className="hover:text-[#6356E5]">Redemptions</Link>
