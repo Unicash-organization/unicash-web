@@ -64,7 +64,7 @@ const V4_BOOSTER_DISPLAY: V4Display[] = [
   {
     variant: 'spark',
     name: 'Booster Spark',
-    points: 250,
+    points: 2500,
     price: 4.99,
     tagline: 'A simple top-up when you need a small Points boost.',
     badge: null,
@@ -73,7 +73,7 @@ const V4_BOOSTER_DISPLAY: V4Display[] = [
   {
     variant: 'pulse',
     name: 'Booster Pulse',
-    points: 1200,
+    points: 12000,
     price: 19.99,
     tagline: 'A balanced top-up for Members who want more flexibility.',
     badge: 'MOST POPULAR',
@@ -82,7 +82,7 @@ const V4_BOOSTER_DISPLAY: V4Display[] = [
   {
     variant: 'surge',
     name: 'Booster Surge',
-    points: 2000,
+    points: 20000,
     price: 29.99,
     tagline: 'The best-value top-up for Members who want more extra Points.',
     badge: 'BEST VALUE',
@@ -223,7 +223,7 @@ export default function BoostPackCard({ pack, v4Index }: BoostPackCardProps) {
   ------------------------------------------------------------------ */
   const v4 = typeof v4Index === 'number' ? V4_BOOSTER_DISPLAY[v4Index] : undefined;
   const displayName = v4?.name ?? pack.name;
-  const displayPoints = v4?.points ?? pack.credits;
+  const displayPoints = pack.credits ?? v4?.points;
   const displayPrice = v4?.price ?? parseFloat(pack.price.toString());
   const displayTagline = v4?.tagline ?? pack.description ?? '';
   const displayBadge: 'MOST POPULAR' | 'BEST VALUE' | null =
