@@ -37,7 +37,9 @@ interface MembershipCardProps {
       features: PlanFeature[];
       badge?: { text: string; type: string };
     };
-    /* Legacy fields — retained for backend compatibility */
+    /* Major Draw entries per month — canonical source for the entries stat. */
+    majorDrawEntriesPerPeriod?: number;
+    /* Legacy fields — retained for backend compatibility / fallback */
     freeCreditsPerPeriod?: number;
     grandPrizeEntriesPerPeriod?: number;
   };
@@ -158,8 +160,12 @@ function extractStats(plan: MembershipCardProps['plan']) {
   const drawFeat = features.find((f) => f.type === 'grand_draw_entries');
   const pointsFeat = features.find((f) => f.type === 'free_credits');
 
+  /* Canonical source = plan.majorDrawEntriesPerPeriod. featuresConfig's
+     grand_draw_entries feature (if any) still wins for manual overrides, and
+     the deprecated grandPrizeEntriesPerPeriod remains a last-resort fallback. */
   const drawEntries =
     typeof drawFeat?.value === 'number' ? drawFeat.value :
+    typeof plan.majorDrawEntriesPerPeriod === 'number' ? plan.majorDrawEntriesPerPeriod :
     typeof plan.grandPrizeEntriesPerPeriod === 'number' ? plan.grandPrizeEntriesPerPeriod : null;
 
   const monthlyPoints =
