@@ -317,7 +317,7 @@ export default function MembershipPage() {
         setMembership(updatedMembership);
         setActionLoading(null);
         setSelectedUpgradePlanId(null);
-        showToast('Upgrade scheduled successfully! Your plan will be upgraded on your next billing date. Stripe will handle proration automatically.', 'success');
+        showToast('Upgrade scheduled successfully! Your plan will be upgraded on your next billing date.', 'success');
       } else {
         setActionLoading(null);
         setSelectedUpgradePlanId(null);
@@ -879,7 +879,7 @@ export default function MembershipPage() {
             </div>
           )}
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
+          <div className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 sm:gap-5">
             {availablePlans.map((plan) => {
               const isUpgrade = membership?.plan ? isPlanUpgrade(membership.plan, plan) : false;
               const hasPendingDowngrade = membership?.pendingDowngradePlanId === plan.id;
@@ -897,7 +897,7 @@ export default function MembershipPage() {
               return (
                 <article
                   key={plan.id}
-                  className={`relative overflow-hidden rounded-3xl border bg-white p-5 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-6 ${
+                  className={`relative flex h-full flex-col overflow-hidden rounded-3xl border bg-white p-6 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-7 ${
                     isUpgrade ? 'border-[#E0DAFF]' : 'border-[#E7E9F2]'
                   }`}
                 >
@@ -943,14 +943,17 @@ export default function MembershipPage() {
                     </ul>
                   )}
 
-                  {/* CTA — when pending, replace dead-end "Pending" with active Cancel button.
-                      Cross-plan warning shows below CTA if a different pending change exists. */}
+                  {/* CTA — pinned to the bottom so every card's button aligns.
+                      When pending, replace dead-end "Pending" with active Cancel
+                      button. Cross-plan warning shows below if a different
+                      pending change exists. */}
+                  <div className="mt-auto pt-5">
                   {hasPendingUpgrade ? (
                     <button
                       type="button"
                       onClick={() => setShowCancelUpgradeConfirm(true)}
                       disabled={actionLoading !== null}
-                      className="mt-5 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full border border-[#FCA5A5] bg-white px-5 text-[13.5px] font-bold text-[#B91C1C] transition-colors hover:bg-[#FEF2F2] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex h-12 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-[#FCA5A5] bg-white px-5 text-[13.5px] font-bold text-[#B91C1C] transition-colors hover:bg-[#FEF2F2] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {actionLoading === 'cancelUpgrade' ? 'Cancelling…' : 'Cancel scheduled upgrade'}
                     </button>
@@ -959,7 +962,7 @@ export default function MembershipPage() {
                       type="button"
                       onClick={() => setShowCancelDowngradeConfirm(true)}
                       disabled={actionLoading !== null}
-                      className="mt-5 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full border border-[#FCA5A5] bg-white px-5 text-[13.5px] font-bold text-[#B91C1C] transition-colors hover:bg-[#FEF2F2] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex h-12 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-[#FCA5A5] bg-white px-5 text-[13.5px] font-bold text-[#B91C1C] transition-colors hover:bg-[#FEF2F2] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {actionLoading === 'cancelDowngrade' ? 'Cancelling…' : 'Cancel scheduled downgrade'}
                     </button>
@@ -968,7 +971,7 @@ export default function MembershipPage() {
                       type="button"
                       onClick={() => handleUpgrade(plan.id)}
                       disabled={!canPerformAction || actionLoading !== null}
-                      className={`mt-5 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full px-5 text-[13.5px] font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                      className={`inline-flex h-12 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-5 text-[13.5px] font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
                         isUpgrade
                           ? 'bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-white shadow-[0_10px_24px_-12px_rgba(99,86,229,0.55)] hover:from-[#5346D6] hover:to-[#7867EC]'
                           : 'border border-[#E0DAFF] bg-white text-[#0F1222] hover:border-[#6356E5] hover:text-[#6356E5]'
@@ -1008,6 +1011,7 @@ export default function MembershipPage() {
                       )}
                     </>
                   )}
+                  </div>
                 </article>
               );
             })}
