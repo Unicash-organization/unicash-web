@@ -142,7 +142,7 @@ const ACCOUNT_NAV = [
 const MARKETING_NAV_GUEST = [
   { label: 'Bonus Draws',        href: '/giveaways',         icon: Icon.Trophy },
   { label: 'Membership',         href: '/#membership-plans', icon: Icon.Crown },
-  { label: 'Point Boosters',     href: '/point-boosters',       icon: Icon.Bolt },
+  { label: 'Point Boosters',     href: '/boost-packs',       icon: Icon.Bolt },
   { label: 'Redeem Gift Cards',  href: '/rewards/gift-cards',icon: Icon.GiftCard },
   { label: 'Fuel Rewards',       href: '/scan-receipts',     icon: Icon.Camera },
   { label: 'Winners',            href: '/winners',           icon: Icon.Trophy2 },
@@ -150,7 +150,7 @@ const MARKETING_NAV_GUEST = [
 
 const MARKETING_NAV_MEMBER = [
   { label: 'Bonus Draws',        href: '/giveaways',         icon: Icon.Trophy },
-  { label: 'Point Boosters',     href: '/point-boosters',       icon: Icon.Bolt },
+  { label: 'Point Boosters',     href: '/boost-packs',       icon: Icon.Bolt },
   { label: 'Redeem Gift Cards',  href: '/rewards/gift-cards',icon: Icon.GiftCard },
   { label: 'Fuel Rewards',       href: '/scan-receipts',     icon: Icon.Camera },
   { label: 'Winners',            href: '/winners',           icon: Icon.Trophy2 },

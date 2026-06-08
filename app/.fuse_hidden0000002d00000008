@@ -457,7 +457,7 @@ function FuelRewards() {
 /* -------------------------------------------------------------------------- */
 
 /* Booster pack data — display-only values matching the v4 design preview.
-   Actual Booster checkout/pricing logic lives on /point-boosters (backend-driven). */
+   Actual Booster checkout/pricing logic lives on /boost-packs (backend-driven). */
 const BOOSTER_PACKS = [
   {
     id: 'spark',
@@ -549,7 +549,7 @@ function BoosterCard({ pack }: { pack: typeof BOOSTER_PACKS[number] }) {
       <div className="mt-6">
         {isPopular ? (
           <Link
-            href="/point-boosters"
+            href="/boost-packs"
             className="uc-lift-sm inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#6356E5] px-6 text-[15px] font-semibold text-white shadow-[0_10px_24px_-12px_rgba(99,86,229,0.6)] transition-colors hover:bg-[#5346D6] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356e5] focus-visible:ring-offset-2"
           >
             Buy Point Booster
@@ -557,7 +557,7 @@ function BoosterCard({ pack }: { pack: typeof BOOSTER_PACKS[number] }) {
           </Link>
         ) : (
           <Link
-            href="/point-boosters"
+            href="/boost-packs"
             className="uc-lift-sm inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border border-[#e7e9f2] bg-white px-6 text-[15px] font-semibold text-[#0f1222] transition-colors hover:border-[#c8c5ea] hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356e5] focus-visible:ring-offset-2"
           >
             Buy Point Booster
@@ -967,7 +967,7 @@ export default function HomeClient() {
     if (
       newTierOrder === oldTierOrder &&
       newPlan.priceMonthly === oldPlan.priceMonthly &&
-      (newPlan.monthlyPointsGrant ?? newPlan.freeCreditsPerPeriod ?? 0) > (oldPlan.monthlyPointsGrant ?? oldPlan.freeCreditsPerPeriod ?? 0)
+      newPlan.freeCreditsPerPeriod > oldPlan.freeCreditsPerPeriod
     ) return true;
     return false;
   };

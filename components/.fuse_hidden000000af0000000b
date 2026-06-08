@@ -28,7 +28,7 @@ const YouTubeIcon = () => (
 const PRODUCT_LINKS = [
   { label: 'Bonus Draws', href: '/giveaways' },
   { label: 'Fuel Rewards', href: '/scan-receipts' },
-  { label: 'Point Boosters', href: '/point-boosters' },
+  { label: 'Point Boosters', href: '/boost-packs' },
   { label: 'Membership', href: '/#membership-plans' },
 ];
 

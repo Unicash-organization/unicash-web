@@ -741,7 +741,7 @@ export default function DrawDetailClient() {
     }
     if (entryState.kind === 'insufficient-points') {
       return (
-        <Link href="/point-boosters#choose-boost-pack" className={`${baseCls} bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] hover:from-[#5346D6] hover:to-[#7867EC]`}>
+        <Link href="/boost-packs#choose-boost-pack" className={`${baseCls} bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] hover:from-[#5346D6] hover:to-[#7867EC]`}>
           <span className="truncate">{entryState.ctaLabel}</span>
           <Icon.ArrowRight className="h-4 w-4 shrink-0" />
         </Link>

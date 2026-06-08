@@ -10,6 +10,13 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
   },
+  // /boost-packs renamed to /point-boosters (2026-06-08) — keep old links,
+  // bookmarks and SEO working with a permanent redirect.
+  async redirects() {
+    return [
+      { source: '/boost-packs', destination: '/point-boosters', permanent: true },
+    ];
+  },
 };
 
 // Phase OBS1 — wrap with Sentry only if @sentry/nextjs is installed AND

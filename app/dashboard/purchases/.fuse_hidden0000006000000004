@@ -217,7 +217,7 @@ export default function PurchasesPage() {
               View Membership plans
             </Link>
             <Link
-              href="/point-boosters"
+              href="/boost-packs"
               className="inline-flex h-10 items-center rounded-full border border-[#E0DAFF] bg-white px-4 text-[12.5px] font-bold text-[#0F1222] transition-colors hover:border-[#6356E5] hover:text-[#6356E5]"
             >
               Buy Point Booster

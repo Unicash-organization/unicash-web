@@ -97,13 +97,13 @@ const CheckIcon = ({ className = '' }: { className?: string }) => (
   </svg>
 );
 
-export default function BoostPacksClient() {
+export default function BoostPacksPageClient() {
   return (
     <div>
       {/* ====================================================================
          v4 hero — premium product stage (NOT a banner).
 
-         NOTE: Backend-managed BannerSlider has been bypassed for /boost-packs
+         NOTE: Backend-managed BannerSlider has been bypassed for /point-boosters
          because legacy banner copy ("Boost Packs", "Credits", "entries")
          conflicts with UNICASH terminology + design system v4. The banner CMS
          system itself is untouched and still renders globally on other pages.
@@ -137,7 +137,7 @@ export default function BoostPacksClient() {
           {/* ============================================================
               CONTENT GRID
           ============================================================ */}
-          <div className="relative mx-auto max-w-7xl px-5 pt-12 pb-14 sm:px-6 sm:pt-20 sm:pb-24 lg:px-8 lg:pt-24 lg:pb-28">
+          <div className="relative mx-auto max-w-7xl px-8 pt-12 pb-14 sm:px-6 sm:pt-20 sm:pb-24 lg:px-8 lg:pt-24 lg:pb-28">
             <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-14">
               {/* ============== LEFT — content ============== */}
               <div className="text-center lg:col-span-7 lg:text-left">

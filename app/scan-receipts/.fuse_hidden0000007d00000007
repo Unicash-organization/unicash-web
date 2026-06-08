@@ -865,7 +865,7 @@ export default function ScanReceiptsPage() {
 
       {/* ============== HOW IT WORKS — 3 STEPS ============== */}
       {/* 2026-05-20 — lavender bg (was bg-white) so white step cards
-          stand out from section, matching /point-boosters how-it-works. */}
+          stand out from section, matching /boost-packs how-it-works. */}
       <section id="how-points-work" className="bg-[#FBFAFF]">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-6 sm:py-20 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">

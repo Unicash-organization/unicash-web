@@ -187,21 +187,21 @@ const V4_PLAN_DISPLAY: Record<string, {
     icon: Icon.Medal,
     tagline: 'Everyday rewards made simple.',
     drawEntries: 1,
-    monthlyPoints: 3000,
+    monthlyPoints: 300,
   },
   uni_plus: {
     label: 'Gold',
     icon: Icon.Trophy,
     tagline: 'More value for active members.',
     drawEntries: 4,
-    monthlyPoints: 10000,
+    monthlyPoints: 1000,
   },
   uni_max: {
     label: 'Platinum',
     icon: Icon.Crown,
     tagline: 'Top-tier rewards and access.',
     drawEntries: 10,
-    monthlyPoints: 25000,
+    monthlyPoints: 2500,
   },
 };
 
@@ -219,9 +219,9 @@ const V4_BOOSTER_DISPLAY: Array<{
   points: number;
   badge: 'MOST POPULAR' | 'BEST VALUE' | null;
 }> = [
-  { name: 'Booster Spark', tagline: 'Quick top-up. Just enough for one Bonus Draw.', price: 4.99, points: 2500, badge: null },
-  { name: 'Booster Pulse', tagline: "Balanced top-up. Members' most-loved Booster.", price: 19.99, points: 12000, badge: 'MOST POPULAR' },
-  { name: 'Booster Surge', tagline: 'Maximum Points. Lowest cost per Point.', price: 29.99, points: 20000, badge: 'BEST VALUE' },
+  { name: 'Booster Spark', tagline: 'Quick top-up. Just enough for one Bonus Draw.', price: 4.99, points: 250, badge: null },
+  { name: 'Booster Pulse', tagline: "Balanced top-up. Members' most-loved Booster.", price: 19.99, points: 1200, badge: 'MOST POPULAR' },
+  { name: 'Booster Surge', tagline: 'Maximum Points. Lowest cost per Point.', price: 29.99, points: 2000, badge: 'BEST VALUE' },
 ];
 
 /* Display-only term swap — backend field names stay as-is (plan.freeCreditsPerPeriod etc). */
@@ -812,8 +812,8 @@ function CheckoutContent() {
       {/* Selected Membership — uses v4 display values (drawEntries + monthlyPoints) keyed by tier */}
       {selectedPlan && !skipPlanSelection && (() => {
         const meta = tierDisplay(selectedPlan.tier);
-        const drawEntries = (selectedPlan.majorDrawEntriesPerPeriod ?? selectedPlan.grandPrizeEntriesPerPeriod ?? meta.drawEntries ?? 0);
-        const monthlyPoints = (selectedPlan.monthlyPointsGrant ?? selectedPlan.freeCreditsPerPeriod ?? meta.monthlyPoints ?? 0);
+        const drawEntries = meta.drawEntries || (selectedPlan.majorDrawEntriesPerPeriod ?? selectedPlan.grandPrizeEntriesPerPeriod ?? 0);
+        const monthlyPoints = meta.monthlyPoints || selectedPlan.freeCreditsPerPeriod || 0;
         const TierIconComp = meta.icon;
         return (
           <div className="mt-5 rounded-2xl bg-gradient-to-br from-[#F4F1FB] to-[#FBFAFF] p-4 ring-1 ring-[#E0DAFF]">
@@ -875,7 +875,7 @@ function CheckoutContent() {
                    stays the actual API ID — this only changes labels/badges/points display. */
                 const v4 = V4_BOOSTER_DISPLAY[index];
                 const displayName = v4?.name ?? rewriteTerms(pack.name || 'Point Booster');
-                const displayPoints = Number(pack.credits) || (v4?.points ?? 0);
+                const displayPoints = v4?.points ?? Number(pack.credits || 0);
                 const displayPrice = v4?.price ?? parseFloat(pack.price?.toString() || '0');
                 const displayBadge = v4?.badge ?? (pack.badgeText || pack.featuresConfig?.badge?.text || null);
                 const displayTagline = v4?.tagline;
@@ -940,8 +940,8 @@ function CheckoutContent() {
             {plans.map((plan: any) => {
               const isSelected = selectedPlan?.id === plan.id;
               const meta = tierDisplay(plan.tier);
-              const drawEntries = (plan.majorDrawEntriesPerPeriod ?? plan.grandPrizeEntriesPerPeriod ?? meta.drawEntries ?? 0);
-              const monthlyPoints = (plan.monthlyPointsGrant ?? plan.freeCreditsPerPeriod ?? meta.monthlyPoints ?? 0);
+              const drawEntries = meta.drawEntries || plan.grandPrizeEntriesPerPeriod || 0;
+              const monthlyPoints = meta.monthlyPoints || plan.freeCreditsPerPeriod || 0;
               return (
                 <button
                   type="button"

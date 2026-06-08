@@ -120,7 +120,7 @@ export default function GiveawaysPageClient() {
                   <ArrowDown className="h-4 w-4" />
                 </a>
                 <a
-                  href="/point-boosters"
+                  href="/boost-packs"
                   className="inline-flex h-12 w-full items-center justify-center rounded-full border border-[#E0DAFF] bg-white/90 px-6 text-[14.5px] font-bold text-[#0F1222] backdrop-blur transition-colors hover:border-[#6356E5] hover:text-[#6356E5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2 sm:w-auto"
                 >
                   Get More Points

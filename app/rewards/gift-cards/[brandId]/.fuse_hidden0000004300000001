@@ -575,13 +575,13 @@ function PrimaryCta({
   }
   if (insufficient) {
     return compact ? (
-      <Link href="/point-boosters" className={`${base} bg-[#6356E5] text-white hover:bg-[#5648D8]`}>
+      <Link href="/boost-packs" className={`${base} bg-[#6356E5] text-white hover:bg-[#5648D8]`}>
         Buy Point Booster
       </Link>
     ) : (
       <div className="flex flex-col sm:flex-row gap-2 mt-2">
         <Link
-          href="/point-boosters"
+          href="/boost-packs"
           className="flex-1 inline-flex items-center justify-center rounded-full bg-[#6356E5] text-white hover:bg-[#5648D8] px-5 py-3 text-[14px] font-bold transition-colors"
         >
           Buy Point Booster

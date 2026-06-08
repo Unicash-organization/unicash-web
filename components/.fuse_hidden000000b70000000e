@@ -13,7 +13,7 @@ const SCROLL_THRESHOLD = 24;
 const NAV_LINKS = [
   { label: 'Bonus Draws', href: '/giveaways' },
   { label: 'Membership', href: '/#membership-plans' },
-  { label: 'Point Boosters', href: '/point-boosters' },
+  { label: 'Point Boosters', href: '/boost-packs' },
   { label: 'Redeem Gift Cards', href: '/rewards/gift-cards' },
   { label: 'Fuel Rewards', href: '/scan-receipts' },
   { label: 'Winners', href: '/winners' },

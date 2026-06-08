@@ -91,7 +91,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Win',     href: '/giveaways',         Icon: TrophyIcon, matcher: (p) => p === '/giveaways' || p.startsWith('/giveaways/') },
   { label: 'Scan',    href: '/scan-receipts',     Icon: CameraIcon, matcher: (p) => p.startsWith('/scan-receipts') },
   { label: 'Entries', href: '/dashboard/entries', Icon: TicketIcon, matcher: (p) => p.startsWith('/dashboard/entries') },
-  { label: 'Booster', href: '/point-boosters',       Icon: BoltIcon,   matcher: (p) => p.startsWith('/point-boosters') },
+  { label: 'Booster', href: '/boost-packs',       Icon: BoltIcon,   matcher: (p) => p.startsWith('/boost-packs') },
 ];
 
 function shouldHide(pathname: string | null): boolean {

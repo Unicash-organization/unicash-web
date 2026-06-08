@@ -484,8 +484,8 @@ export default function DashboardPage() {
 
   const planPriceMonthly = parseFloat(membership?.plan?.priceMonthly || '0');
   const planName = membership?.plan?.name || V4_PLAN_BY_PRICE[planPriceMonthly.toFixed(2)] || (membership ? 'Membership' : '');
-  const monthlyPoints = Number(membership?.plan?.monthlyPointsGrant ?? membership?.plan?.freeCreditsPerPeriod ?? 0);
-  const majorDrawEntries = Number(membership?.plan?.majorDrawEntriesPerPeriod ?? membership?.plan?.grandPrizeEntriesPerPeriod ?? 0);
+  const monthlyPoints = Number(membership?.plan?.freeCreditsPerPeriod || 0);
+  const majorDrawEntries = Number(membership?.plan?.grandPrizeEntriesPerPeriod || 0);
 
   const boostPoints = Number(user.boostCredits) || 0;
   const memberPoints = Number(user.membershipCredits) || 0;
@@ -511,7 +511,7 @@ export default function DashboardPage() {
   const quickActions = [
     { label: 'View Bonus Draws', href: '/giveaways',     Icon: Icon.Trophy, tone: 'purple' as const },
     { label: 'Scan Receipt',     href: '/scan-receipts', Icon: Icon.Camera, tone: 'green' as const },
-    { label: 'Buy Point Booster',href: '/point-boosters',   Icon: Icon.Bolt,   tone: 'gold' as const },
+    { label: 'Buy Point Booster',href: '/boost-packs',   Icon: Icon.Bolt,   tone: 'gold' as const },
     { label: 'Redeem Gift Cards',href: '/gift-cards',    Icon: Icon.Gift,   tone: 'lavender' as const },
   ];
 
@@ -766,7 +766,7 @@ export default function DashboardPage() {
             <Icon.ArrowRight className="h-4 w-4" />
           </Link>
           <Link
-            href="/point-boosters"
+            href="/boost-packs"
             className="inline-flex h-11 w-full items-center justify-center rounded-full border border-[#E0DAFF] bg-white px-5 text-[13.5px] font-bold text-[#0F1222] transition-colors hover:border-[#6356E5] hover:text-[#6356E5] sm:w-auto"
           >
             Buy Point Booster
