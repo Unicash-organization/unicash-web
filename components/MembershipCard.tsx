@@ -126,6 +126,15 @@ const ArrowRight = ({ className = '' }: { className?: string }) => (
 
 /* Tier-specific perks — sourced from UNICASH homepage v4 preview, locked copy.
    ** ** markers are rendered as <strong> to emphasize the key value of each line. */
+/* Safety-net only — used when a plan has no featuresConfig.features yet. */
+const FREE_FALLBACK: string[] = [
+  'Free for everyone',
+  'Earn Points from eligible receipts, including fuel',
+  'Redeem all gift cards',
+  'Points never expire',
+  'Cancel anytime',
+];
+
 const TIER_PERKS: Record<string, string[]> = {
   uni_one: [
     'Earn Points from eligible **everyday receipts**',
@@ -172,17 +181,21 @@ function extractStats(plan: MembershipCardProps['plan']) {
     typeof pointsFeat?.value === 'number' ? pointsFeat.value :
     typeof plan.freeCreditsPerPeriod === 'number' ? plan.freeCreditsPerPeriod : null;
 
-  /* Prefer tier-based v4 perks. If tier isn't recognized, fall back to API-derived perks. */
-  let perks: string[] = TIER_PERKS[plan.tier] || [];
+  /* SINGLE SOURCE OF TRUTH — perks come from the admin-managed
+     featuresConfig.features (text bullets, **bold** supported). Hardcoded
+     TIER_PERKS / FREE_FALLBACK are only a safety net when a plan has no
+     features configured yet (e.g. before the seed migration ran). */
+  let perks: string[] = features
+    .filter((f) => f.type !== 'grand_draw_entries' && f.type !== 'free_credits')
+    .map((f) => {
+      if (f.description) return f.description;
+      if (f.type === 'early_access' && f.value) return `${f.value}${f.unit || 'h'} early access to selected Bonus Draws`;
+      return f.label;
+    })
+    .map(rewriteCreditsToPoints)
+    .filter((s) => !!s && s.trim().length > 0);
   if (perks.length === 0) {
-    perks = features
-      .filter((f) => f.type !== 'grand_draw_entries' && f.type !== 'free_credits')
-      .map((f) => {
-        if (f.description) return f.description;
-        if (f.type === 'early_access' && f.value) return `${f.value}${f.unit || 'h'} early access to selected Bonus Draws`;
-        return f.label;
-      })
-      .map(rewriteCreditsToPoints);
+    perks = TIER_PERKS[plan.tier] || (plan.tier === 'free' ? FREE_FALLBACK : []);
   }
 
   return { drawEntries, monthlyPoints, perks };
@@ -604,39 +617,15 @@ export default function MembershipCard({
       {/* Divider */}
       <div className={`relative mt-6 h-px ${isPopular ? 'bg-white/15' : 'bg-[#e7e9f2]'}`} />
 
-      {/* Perks — flex-1 pushes CTA to bottom. Free shows its own benefit list;
-          paid prepends a Monthly Points line (moved out of the hero stat box). */}
+      {/* Perks — single source of truth: featuresConfig.features (admin-managed),
+          rendered the same way for every tier. **bold** markers → <strong>. */}
       <ul className="relative mt-5 space-y-2.5 text-[13.5px]">
-        {isFree ? (
-          [
-            'Free for everyone',
-            'Earn Points from eligible receipts, including fuel',
-            'Redeem all gift cards',
-            'Points never expire',
-            'Cancel anytime',
-          ].map((perk, i) => (
-            <li key={i} className="flex items-start gap-2">
-              <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
-              <span className={perkText}>{perk}</span>
-            </li>
-          ))
-        ) : (
-          <>
-            {perks.length > 0 ? (
-              perks.map((perk, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
-                  <span className={perkText}>{renderPerkText(perk, isPopular)}</span>
-                </li>
-              ))
-            ) : (
-              <li className="flex items-start gap-2">
-                <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
-                <span className={perkText}>Cancel anytime</span>
-              </li>
-            )}
-          </>
-        )}
+        {perks.map((perk, i) => (
+          <li key={i} className="flex items-start gap-2">
+            <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${perkIcon}`} />
+            <span className={perkText}>{renderPerkText(perk, isPopular)}</span>
+          </li>
+        ))}
       </ul>
 
       <div className="relative mt-auto pt-6">
