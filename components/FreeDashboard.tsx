@@ -1,6 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import ScanReceiptModal from './ScanReceiptModal';
 
 /**
  * Free-account dashboard — focused loop: Scan → Earn → Redeem.
@@ -15,6 +18,9 @@ export default function FreeDashboard({
   firstName?: string;
   totalPoints: number;
 }) {
+  const router = useRouter();
+  const [scanOpen, setScanOpen] = useState(false);
+
   const aud = (totalPoints / 1000).toLocaleString('en-AU', {
     style: 'currency',
     currency: 'AUD',
@@ -42,32 +48,39 @@ export default function FreeDashboard({
         </p>
       </div>
 
-      {/* Primary action */}
-      <Link
-        href="/dashboard/receipts"
+      {/* Primary action — opens the scan modal in place (not the receipts list). */}
+      <button
+        type="button"
+        onClick={() => setScanOpen(true)}
         className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#6356E5] px-4 py-3.5 text-[15px] font-semibold text-white transition hover:bg-[#5648D8]"
       >
         <ScanIcon /> Scan receipt
-      </Link>
+      </button>
       <p className="mt-1.5 text-center text-[11.5px] text-[#9AA0B4]">
         Earn Points on eligible grocery, retail &amp; fuel receipts
       </p>
 
-      {/* Scan → Earn → Redeem strip */}
+      {/* How it works: Scan → Earn → Redeem (Scan + Redeem are actionable). */}
       <div className="mt-5 grid grid-cols-3 gap-2.5">
-        {[
-          { icon: <ScanIcon />, label: 'Scan' },
-          { icon: <CoinIcon />, label: 'Earn' },
-          { icon: <GiftIcon />, label: 'Redeem' },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="flex flex-col items-center gap-1.5 rounded-xl border border-[#E7E9F2] bg-white py-3 text-[#6356E5]"
-          >
-            {s.icon}
-            <span className="text-[11.5px] font-medium text-[#667085]">{s.label}</span>
-          </div>
-        ))}
+        <button
+          type="button"
+          onClick={() => setScanOpen(true)}
+          className="flex flex-col items-center gap-1.5 rounded-xl border border-[#E7E9F2] bg-white py-3 text-[#6356E5] transition hover:border-[#C9C2F5] hover:bg-[#FBFAFF]"
+        >
+          <ScanIcon />
+          <span className="text-[11.5px] font-medium text-[#667085]">Scan</span>
+        </button>
+        <div className="flex flex-col items-center gap-1.5 rounded-xl border border-[#E7E9F2] bg-white py-3 text-[#6356E5]">
+          <CoinIcon />
+          <span className="text-[11.5px] font-medium text-[#667085]">Earn</span>
+        </div>
+        <Link
+          href="/rewards/gift-cards"
+          className="flex flex-col items-center gap-1.5 rounded-xl border border-[#E7E9F2] bg-white py-3 text-[#6356E5] transition hover:border-[#C9C2F5] hover:bg-[#FBFAFF]"
+        >
+          <GiftIcon />
+          <span className="text-[11.5px] font-medium text-[#667085]">Redeem</span>
+        </Link>
       </div>
 
       {/* Redeem gift cards */}
@@ -117,6 +130,15 @@ export default function FreeDashboard({
         <span className="text-[#E7E9F2]">·</span>
         <Link href="/dashboard/redemptions" className="hover:text-[#6356E5]">Redemptions</Link>
       </div>
+
+      <ScanReceiptModal
+        isOpen={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onComplete={() => {
+          setScanOpen(false);
+          router.refresh();
+        }}
+      />
     </div>
   );
 }
