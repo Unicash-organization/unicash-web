@@ -54,6 +54,8 @@ interface MembershipCardProps {
 
 const tierMeta = (tier: string) => {
   switch (tier) {
+    case 'free':
+      return { label: '', icon: 'scan' };
     case 'uni_one':
       return { label: 'Silver', icon: 'medal' };
     case 'uni_plus':
@@ -84,6 +86,14 @@ const TierIcon = ({ name, className = '' }: { name: string; className?: string }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
         <path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21 6l-2 9H5L3 6l4.094 3.163a1 1 0 0 0 1.516-.293Z" />
         <path d="M5 21h14" />
+      </svg>
+    );
+  }
+  if (name === 'scan') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+        <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
+        <circle cx="12" cy="12" r="3" />
       </svg>
     );
   }
