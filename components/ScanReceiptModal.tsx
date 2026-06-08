@@ -736,9 +736,17 @@ function ScanResult({
             <span className="ml-2 text-[16px] font-semibold text-[#10B981]/80">Points</span>
           </p>
           {receipt.pointsCalculated != null && receipt.pointsCalculated > points && (
-            <p className="mt-1.5 text-[11.5px] text-[#10B981]/80">
-              ({receipt.pointsCalculated.toLocaleString()} calculated · capped to monthly limit)
-            </p>
+            <>
+              <p className="mt-1.5 text-[11.5px] text-[#10B981]/80">
+                ({receipt.pointsCalculated.toLocaleString()} calculated · capped to your monthly limit)
+              </p>
+              <a
+                href="/dashboard/membership"
+                className="mt-1.5 inline-block text-[11.5px] font-semibold text-[#6356E5] underline-offset-2 hover:underline"
+              >
+                Upgrade for a higher monthly cap →
+              </a>
+            </>
           )}
         </div>
 
