@@ -812,8 +812,8 @@ function CheckoutContent() {
       {/* Selected Membership — uses v4 display values (drawEntries + monthlyPoints) keyed by tier */}
       {selectedPlan && !skipPlanSelection && (() => {
         const meta = tierDisplay(selectedPlan.tier);
-        const drawEntries = meta.drawEntries || (selectedPlan.majorDrawEntriesPerPeriod ?? selectedPlan.grandPrizeEntriesPerPeriod ?? 0);
-        const monthlyPoints = meta.monthlyPoints || (selectedPlan.monthlyPointsGrant ?? selectedPlan.freeCreditsPerPeriod ?? 0);
+        const drawEntries = (selectedPlan.majorDrawEntriesPerPeriod ?? selectedPlan.grandPrizeEntriesPerPeriod ?? meta.drawEntries ?? 0);
+        const monthlyPoints = (selectedPlan.monthlyPointsGrant ?? selectedPlan.freeCreditsPerPeriod ?? meta.monthlyPoints ?? 0);
         const TierIconComp = meta.icon;
         return (
           <div className="mt-5 rounded-2xl bg-gradient-to-br from-[#F4F1FB] to-[#FBFAFF] p-4 ring-1 ring-[#E0DAFF]">
@@ -940,8 +940,8 @@ function CheckoutContent() {
             {plans.map((plan: any) => {
               const isSelected = selectedPlan?.id === plan.id;
               const meta = tierDisplay(plan.tier);
-              const drawEntries = meta.drawEntries || (plan.majorDrawEntriesPerPeriod ?? plan.grandPrizeEntriesPerPeriod ?? 0);
-              const monthlyPoints = meta.monthlyPoints || (plan.monthlyPointsGrant ?? plan.freeCreditsPerPeriod ?? 0);
+              const drawEntries = (plan.majorDrawEntriesPerPeriod ?? plan.grandPrizeEntriesPerPeriod ?? meta.drawEntries ?? 0);
+              const monthlyPoints = (plan.monthlyPointsGrant ?? plan.freeCreditsPerPeriod ?? meta.monthlyPoints ?? 0);
               return (
                 <button
                   type="button"
