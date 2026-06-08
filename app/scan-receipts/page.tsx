@@ -244,7 +244,7 @@ const ACTIVITY: { merchant: string; subline: string; status: StatusKey; pts?: nu
   { merchant: 'Coles · Newtown', subline: 'Today · Groceries', status: 'pending' },
   { merchant: 'Woolworths · Surry Hills', subline: '3h ago · Already submitted 12 Apr', status: 'duplicate' },
   { merchant: 'BP · Marrickville', subline: 'Yesterday · Receipt unclear', status: 'rejected' },
-  { merchant: 'Bunnings · Alexandria', subline: '2d ago · 1,400 Points to redeem', status: 'redeemable' },
+  { merchant: 'Bunnings · Alexandria', subline: '2d ago · 14,000 Points to redeem', status: 'redeemable' },
 ];
 
 // Source of truth: /legal/UNICASH-FAQs.md → unicash-web/content/faqs.ts
@@ -533,7 +533,7 @@ function ExplainerVisual() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
             >
-              +200 Points · just now
+              +2,000 Points · just now
             </motion.p>
           )}
         </AnimatePresence>

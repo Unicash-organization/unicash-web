@@ -166,7 +166,7 @@ export default function GiveawaysPageClient() {
 
                     {/* Floating Points chip */}
                     <span className="uc-bd-points-chip absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-full bg-gradient-to-br from-[#6356E5] to-[#8B7BFF] px-3 py-1.5 text-[12px] font-extrabold tracking-tight text-white shadow-[0_8px_20px_-6px_rgba(99,86,229,0.6)]">
-                      200 Points
+                      2,000 Points
                     </span>
                   </div>
 
@@ -207,7 +207,7 @@ export default function GiveawaysPageClient() {
                     {/* Mock CTA row */}
                     <div className="mt-5 grid grid-cols-[auto_1fr] items-stretch gap-2">
                       <span className="inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-[#F4F1FB] px-3 text-[12px] font-extrabold tracking-tight text-[#6356E5] ring-1 ring-[#E0DAFF]">
-                        200 Points
+                        2,000 Points
                       </span>
                       <span className="inline-flex h-10 items-center justify-center gap-1 rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-[12.5px] font-bold text-white shadow-[0_8px_20px_-8px_rgba(99,86,229,0.55)]">
                         Enter Bonus Draw
