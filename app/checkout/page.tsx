@@ -187,21 +187,21 @@ const V4_PLAN_DISPLAY: Record<string, {
     icon: Icon.Medal,
     tagline: 'Everyday rewards made simple.',
     drawEntries: 1,
-    monthlyPoints: 300,
+    monthlyPoints: 3000,
   },
   uni_plus: {
     label: 'Gold',
     icon: Icon.Trophy,
     tagline: 'More value for active members.',
     drawEntries: 4,
-    monthlyPoints: 1000,
+    monthlyPoints: 10000,
   },
   uni_max: {
     label: 'Platinum',
     icon: Icon.Crown,
     tagline: 'Top-tier rewards and access.',
     drawEntries: 10,
-    monthlyPoints: 2500,
+    monthlyPoints: 25000,
   },
 };
 

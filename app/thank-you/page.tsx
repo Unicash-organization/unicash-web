@@ -254,9 +254,9 @@ const V4_BOOSTER_CATALOG: { name: string; price: number; points: number; tagline
    exact monthly price.
 ----------------------------------------------------------------------- */
 const V4_PLAN_CATALOG: { name: string; priceMonthly: number; monthlyPoints: number; majorDrawEntries: number }[] = [
-  { name: 'UniOne',  priceMonthly: 19.99, monthlyPoints: 300,  majorDrawEntries: 1 },
-  { name: 'UniPlus', priceMonthly: 49.99, monthlyPoints: 1000, majorDrawEntries: 4 },
-  { name: 'UniMax',  priceMonthly: 99.99, monthlyPoints: 2500, majorDrawEntries: 10 },
+  { name: 'UniOne',  priceMonthly: 19.99, monthlyPoints: 3000,  majorDrawEntries: 1 },
+  { name: 'UniPlus', priceMonthly: 49.99, monthlyPoints: 10000, majorDrawEntries: 4 },
+  { name: 'UniMax',  priceMonthly: 99.99, monthlyPoints: 25000, majorDrawEntries: 10 },
 ];
 
 function resolvePlan(payment: any, membership: any) {

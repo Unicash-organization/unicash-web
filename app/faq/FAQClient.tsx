@@ -193,7 +193,7 @@ const FAQ_DATA: Record<CategoryKey, FaqItem[]> = {
     },
     {
       q: 'How many Monthly Points do I get?',
-      a: 'UniOne includes 300 Monthly Points, UniPlus includes 1,000 Monthly Points, and UniMax includes 2,500 Monthly Points.',
+      a: 'UniOne includes 3,000 Monthly Points, UniPlus includes 10,000 Monthly Points, and UniMax includes 25,000 Monthly Points.',
     },
     {
       q: 'How many Major Draw entries do I get?',
