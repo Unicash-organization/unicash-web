@@ -91,12 +91,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   );
 }
 
-const FREE_PERKS = [
-  'Earn Points from eligible receipts, including fuel',
-  'Redeem all gift cards',
-  'Points never expire',
-  'No credit card needed',
-];
+const TRUST_ITEMS = ['Free forever', 'Cancel anytime', 'No credit card needed'];
 
 export default function RegisterPage() {
   const { setAuth } = useAuth();
@@ -166,32 +161,22 @@ export default function RegisterPage() {
     <main className="relative min-h-screen overflow-hidden text-[#0f1222]">
       <PaintedBackground />
 
-      <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-10 sm:px-6 sm:py-14 lg:py-20">
+      <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-6 sm:px-6 sm:py-14 lg:py-20">
         <div className="w-full max-w-md">
           <div className="rounded-3xl border border-white/40 bg-white/95 p-6 shadow-[0_30px_80px_-30px_rgba(15,18,34,0.45)] backdrop-blur-xl sm:p-9">
             {/* Brand + heading */}
             <div className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F0EDFB] ring-1 ring-[#E0DAFF]">
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F0EDFB] ring-1 ring-[#E0DAFF] sm:mb-4 sm:h-12 sm:w-12">
                 <UnicashMark className="h-6 w-6" />
               </div>
               <Eyebrow>Free Starter</Eyebrow>
-              <h1 className="mt-3 text-[26px] font-extrabold leading-[1.1] tracking-tight text-[#0f1222] sm:text-[32px]">
+              <h1 className="mt-2.5 text-[23px] font-extrabold leading-[1.1] tracking-tight text-[#0f1222] sm:mt-3 sm:text-[32px]">
                 Get started <span className="uc-gold-gradient">free.</span>
               </h1>
-              <p className="mx-auto mt-2 max-w-sm text-[13.5px] leading-relaxed text-[#4b5563] sm:text-[14px]">
+              <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-[#4b5563] sm:text-[14px]">
                 Scan receipts, earn Points, and redeem gift cards — no credit card needed.
               </p>
             </div>
-
-            {/* Perks */}
-            <ul className="mt-6 space-y-2.5">
-              {FREE_PERKS.map((perk) => (
-                <li key={perk} className="flex items-start gap-2 text-[13.5px] text-[#0f1222]">
-                  <Icon.Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6356e5]" />
-                  <span>{perk}</span>
-                </li>
-              ))}
-            </ul>
 
             {/* Error */}
             {error && (
@@ -213,42 +198,40 @@ export default function RegisterPage() {
             )}
 
             {/* Form */}
-            <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="firstName" className="block text-[12.5px] font-semibold text-[#0f1222]">
-                    First name
-                  </label>
-                  <input
-                    id="firstName"
-                    type="text"
-                    name="firstName"
-                    required
-                    autoComplete="given-name"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    placeholder="First name"
-                    disabled={loading}
-                    className={`mt-1.5 ${inputCls}`}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="lastName" className="block text-[12.5px] font-semibold text-[#0f1222]">
-                    Last name
-                  </label>
-                  <input
-                    id="lastName"
-                    type="text"
-                    name="lastName"
-                    required
-                    autoComplete="family-name"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    placeholder="Last name"
-                    disabled={loading}
-                    className={`mt-1.5 ${inputCls}`}
-                  />
-                </div>
+            <form onSubmit={handleSubmit} noValidate className="mt-5 space-y-3.5 sm:mt-6 sm:space-y-4">
+              <div>
+                <label htmlFor="firstName" className="block text-[12.5px] font-semibold text-[#0f1222]">
+                  First name
+                </label>
+                <input
+                  id="firstName"
+                  type="text"
+                  name="firstName"
+                  required
+                  autoComplete="given-name"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  placeholder="First name"
+                  disabled={loading}
+                  className={`mt-1.5 ${inputCls}`}
+                />
+              </div>
+              <div>
+                <label htmlFor="lastName" className="block text-[12.5px] font-semibold text-[#0f1222]">
+                  Last name
+                </label>
+                <input
+                  id="lastName"
+                  type="text"
+                  name="lastName"
+                  required
+                  autoComplete="family-name"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  placeholder="Last name"
+                  disabled={loading}
+                  className={`mt-1.5 ${inputCls}`}
+                />
               </div>
 
               <div>
@@ -317,13 +300,13 @@ export default function RegisterPage() {
               </button>
             </form>
 
-            <p className="mt-5 text-center text-[11.5px] leading-relaxed text-[#a3a8be]">
+            <p className="mt-4 text-center text-[11.5px] leading-relaxed text-[#a3a8be]">
               By continuing you agree to our{' '}
               <Link href="/terms" className="font-semibold text-[#667085] underline-offset-2 hover:underline">Terms</Link>{' '}and{' '}
               <Link href="/privacy" className="font-semibold text-[#667085] underline-offset-2 hover:underline">Privacy Policy</Link>.
             </p>
 
-            <p className="mt-4 text-center text-[13px] text-[#667085]">
+            <p className="mt-3 text-center text-[13px] text-[#667085]">
               Already have an account?{' '}
               <Link
                 href="/login"
@@ -334,10 +317,15 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          {/* Trust line */}
-          <p className="mt-6 text-center text-[12.5px] text-white/80">
-            Free forever · Cancel anytime · No credit card needed
-          </p>
+          {/* Trust line — icon chips summarising the Free benefits. */}
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 sm:mt-6">
+            {TRUST_ITEMS.map((item) => (
+              <span key={item} className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-white/85">
+                <Icon.Check className="h-3.5 w-3.5 shrink-0 text-[#FFE2B0]" />
+                {item}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </main>
