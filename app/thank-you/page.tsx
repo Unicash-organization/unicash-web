@@ -266,7 +266,7 @@ function resolvePlan(payment: any, membership: any) {
       name: membership.plan.name,
       priceMonthly: membership.plan.priceMonthly,
       monthlyPoints: membership.plan.freeCreditsPerPeriod || 0,
-      majorDrawEntries: membership.plan.grandPrizeEntriesPerPeriod || 0,
+      majorDrawEntries: (membership.plan.majorDrawEntriesPerPeriod ?? membership.plan.grandPrizeEntriesPerPeriod ?? 0),
     };
   }
   // Priority 2 — backend payment plan data
@@ -275,7 +275,7 @@ function resolvePlan(payment: any, membership: any) {
       name: payment.plan.name,
       priceMonthly: payment.plan.priceMonthly,
       monthlyPoints: payment.plan.freeCreditsPerPeriod || 0,
-      majorDrawEntries: payment.plan.grandPrizeEntriesPerPeriod || 0,
+      majorDrawEntries: (payment.plan.majorDrawEntriesPerPeriod ?? payment.plan.grandPrizeEntriesPerPeriod ?? 0),
     };
   }
   // Priority 3 — match V4 catalog by amount (covers the common case of

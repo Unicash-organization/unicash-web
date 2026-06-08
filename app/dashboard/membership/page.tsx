@@ -498,7 +498,7 @@ export default function MembershipPage() {
   const planName = membership?.plan?.name || 'Membership';
   const planPrice = parseFloat(membership?.plan?.priceMonthly || '0');
   const monthlyPoints = Number(membership?.plan?.freeCreditsPerPeriod || 0);
-  const majorDrawEntries = Number(membership?.plan?.grandPrizeEntriesPerPeriod || 0);
+  const majorDrawEntries = Number(membership?.plan?.majorDrawEntriesPerPeriod ?? membership?.plan?.grandPrizeEntriesPerPeriod ?? 0);
 
   const availablePlans = plans.filter((p) => p.id !== membership?.planId);
   const renewalsTotalPages = Math.max(1, Math.ceil((renewalsTotal || 0) / 10));
@@ -892,7 +892,7 @@ export default function MembershipPage() {
               const canPerformAction = canUpgrade && canDowngrade && !isProcessingChange && !isPaymentDue;
               const planPlanPrice = plan?.priceMonthly ? formatCurrency(plan.priceMonthly) : '—';
               const planPlanPoints = Number(plan?.freeCreditsPerPeriod || 0);
-              const planMajorDraw = Number(plan?.grandPrizeEntriesPerPeriod || 0);
+              const planMajorDraw = Number(plan?.majorDrawEntriesPerPeriod ?? plan?.grandPrizeEntriesPerPeriod ?? 0);
 
               return (
                 <article

@@ -485,7 +485,7 @@ export default function DashboardPage() {
   const planPriceMonthly = parseFloat(membership?.plan?.priceMonthly || '0');
   const planName = membership?.plan?.name || V4_PLAN_BY_PRICE[planPriceMonthly.toFixed(2)] || (membership ? 'Membership' : '');
   const monthlyPoints = Number(membership?.plan?.freeCreditsPerPeriod || 0);
-  const majorDrawEntries = Number(membership?.plan?.grandPrizeEntriesPerPeriod || 0);
+  const majorDrawEntries = Number(membership?.plan?.majorDrawEntriesPerPeriod ?? membership?.plan?.grandPrizeEntriesPerPeriod ?? 0);
 
   const boostPoints = Number(user.boostCredits) || 0;
   const memberPoints = Number(user.membershipCredits) || 0;

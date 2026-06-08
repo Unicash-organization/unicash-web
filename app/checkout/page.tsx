@@ -812,7 +812,7 @@ function CheckoutContent() {
       {/* Selected Membership — uses v4 display values (drawEntries + monthlyPoints) keyed by tier */}
       {selectedPlan && !skipPlanSelection && (() => {
         const meta = tierDisplay(selectedPlan.tier);
-        const drawEntries = meta.drawEntries || selectedPlan.grandPrizeEntriesPerPeriod || 0;
+        const drawEntries = meta.drawEntries || (selectedPlan.majorDrawEntriesPerPeriod ?? selectedPlan.grandPrizeEntriesPerPeriod ?? 0);
         const monthlyPoints = meta.monthlyPoints || selectedPlan.freeCreditsPerPeriod || 0;
         const TierIconComp = meta.icon;
         return (
@@ -940,7 +940,7 @@ function CheckoutContent() {
             {plans.map((plan: any) => {
               const isSelected = selectedPlan?.id === plan.id;
               const meta = tierDisplay(plan.tier);
-              const drawEntries = meta.drawEntries || plan.grandPrizeEntriesPerPeriod || 0;
+              const drawEntries = meta.drawEntries || (plan.majorDrawEntriesPerPeriod ?? plan.grandPrizeEntriesPerPeriod ?? 0);
               const monthlyPoints = meta.monthlyPoints || plan.freeCreditsPerPeriod || 0;
               return (
                 <button
