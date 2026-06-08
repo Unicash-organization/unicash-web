@@ -85,6 +85,7 @@ export const api = {
         exists: boolean;
         hasActiveMembership: boolean;
         canResumeCheckout: boolean;
+        claimed: boolean;
       }>('/auth/check-email', { email }),
     me: () => 
       apiClient.get('/auth/me'),

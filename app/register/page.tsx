@@ -101,7 +101,10 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [emailExists, setEmailExists] = useState(false);
+  // null = no conflict; 'claimed' = real account (→ Log in); 'unclaimed' =
+  // auto-provisioned by a past purchase (→ claim via set-password email).
+  const [existsKind, setExistsKind] = useState<null | 'claimed' | 'unclaimed'>(null);
+  const [claimSent, setClaimSent] = useState(false);
 
   const inputCls =
     'h-12 w-full rounded-2xl border border-[#E0DAFF] bg-[#FBFAFF] px-4 text-base sm:text-[14px] text-[#0f1222] placeholder-[#a3a8be] shadow-[inset_0_1px_2px_rgba(15,18,34,0.04)] transition-all hover:border-[#c8c5ea] hover:bg-white focus:border-[#6356e5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6356e5]/30 disabled:opacity-60';
@@ -112,7 +115,8 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setEmailExists(false);
+    setExistsKind(null);
+    setClaimSent(false);
 
     const email = formData.email.trim();
     if (!formData.firstName.trim() || !formData.lastName.trim()) {
@@ -148,11 +152,39 @@ export default function RegisterPage() {
     } catch (err: any) {
       const msg = err?.response?.data?.message || '';
       if (typeof msg === 'string' && msg.toLowerCase().includes('already registered')) {
-        setEmailExists(true);
-        setError('An account with this email already exists.');
+        // Distinguish a real (claimed) account from an unclaimed one that was
+        // auto-created by a past one-time/guest purchase.
+        try {
+          const info = await api.auth.checkEmail(email);
+          const unclaimed = info.data.exists && !info.data.claimed && !info.data.hasActiveMembership;
+          setExistsKind(unclaimed ? 'unclaimed' : 'claimed');
+          setError(
+            unclaimed
+              ? 'You already have an account from a previous purchase. Set a password to claim it.'
+              : 'An account with this email already exists.',
+          );
+        } catch {
+          setExistsKind('claimed');
+          setError('An account with this email already exists.');
+        }
       } else {
         setError(msg || 'Something went wrong. Please try again.');
       }
+      setLoading(false);
+    }
+  };
+
+  const handleClaim = async () => {
+    const email = formData.email.trim();
+    if (!email) return;
+    setLoading(true);
+    try {
+      await api.auth.requestPasswordReset(email);
+      setClaimSent(true);
+    } catch {
+      // Always treat as sent — never reveal whether the email exists.
+      setClaimSent(true);
+    } finally {
       setLoading(false);
     }
   };
@@ -184,7 +216,7 @@ export default function RegisterPage() {
                 <Icon.AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#EF4444]" />
                 <div className="min-w-0 flex-1 text-[13px] leading-relaxed text-[#991B1B]">
                   <p>{error}</p>
-                  {emailExists && (
+                  {existsKind === 'claimed' && (
                     <Link
                       href="/login"
                       className="mt-1.5 inline-flex items-center gap-1 text-[12.5px] font-bold text-[#B91C1C] underline-offset-2 hover:underline"
@@ -192,6 +224,23 @@ export default function RegisterPage() {
                       Log in instead
                       <Icon.ArrowRight className="h-3 w-3" />
                     </Link>
+                  )}
+                  {existsKind === 'unclaimed' && !claimSent && (
+                    <button
+                      type="button"
+                      onClick={handleClaim}
+                      disabled={loading}
+                      className="mt-1.5 inline-flex items-center gap-1 text-[12.5px] font-bold text-[#B91C1C] underline-offset-2 hover:underline disabled:opacity-60"
+                    >
+                      Email me a link to set my password
+                      <Icon.ArrowRight className="h-3 w-3" />
+                    </button>
+                  )}
+                  {existsKind === 'unclaimed' && claimSent && (
+                    <p className="mt-1.5 text-[12.5px] font-semibold text-[#991B1B]">
+                      Check your email — we&rsquo;ve sent a link to set your password.{' '}
+                      <Link href="/login" className="underline underline-offset-2">Log in</Link>
+                    </p>
                   )}
                 </div>
               </div>
