@@ -212,21 +212,26 @@ export default function MobileDrawer({ isOpen, onClose, user, onLogout, availabl
 
   return createPortal(
     <div
+      onClick={onClose}
       className={`fixed inset-0 z-[80] sm:hidden ${isOpen ? '' : 'pointer-events-none'}`}
       aria-hidden={!isOpen}
     >
-      {/* Backdrop */}
+      {/* Backdrop — tap anywhere outside the panel closes (handled on the
+          container so it's reliable on iOS, where onClick on a bare div can be
+          flaky). No backdrop-blur: it repaints the whole viewport every frame
+          and makes taps janky on heavy pages / low-end phones. */}
       <div
         aria-hidden
-        onClick={onClose}
-        className={`absolute inset-0 bg-[#0F1222]/45 backdrop-blur-[2px] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 bg-[#0F1222]/45 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
       />
 
-      {/* Drawer panel */}
+      {/* Drawer panel — stop propagation so taps inside don't bubble to the
+          container's close handler. */}
       <aside
         role="dialog"
         aria-modal="true"
         aria-label="Account menu"
+        onClick={(e) => e.stopPropagation()}
         className={`absolute left-0 top-0 flex h-full w-[85%] max-w-[340px] flex-col bg-white shadow-[0_0_60px_-10px_rgba(15,18,34,0.45)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
