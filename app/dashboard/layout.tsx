@@ -147,7 +147,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Painted mesh background — `absolute` (NOT fixed): a fixed full-screen
           layer with large blur filters repaints every frame on touch/scroll,
           making the mobile drawer + taps janky over the dashboard. */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-0 hidden">
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-0">
         <div className="absolute -top-32 left-[10%] h-[420px] w-[420px] rounded-full bg-[#8B7BFF]/10 blur-[140px]" />
         <div className="absolute right-[-12%] top-1/3 h-[360px] w-[360px] rounded-full bg-[#FFE2B0]/10 blur-[120px]" />
         <div className="absolute left-[-12%] bottom-[-10%] h-[360px] w-[360px] rounded-full bg-[#6356E5]/8 blur-[120px]" />

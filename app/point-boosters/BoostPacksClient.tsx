@@ -120,10 +120,13 @@ export default function BoostPacksPageClient() {
           {/* ============================================================
               ANIMATED BACKGROUND — purely decorative
           ============================================================ */}
+          {/* Animated blur auroras are GPU-heavy on mobile (continuous repaint
+              of huge blur radii) and made the slide-over drawer janky — render
+              them desktop-only. */}
           <div aria-hidden className="pointer-events-none absolute inset-0">
-            <div className="uc-aurora-1 absolute -top-40 left-[15%] h-[560px] w-[560px] -translate-x-1/2 rounded-full bg-[#8B7BFF]/22 blur-[140px]" />
-            <div className="uc-aurora-2 absolute right-[-10%] top-1/3 h-[460px] w-[460px] rounded-full bg-[#FFE2B0]/22 blur-[120px]" />
-            <div className="uc-aurora-3 absolute left-[-12%] bottom-[-12%] h-[420px] w-[420px] rounded-full bg-[#6356E5]/14 blur-[120px]" />
+            <div className="uc-aurora-1 absolute -top-40 left-[15%] hidden h-[560px] w-[560px] -translate-x-1/2 rounded-full bg-[#8B7BFF]/22 blur-[140px] sm:block" />
+            <div className="uc-aurora-2 absolute right-[-10%] top-1/3 hidden h-[460px] w-[460px] rounded-full bg-[#FFE2B0]/22 blur-[120px] sm:block" />
+            <div className="uc-aurora-3 absolute left-[-12%] bottom-[-12%] hidden h-[420px] w-[420px] rounded-full bg-[#6356E5]/14 blur-[120px] sm:block" />
             <div
               className="absolute inset-0 opacity-[0.28]"
               style={{

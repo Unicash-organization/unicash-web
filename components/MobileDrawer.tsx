@@ -222,7 +222,7 @@ export default function MobileDrawer({ isOpen, onClose, user, onLogout, availabl
           and makes taps janky on heavy pages / low-end phones. */}
       <div
         aria-hidden
-        className={`absolute inset-0 bg-[#0F1222]/45 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 bg-[#0F1222]/45 backdrop-blur-[2px] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
       />
 
       {/* Drawer panel — stop propagation so taps inside don't bubble to the
