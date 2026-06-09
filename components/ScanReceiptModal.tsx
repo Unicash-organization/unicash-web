@@ -626,6 +626,13 @@ function ScanPreview({
   onUpload: () => void;
   onRemove: () => void;
 }) {
+  // HEIC/HEIF (common iPhone format) can't render in <img> on most browsers,
+  // so showing the object URL gives a broken-image icon. Detect it and show a
+  // friendly placeholder instead — the file still uploads fine.
+  const isHeic = /\.(heic|heif)$/i.test(fileName);
+  const [imgFailed, setImgFailed] = useState(false);
+  const showPlaceholder = isHeic || imgFailed;
+
   return (
     <>
       <p className="text-[13.5px] leading-relaxed text-[#4B5563]">
@@ -633,12 +640,27 @@ function ScanPreview({
       </p>
 
       <div className="mt-4 overflow-hidden rounded-2xl border border-[#E0DAFF] bg-[#FBFAFF]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={previewUrl}
-          alt="Receipt preview"
-          className="h-auto max-h-[300px] w-full object-contain"
-        />
+        {showPlaceholder ? (
+          <div className="flex flex-col items-center justify-center gap-2 px-4 py-8 text-center">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F0EDFB] text-[#6356E5]">
+              <Icon.Image className="h-6 w-6" />
+            </span>
+            <p className="text-[12.5px] font-semibold text-[#0F1222]">Image ready to upload</p>
+            <p className="max-w-[16rem] text-[11.5px] leading-relaxed text-[#667085]">
+              {isHeic
+                ? "Preview isn't shown for HEIC photos, but your receipt will upload and be reviewed normally."
+                : "Preview couldn't be shown, but your receipt will upload and be reviewed normally."}
+            </p>
+          </div>
+        ) : (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={previewUrl}
+            alt="Receipt preview"
+            onError={() => setImgFailed(true)}
+            className="h-auto max-h-[300px] w-full object-contain"
+          />
+        )}
         <div className="flex items-center justify-between gap-3 border-t border-[#E0DAFF] px-3 py-2.5">
           <div className="min-w-0 flex-1">
             <p className="truncate text-[12.5px] font-semibold text-[#0F1222]">{fileName}</p>
