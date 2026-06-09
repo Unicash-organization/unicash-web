@@ -141,3 +141,5 @@ vite.config.ts.timestamp-*
 certificates
 # FE-03 — sed -i.bak leftovers from server/client split (Task 16/22 2026-05-16)
 *.bak
+.claude/
+CLAUDE.md
