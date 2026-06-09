@@ -543,7 +543,12 @@ function ReceiptRow({ receipt }: { receipt: Receipt }) {
       parts.push(formatRejectReason(receipt.rejectReason));
       if (totalNum != null && Number.isFinite(totalNum)) parts.push(formatAUD(totalNum));
     } else {
-      parts.push(formatRelative(receipt.createdAt));
+      // Pending / processing / needs-review — show the upload DATE (OCR hasn't
+      // extracted the receipt date yet), plus a relative hint for freshness.
+      if (receipt.createdAt) {
+        parts.push(`Uploaded ${formatDate(receipt.createdAt)}`);
+        parts.push(formatRelative(receipt.createdAt));
+      }
     }
     return parts.filter(Boolean).join(' · ');
   })();
@@ -635,7 +640,7 @@ function ReceiptRow({ receipt }: { receipt: Receipt }) {
             {receipt.createdAt && (
               <div className="flex items-center justify-between gap-3">
                 <dt className="font-semibold text-[#667085]">Submitted</dt>
-                <dd className="text-right text-[#667085]">{formatRelative(receipt.createdAt)}</dd>
+                <dd className="text-right text-[#667085]">{formatDate(receipt.createdAt)} · {formatRelative(receipt.createdAt)}</dd>
               </div>
             )}
           </dl>
