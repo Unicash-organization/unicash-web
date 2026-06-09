@@ -30,6 +30,22 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+/**
+ * Coalesce concurrent identical GETs into a single in-flight request.
+ * Several components fetch `/auth/me` and `/membership/me` on the same page
+ * load, which created a request storm (each + a CORS preflight). While one is
+ * in flight, callers share the same promise; the entry clears on settle so the
+ * next page load still fetches fresh data.
+ */
+const _inflightGets = new Map<string, Promise<any>>();
+function dedupeGet(url: string): Promise<any> {
+  const existing = _inflightGets.get(url);
+  if (existing) return existing;
+  const p = apiClient.get(url).finally(() => _inflightGets.delete(url));
+  _inflightGets.set(url, p);
+  return p;
+}
+
 // Handle response errors
 apiClient.interceptors.response.use(
   (response) => response,
@@ -87,8 +103,7 @@ export const api = {
         canResumeCheckout: boolean;
         claimed: boolean;
       }>('/auth/check-email', { email }),
-    me: () => 
-      apiClient.get('/auth/me'),
+    me: () => dedupeGet('/auth/me'),
     // Social Login
     getSocialLoginUrl: (provider: 'google' | 'facebook' | 'github' | 'apple', redirectTo?: string) => {
       const params = redirectTo ? { redirectTo } : {};
@@ -200,7 +215,7 @@ export const api = {
     getPlans: () => apiClient.get('/membership/plans'),
     getBoostPacks: () => apiClient.get('/membership/boost-packs'),
     subscribe: (planId: string) => apiClient.post('/membership/subscribe', { planId }),
-    getUserMembership: () => apiClient.get('/membership/me'),
+    getUserMembership: () => dedupeGet('/membership/me'),
     getRenewalHistory: (page?: number, limit?: number) => 
       apiClient.get('/membership/me/renewals', { params: { page, limit } }),
     pause: () => apiClient.post('/membership/me/pause'),
