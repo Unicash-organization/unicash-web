@@ -826,6 +826,38 @@ export default function DrawDetailClient() {
     });
   }
 
+  /* Winner selection livestream — strongest trust cue: members can watch the
+     winner being selected live. Date shown whenever scheduled; link rendered
+     separately below the facts grid when livestreamUrl is set. */
+  const winnerSelectionLabel = (() => {
+    if (!draw.winnerSelectionAt) return '';
+    const d = new Date(draw.winnerSelectionAt);
+    if (isNaN(d.getTime())) return '';
+    const datePart = d.toLocaleDateString('en-AU', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      timeZone: 'Australia/Sydney',
+    });
+    const timePart = d.toLocaleTimeString('en-AU', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Australia/Sydney',
+      timeZoneName: 'short',
+    });
+    return `${datePart} · ${timePart}`;
+  })();
+  if (winnerSelectionLabel) {
+    detailFacts.push({
+      label: 'Winner selected live',
+      value: winnerSelectionLabel,
+      Icon: Icon.Trophy,
+      iconBg: 'bg-[#FFF6DA] ring-[#FFC85D]/40',
+      iconColor: 'text-[#C49A2C]',
+    });
+  }
+
   /* Optional rich content (overview / prize details / rules) — collapsed if present */
   const hasRichContent = !!(draw.overview || draw.description || draw.prizeDetails || draw.prizeDescription || rulesTerms);
 
@@ -1099,6 +1131,25 @@ export default function DrawDetailClient() {
               );
             })}
           </div>
+
+          {/* Livestream link — shown when the winner selection is broadcast */}
+          {draw.livestreamUrl && (
+            <div className="mt-5 flex justify-center">
+              <a
+                href={draw.livestreamUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2.5 rounded-full border border-[#E7E9F2] bg-white px-5 py-2.5 text-[13px] font-semibold text-[#0F1222] shadow-sm transition hover:bg-[#F6F4FF]"
+              >
+                <span className="relative inline-flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#EF4444]/60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#EF4444]" />
+                </span>
+                Watch the winner selection live on Facebook
+                <Icon.ArrowRight className="h-3.5 w-3.5 text-[#6356E5]" />
+              </a>
+            </div>
+          )}
 
           {/* Optional rich content — single collapsed details element with balanced layout */}
           {hasRichContent && (
