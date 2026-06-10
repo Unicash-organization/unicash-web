@@ -265,11 +265,14 @@ export default function FeaturedBonusDraw() {
     checkingMembership ||
     (featuredDraw.requiresMembership && !!user && !membershipReady);
   const blocked = !stillResolving && featuredDraw.requiresMembership && !canEnterBonusDraw;
+  const isFreeEntryDraw = !!featuredDraw.isFreeEntry;
   const ctaText = stillResolving
     ? 'Checking…'
     : blocked
       ? (isCanceled ? 'Membership cancelled' : membership?.isPaused ? 'Membership paused' : 'Join to Access')
-      : 'Enter Bonus Draw';
+      : isFreeEntryDraw
+        ? 'Enter for Free'
+        : 'Enter Bonus Draw';
 
   /* Whole card click → details page (preserved) */
   const navigate = () => {
@@ -410,12 +413,18 @@ export default function FeaturedBonusDraw() {
                 {/* CTA layout — Points chip + action on one row (all sizes). On mobile the
                     unit shortens to "Pts" and the CTA to "Enter Draw" so both fit. */}
                 <div className="grid grid-cols-[auto_minmax(0,1fr)] items-stretch gap-2 sm:gap-2.5">
-                  <span className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F1FB] px-3 text-[14px] font-extrabold tracking-tight tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF] sm:px-4">
-                    <CoinsIcon className="h-4 w-4 shrink-0" />
-                    {(featuredDraw.costPerEntry || 0).toLocaleString()}
-                    <span className="sm:hidden">&nbsp;Pts</span>
-                    <span className="hidden sm:inline">&nbsp;Points</span>
-                  </span>
+                  {isFreeEntryDraw ? (
+                    <span className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#ECFDF5] px-3 text-[14px] font-extrabold tracking-tight text-[#1F7A37] ring-1 ring-[#A7F3D0] sm:px-4">
+                      Free Entry
+                    </span>
+                  ) : (
+                    <span className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F1FB] px-3 text-[14px] font-extrabold tracking-tight tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF] sm:px-4">
+                      <CoinsIcon className="h-4 w-4 shrink-0" />
+                      {(featuredDraw.costPerEntry || 0).toLocaleString()}
+                      <span className="sm:hidden">&nbsp;Pts</span>
+                      <span className="hidden sm:inline">&nbsp;Points</span>
+                    </span>
+                  )}
                   {(() => {
                     const ctaPrimaryCls = 'uc-lift-sm inline-flex h-12 w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 text-[15px] font-bold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2 bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] hover:from-[#5346D6] hover:to-[#7867EC]';
                     const ctaDisabledCls = 'inline-flex h-12 w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 text-[15px] font-bold bg-[#F4F1FB] text-[#a3a8be] cursor-not-allowed';
@@ -477,12 +486,18 @@ export default function FeaturedBonusDraw() {
                           e.preventDefault();
                           setShowConfirmModal(true);
                         }}
-                        aria-label={`Enter Bonus Draw · ${featuredDraw.title}`}
+                        aria-label={isFreeEntryDraw ? `Enter ${featuredDraw.title} for free` : `Enter Bonus Draw · ${featuredDraw.title}`}
                         className={ctaPrimaryCls}
                       >
                         <span className="truncate">
-                          <span className="sm:hidden">Enter Draw</span>
-                          <span className="hidden sm:inline">Enter Bonus Draw</span>
+                          {isFreeEntryDraw ? (
+                            <>Enter for Free</>
+                          ) : (
+                            <>
+                              <span className="sm:hidden">Enter Draw</span>
+                              <span className="hidden sm:inline">Enter Bonus Draw</span>
+                            </>
+                          )}
                         </span>
                         <ArrowRight className="h-4 w-4 shrink-0" />
                       </button>
@@ -492,7 +507,9 @@ export default function FeaturedBonusDraw() {
 
                 {/* Trust microcopy */}
                 <p className="mt-3 text-center text-[11.5px] text-[#667085]">
-                  Capped participation · Published Winners · Member-only
+                  {isFreeEntryDraw
+                    ? 'Capped participation · Published Winners · Free Entry — one per account'
+                    : 'Capped participation · Published Winners · Member-only'}
                 </p>
               </div>
             </div>
@@ -507,7 +524,8 @@ export default function FeaturedBonusDraw() {
         draw={{
           id: featuredDraw.id,
           title: featuredDraw.title,
-          costPerEntry: featuredDraw.costPerEntry,
+          isFreeEntry: isFreeEntryDraw,
+          costPerEntry: isFreeEntryDraw ? 0 : featuredDraw.costPerEntry,
           state: featuredDraw.state,
           entrants: featuredDraw.entrants || 0,
           cap: featuredDraw.cap ?? 100,
