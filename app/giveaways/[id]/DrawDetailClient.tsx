@@ -628,6 +628,7 @@ export default function DrawDetailClient() {
   const statusBadge = (() => {
     if (isClosed) return { tone: 'neutral', text: 'Closed' };
     if (isSoldOut) return { tone: 'neutral', text: 'Full' };
+    if (draw.isFreeEntry) return { tone: 'gold', text: 'Free Entry' };
     if (draw.requiresMembership) return { tone: 'gold', text: 'Members-only' };
     return null;
   })();
@@ -666,7 +667,25 @@ export default function DrawDetailClient() {
     if (draw.requiresMembership && membership?.isPaused) return { kind: 'membership-paused', ctaLabel: 'Resume Membership', helper: 'Your Membership is paused. Resume to enter this member-only Bonus Draw.' };
     if (draw.requiresMembership && !user) return { kind: 'login-required', ctaLabel: 'Log in to Enter', helper: 'Log in to use Points for this member-only Bonus Draw.' };
     if (draw.requiresMembership && !hasActiveMembership) return { kind: 'membership-required', ctaLabel: 'Join to Access', helper: 'Bonus Draws are available to active UNICASH Members.' };
-    if (!user) return { kind: 'login-required', ctaLabel: 'Log in to Enter', helper: 'Log in to use Points for this Bonus Draw.' };
+    if (!user)
+      return {
+        kind: 'login-required',
+        ctaLabel: draw.isFreeEntry ? 'Log in to Enter Free' : 'Log in to Enter',
+        helper: draw.isFreeEntry
+          ? 'Log in or create a free account to enter this Bonus Draw at no cost.'
+          : 'Log in to use Points for this Bonus Draw.',
+      };
+    /* Free Entry Draw — no Points needed; eligibility (verified email /
+       approved receipt) is enforced by the API with a clear message. */
+    if (draw.isFreeEntry)
+      return {
+        kind: 'available',
+        ctaLabel: 'Enter for Free',
+        helper:
+          draw.freeEntryRequirement === 'approved_receipt'
+            ? 'Free entry — no Points needed. Requires at least one approved receipt.'
+            : 'Free entry — no Points needed. One entry per account.',
+      };
     if (!hasEnoughPoints) return { kind: 'insufficient-points', ctaLabel: 'Get More Points', helper: 'Top up with a Point Booster or earn more Points from eligible receipts.' };
     if (canEnterAgain) {
       const remainingTxt =
@@ -1024,13 +1043,20 @@ export default function DrawDetailClient() {
                 {/* CTA row — Points chip + state-driven button on one row (all sizes).
                     Mobile shortens "Points"→"Pts" so both fit beside each other. */}
                 <div className="mt-6 grid grid-cols-[auto_minmax(0,1fr)] items-stretch gap-2 sm:gap-2.5">
-                  <span className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F1FB] px-3 text-[14px] font-extrabold tracking-tight tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF] sm:px-4">
-                    <Icon.Coins className="h-4 w-4 shrink-0" />
-                    {entryState.kind === 'insufficient-points' ? 'Need ' : ''}
-                    {(draw.costPerEntry || 0).toLocaleString()}
-                    <span className="sm:hidden">&nbsp;Pts</span>
-                    <span className="hidden sm:inline">&nbsp;Points</span>
-                  </span>
+                  {draw.isFreeEntry ? (
+                    <span className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#ECFDF5] px-3 text-[14px] font-extrabold tracking-tight text-[#1F7A37] ring-1 ring-[#A7F3D0] sm:px-4">
+                      <Icon.ShieldCheck className="h-4 w-4 shrink-0" />
+                      Free
+                    </span>
+                  ) : (
+                    <span className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F1FB] px-3 text-[14px] font-extrabold tracking-tight tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF] sm:px-4">
+                      <Icon.Coins className="h-4 w-4 shrink-0" />
+                      {entryState.kind === 'insufficient-points' ? 'Need ' : ''}
+                      {(draw.costPerEntry || 0).toLocaleString()}
+                      <span className="sm:hidden">&nbsp;Pts</span>
+                      <span className="hidden sm:inline">&nbsp;Points</span>
+                    </span>
+                  )}
                   {renderPrimaryButton()}
                 </div>
 
@@ -1222,6 +1248,7 @@ export default function DrawDetailClient() {
                   state={relatedDraw.state}
                   requiresMembership={relatedDraw.requiresMembership}
                   entryLimitMode={relatedDraw.entryLimitMode}
+                  isFreeEntry={!!relatedDraw.isFreeEntry}
                   maxEntriesPerMember={relatedDraw.maxEntriesPerMember}
                 />
               ))}
@@ -1306,11 +1333,18 @@ export default function DrawDetailClient() {
           >
             <div aria-hidden className="absolute inset-0 -z-10 bg-white/80 backdrop-blur-xl" />
             <div className="mx-auto flex max-w-md items-center gap-2.5">
-              <span className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F1FB] px-3.5 text-[13px] font-extrabold tracking-tight tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF]">
-                <Icon.Coins className="h-3.5 w-3.5 shrink-0" />
-                {entryState.kind === 'insufficient-points' ? 'Need ' : ''}
-                {(draw.costPerEntry || 0).toLocaleString()} Pts
-              </span>
+              {draw.isFreeEntry ? (
+                <span className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#ECFDF5] px-3.5 text-[13px] font-extrabold tracking-tight text-[#1F7A37] ring-1 ring-[#A7F3D0]">
+                  <Icon.ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                  Free
+                </span>
+              ) : (
+                <span className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F1FB] px-3.5 text-[13px] font-extrabold tracking-tight tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF]">
+                  <Icon.Coins className="h-3.5 w-3.5 shrink-0" />
+                  {entryState.kind === 'insufficient-points' ? 'Need ' : ''}
+                  {(draw.costPerEntry || 0).toLocaleString()} Pts
+                </span>
+              )}
               <div className="min-w-0 flex-1">{renderPrimaryButton()}</div>
             </div>
           </div>
@@ -1335,6 +1369,7 @@ export default function DrawDetailClient() {
             requiresMembership: draw.requiresMembership,
             entryLimitMode: draw.entryLimitMode,
             maxEntriesPerMember: draw.maxEntriesPerMember ?? null,
+            isFreeEntry: !!draw.isFreeEntry,
           }}
           alreadyEntered={myEntryCount}
           onSuccess={() => {

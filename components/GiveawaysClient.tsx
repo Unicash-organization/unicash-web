@@ -264,6 +264,7 @@ export default function GiveawaysClient() {
                   state={draw.state}
                   requiresMembership={draw.requiresMembership}
                   entryLimitMode={draw.entryLimitMode}
+                  isFreeEntry={!!draw.isFreeEntry}
                   maxEntriesPerMember={draw.maxEntriesPerMember}
                 />
               ))}

@@ -21,6 +21,8 @@ interface ConfirmEntryModalProps {
     requiresMembership?: boolean;
     entryLimitMode?: 'single' | 'multi';
     maxEntriesPerMember?: number | null;
+    /** Free Entry Draw campaign — no Points cost, one entry per account. */
+    isFreeEntry?: boolean;
   };
   /** Entries the member already holds in this draw (MULTI) — caps the stepper. */
   alreadyEntered?: number;
@@ -167,8 +169,9 @@ export default function ConfirmEntryModal({
   );
   const qty = Math.min(Math.max(1, quantity), maxQuantity);
 
+  const isFreeEntryDraw = !!draw.isFreeEntry;
   const totalCredits = (user?.membershipCredits || 0) + (user?.boostCredits || 0);
-  const totalCost = draw.costPerEntry * qty;
+  const totalCost = isFreeEntryDraw ? 0 : draw.costPerEntry * qty;
   const hasEnoughCredits = totalCredits >= totalCost;
   const isUnlimitedCapacity = draw.cap === -1;
   const isSoldOut = !isUnlimitedCapacity && (draw.state === 'soldOut' || draw.entrants >= draw.cap);
@@ -220,6 +223,14 @@ export default function ConfirmEntryModal({
       // Brief ✓ success state in CTA (Solution 3)
       setLoading(false);
       setSuccess(true);
+
+      /* Free Entry Draw — conversion moment: keep the modal OPEN and show
+         the membership nudge instead of auto-closing. onSuccess (which may
+         reload the page) is deferred until the member dismisses the panel. */
+      if (isFreeEntryDraw) {
+        refreshUser().catch(() => {});
+        return;
+      }
 
       // Show toast (auto-dismisses via global toast lib)
       setToastMessage('Entry confirmed!');
@@ -385,7 +396,7 @@ export default function ConfirmEntryModal({
                 <TicketIcon className="h-7 w-7 text-[#FFE2B0]" />
               </span>
               <h2 id="cem-title" className="relative mt-4 text-[20px] font-extrabold leading-[1.2] tracking-tight text-white sm:text-[22px]">
-                Confirm Entry
+                {isFreeEntryDraw ? (success ? 'Entry Confirmed' : 'Confirm Free Entry') : 'Confirm Entry'}
               </h2>
               {draw.title && (
                 <p className="relative mt-1 text-[12.5px] font-medium text-white/75 line-clamp-1">
@@ -394,7 +405,43 @@ export default function ConfirmEntryModal({
               )}
             </div>
 
-            {/* Body */}
+            {/* Free Entry success — conversion panel ("golden moment") */}
+            {success && isFreeEntryDraw ? (
+              <div className="px-6 pb-7 pt-6 text-center sm:px-7 sm:pb-8">
+                <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#ECFDF5] ring-1 ring-[#A7F3D0]">
+                  <CheckCircleIcon className="h-7 w-7 text-[#10B981]" />
+                </span>
+                <h3 className="mt-4 text-[22px] font-extrabold tracking-tight text-[#0F1222]">
+                  You&apos;re in!
+                </h3>
+                <p className="mx-auto mt-2 max-w-xs text-[13.5px] leading-relaxed text-[#4B5563]">
+                  Members get entries in every Major Draw automatically.
+                </p>
+                <div className="mt-6 flex flex-col gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      router.push('/#membership-plans');
+                    }}
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[14.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2"
+                  >
+                    Join Now
+                    <ArrowRight className="h-4 w-4 shrink-0" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onSuccess?.();
+                    }}
+                    className="inline-flex h-11 w-full items-center justify-center whitespace-nowrap rounded-full px-5 text-[13.5px] font-semibold text-[#667085] transition-colors hover:text-[#0F1222] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2"
+                  >
+                    Maybe later
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="px-6 pb-6 pt-5 sm:px-7 sm:pb-7 sm:pt-6">
               {/* Quantity stepper — MULTI draws only */}
               {isMulti && !isSoldOut && !isClosed && (
@@ -435,7 +482,22 @@ export default function ConfirmEntryModal({
                 </div>
               )}
 
-              {/* Cost summary card — entry cost + balance with semantic color + after-entry hint */}
+              {/* Cost summary card — Free Entry Draws show a simple green card */}
+              {isFreeEntryDraw ? (
+                <div className="rounded-2xl border border-[#A7F3D0] bg-[#ECFDF5] p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#1F7A37]">
+                      Entry cost
+                    </span>
+                    <span className="text-[26px] font-extrabold leading-none tracking-tight text-[#1F7A37]">
+                      Free
+                    </span>
+                  </div>
+                  <p className="mt-2 text-[11.5px] leading-relaxed text-[#166534]">
+                    No Points needed · one entry per account
+                  </p>
+                </div>
+              ) : (
               <div className="rounded-2xl border border-[#E0DAFF] bg-[#FBFAFF] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#667085]">
@@ -485,6 +547,7 @@ export default function ConfirmEntryModal({
                   </>
                 )}
               </div>
+              )}
 
               {/* Membership warning block */}
               {warningState && (
@@ -576,6 +639,7 @@ export default function ConfirmEntryModal({
                 </button>
               </div>
             </div>
+            )}
 
             {/* Animations */}
             <style dangerouslySetInnerHTML={{ __html: `

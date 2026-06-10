@@ -37,6 +37,8 @@ interface DrawCardProps {
   requiresMembership?: boolean;
   entryLimitMode?: 'single' | 'multi';
   maxEntriesPerMember?: number | null;
+  /** Free Entry Draw campaign — anyone (incl. Free accounts), no Points cost. */
+  isFreeEntry?: boolean;
 }
 
 /* Inline SVG helpers (avoids extra deps) */
@@ -97,6 +99,7 @@ export default function DrawCard({
   requiresMembership = false,
   entryLimitMode,
   maxEntriesPerMember,
+  isFreeEntry = false,
 }: DrawCardProps) {
   const entryRuleLabel =
     entryLimitMode === 'multi'
@@ -378,6 +381,21 @@ export default function DrawCard({
         );
       }
 
+      // Free Entry Draw + logged out → log in first (entry is account-bound)
+      if (isFreeEntry && !user) {
+        return (
+          <Link
+            href="/login"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Log in to enter ${title} for free`}
+            className={`${ctaBaseCls} bg-[#6356e5] text-white shadow-[0_10px_24px_-12px_rgba(99,86,229,0.6)] hover:bg-[#5346d6]`}
+          >
+            <span className="truncate">Log in to Enter Free</span>
+            <Icon.ArrowRight className="h-3.5 w-3.5 shrink-0" />
+          </Link>
+        );
+      }
+
       // Available — open ConfirmEntryModal (preserved logic)
       return (
         <button
@@ -387,12 +405,18 @@ export default function DrawCard({
             e.preventDefault();
             setShowConfirmModal(true);
           }}
-          aria-label={`Enter Bonus Draw · ${title}`}
+          aria-label={isFreeEntry ? `Enter ${title} for free` : `Enter Bonus Draw · ${title}`}
           className={`${ctaBaseCls} bg-[#6356e5] text-white shadow-[0_10px_24px_-12px_rgba(99,86,229,0.6)] hover:bg-[#5346d6]`}
         >
           <span className="truncate">
-            <span className="sm:hidden">Enter Draw</span>
-            <span className="hidden sm:inline">Enter Bonus Draw</span>
+            {isFreeEntry ? (
+              <>Enter for Free</>
+            ) : (
+              <>
+                <span className="sm:hidden">Enter Draw</span>
+                <span className="hidden sm:inline">Enter Bonus Draw</span>
+              </>
+            )}
           </span>
           <Icon.ArrowRight className="h-3.5 w-3.5 shrink-0" />
         </button>
@@ -432,6 +456,13 @@ export default function DrawCard({
       return (
         <span className="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-[#E5F7EE] px-2.5 py-1 text-[11px] font-semibold text-[#1F7A37]">
           ✓ Entered
+        </span>
+      );
+    }
+    if (isFreeEntry && status === 'open') {
+      return (
+        <span className="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-[#E5F7EE]/95 px-2.5 py-1 text-[11px] font-bold text-[#1F7A37] backdrop-blur">
+          Free Entry
         </span>
       );
     }
@@ -563,12 +594,19 @@ export default function DrawCard({
             switches to horizontal grid at md+ where card has enough width for both. */}
         {/* One row on mobile (full-width card) + md+; stacked only on sm (narrow 2-col). */}
         <div className="mt-5 grid grid-cols-[auto_minmax(0,1fr)] items-stretch gap-2 sm:flex sm:flex-col md:grid md:grid-cols-[auto_minmax(0,1fr)]">
-          <span className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F1FB] px-3 text-[12.5px] font-extrabold tracking-tight tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF] sm:px-3.5 md:w-auto">
-            <Icon.Coins className="h-3.5 w-3.5 shrink-0" />
-            {creditsPerEntry.toLocaleString()}
-            <span className="sm:hidden">&nbsp;Pts</span>
-            <span className="hidden sm:inline">&nbsp;Points</span>
-          </span>
+          {isFreeEntry ? (
+            <span className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#ECFDF5] px-3 text-[12.5px] font-extrabold tracking-tight text-[#1F7A37] ring-1 ring-[#A7F3D0] sm:px-3.5 md:w-auto">
+              <Icon.ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+              Free Entry
+            </span>
+          ) : (
+            <span className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#F4F1FB] px-3 text-[12.5px] font-extrabold tracking-tight tabular-nums text-[#6356E5] ring-1 ring-[#E0DAFF] sm:px-3.5 md:w-auto">
+              <Icon.Coins className="h-3.5 w-3.5 shrink-0" />
+              {creditsPerEntry.toLocaleString()}
+              <span className="sm:hidden">&nbsp;Pts</span>
+              <span className="hidden sm:inline">&nbsp;Points</span>
+            </span>
+          )}
           {renderCta()}
         </div>
       </div>
@@ -580,12 +618,13 @@ export default function DrawCard({
         draw={{
           id,
           title,
-          costPerEntry: creditsPerEntry,
+          costPerEntry: isFreeEntry ? 0 : creditsPerEntry,
           state,
           entrants,
           cap,
           closedAt,
           requiresMembership,
+          isFreeEntry,
         }}
         onSuccess={() => {
           window.location.reload();
