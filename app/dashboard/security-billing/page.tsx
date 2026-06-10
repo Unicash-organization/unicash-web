@@ -82,6 +82,21 @@ export default function SecurityBillingPage() {
   const [isFirstTimeChange, setIsFirstTimeChange] = useState(false);
   const [paymentPanelRefresh, setPaymentPanelRefresh] = useState(0);
 
+  /* Email verification — resend flow with explicit states */
+  const [resendVerifyState, setResendVerifyState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const handleResendVerifyEmail = async () => {
+    setResendVerifyState('sending');
+    try {
+      await api.auth.resendEmailVerification();
+      setResendVerifyState('sent');
+      // Allow another resend after 60s (rate-limit friendly)
+      setTimeout(() => setResendVerifyState('idle'), 60_000);
+    } catch {
+      setResendVerifyState('error');
+      setTimeout(() => setResendVerifyState('idle'), 4_000);
+    }
+  };
+
   // First-time password change focus — preserved
   useEffect(() => {
     if (user && user.hasChangedPassword === false) {
@@ -221,11 +236,50 @@ export default function SecurityBillingPage() {
             <Icon.Mail className="h-4 w-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Login email</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">Login email</p>
+              {(user as any)?.emailVerifiedAt ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#E5F7EE] px-2.5 py-0.5 text-[10.5px] font-bold text-[#1F7A37]">
+                  ✓ Verified
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF7E6] px-2.5 py-0.5 text-[10.5px] font-bold text-[#9C5410]">
+                  Not verified
+                </span>
+              )}
+            </div>
             <p className="mt-0.5 break-all text-[13.5px] font-semibold text-[#0F1222]">{user?.email || '—'}</p>
             <p className="mt-1 text-[11.5px] leading-relaxed text-[#667085]">
               You can log in with this email and your password.
             </p>
+
+            {/* Unverified — explain why it matters + resend with full states */}
+            {user && !(user as any)?.emailVerifiedAt && (
+              <div className="mt-3 rounded-xl bg-[#FFF7E6] p-3 ring-1 ring-[#F8DDA8]">
+                <p className="text-[12px] leading-relaxed text-[#7C3F00]">
+                  Verify your email to secure your account and unlock free Bonus Draw entries.
+                </p>
+                <button
+                  type="button"
+                  disabled={resendVerifyState === 'sending' || resendVerifyState === 'sent'}
+                  onClick={handleResendVerifyEmail}
+                  className="mt-2 inline-flex h-9 items-center justify-center rounded-full bg-[#6356E5] px-4 text-[12.5px] font-bold text-white transition hover:bg-[#5346D6] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {resendVerifyState === 'sending'
+                    ? 'Sending…'
+                    : resendVerifyState === 'sent'
+                      ? 'Sent — check your inbox'
+                      : resendVerifyState === 'error'
+                        ? 'Failed — try again'
+                        : 'Resend verification email'}
+                </button>
+                {resendVerifyState === 'sent' && (
+                  <p className="mt-1.5 text-[11px] text-[#7C3F00]">
+                    Use the newest email — older links stop working. Link expires in 24 hours.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
