@@ -774,18 +774,6 @@ export default function DrawDetailClient() {
     );
   };
 
-  /* Close date — weekday + date, e.g. "Monday 23 June". */
-  const closeDateLabel = (() => {
-    const d = new Date(draw.closedAt);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('en-AU', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      timeZone: 'Australia/Sydney',
-    });
-  })();
-
   /* Info cards (the live Entry List card is rendered separately, first). */
   const detailFacts: {
     label: string;
@@ -795,40 +783,16 @@ export default function DrawDetailClient() {
     iconColor: string;
   }[] = [
     {
-      label: 'Entry cap',
-      value: isUnlimited ? 'Unlimited' : cap.toLocaleString() + ' entries',
+      label: 'Entries',
+      value: `${isUnlimited ? 'Unlimited' : cap.toLocaleString() + ' cap'} · ${entryRuleLabel}`,
       Icon: Icon.Users,
       iconBg: 'bg-[#F4F1FB] ring-[#E0DAFF]',
       iconColor: 'text-[#6356E5]',
     },
-    {
-      label: 'Entry rule',
-      value: entryRuleLabel,
-      Icon: Icon.ShieldCheck,
-      iconBg: 'bg-[#ECFDF5] ring-[#A7F3D0]',
-      iconColor: 'text-[#10B981]',
-    },
-    {
-      label: isClosed ? 'Closed' : 'Closes',
-      value: closeDateLabel,
-      Icon: Icon.CalendarClock,
-      iconBg: 'bg-[#FFF6DA] ring-[#FFC85D]/40',
-      iconColor: 'text-[#C49A2C]',
-    },
   ];
-  if (draw.prizeValue) {
-    detailFacts.push({
-      label: 'Prize value',
-      value: `$${draw.prizeValue}`,
-      Icon: Icon.Sparkle,
-      iconBg: 'bg-[#FFF6DA] ring-[#FFC85D]/40',
-      iconColor: 'text-[#C49A2C]',
-    });
-  }
 
   /* Winner selection livestream — strongest trust cue: members can watch the
-     winner being selected live. Date shown whenever scheduled; link rendered
-     separately below the facts grid when livestreamUrl is set. */
+     winner being selected live. */
   const winnerSelectionLabel = (() => {
     if (!draw.winnerSelectionAt) return '';
     const d = new Date(draw.winnerSelectionAt);
@@ -848,15 +812,42 @@ export default function DrawDetailClient() {
     });
     return `${datePart} · ${timePart}`;
   })();
-  if (winnerSelectionLabel) {
-    detailFacts.push({
+  /* Closes — full date + time (same format as the winner selection card). */
+  const closesFullLabel = (() => {
+    const d = new Date(draw.closedAt);
+    if (isNaN(d.getTime())) return '';
+    const datePart = d.toLocaleDateString('en-AU', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      timeZone: 'Australia/Sydney',
+    });
+    const timePart = d.toLocaleTimeString('en-AU', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Australia/Sydney',
+      timeZoneName: 'short',
+    });
+    return `${datePart} · ${timePart}`;
+  })();
+
+  detailFacts.push(
+    {
+      label: isClosed ? 'Closed' : 'Closes',
+      value: closesFullLabel,
+      Icon: Icon.CalendarClock,
+      iconBg: 'bg-[#FFF6DA] ring-[#FFC85D]/40',
+      iconColor: 'text-[#C49A2C]',
+    },
+    {
       label: 'Winner selected live',
-      value: winnerSelectionLabel,
+      value: winnerSelectionLabel || 'To be announced',
       Icon: Icon.Trophy,
       iconBg: 'bg-[#FFF6DA] ring-[#FFC85D]/40',
       iconColor: 'text-[#C49A2C]',
-    });
-  }
+    },
+  );
 
   /* Optional rich content (overview / prize details / rules) — collapsed if present */
   const hasRichContent = !!(draw.overview || draw.description || draw.prizeDetails || draw.prizeDescription || rulesTerms);
@@ -967,7 +958,7 @@ export default function DrawDetailClient() {
                       </span>
                       <div className="min-w-0">
                         <p className="text-[9.5px] font-bold uppercase tracking-[0.14em] text-[#667085]">
-                          Winners in
+                          Entries close in
                         </p>
                         <div className="-mt-0.5 text-[13px] tracking-tight text-[#0F1222]">
                           <CompactCountdown targetDate={draw.closedAt as string} />
@@ -1103,11 +1094,22 @@ export default function DrawDetailClient() {
       ============================================================ */}
       <section className="relative w-full overflow-hidden bg-white">
         <div className="relative mx-auto max-w-6xl px-5 py-10 sm:px-6 sm:py-14 lg:px-8 lg:py-16">
+          {/* Section CTA — links to the live video when set, else the UNICASH
+              Facebook page (always valid before the stream starts). */}
           <div className="mb-8 text-center sm:mb-10">
-            <span className="inline-flex items-center gap-2 rounded-full bg-[#F4F1FB] px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-[#6356E5] ring-1 ring-[#E0DAFF]">
-              <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-[#6356E5]" />
-              Bonus Draw details
-            </span>
+            <a
+              href={draw.livestreamUrl || 'https://www.facebook.com/Unicash.au/'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2.5 rounded-full border border-[#E7E9F2] bg-white px-5 py-2.5 text-[13px] font-semibold text-[#0F1222] shadow-sm transition hover:bg-[#F6F4FF]"
+            >
+              <span className="relative inline-flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#EF4444]/60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#EF4444]" />
+              </span>
+              Watch the winner selection live on Facebook
+              <Icon.ArrowRight className="h-3.5 w-3.5 text-[#6356E5]" />
+            </a>
           </div>
 
           {/* Stat grid — live Entry List card first, then info cards */}
@@ -1131,25 +1133,6 @@ export default function DrawDetailClient() {
               );
             })}
           </div>
-
-          {/* Livestream link — shown when the winner selection is broadcast */}
-          {draw.livestreamUrl && (
-            <div className="mt-5 flex justify-center">
-              <a
-                href={draw.livestreamUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2.5 rounded-full border border-[#E7E9F2] bg-white px-5 py-2.5 text-[13px] font-semibold text-[#0F1222] shadow-sm transition hover:bg-[#F6F4FF]"
-              >
-                <span className="relative inline-flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#EF4444]/60" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#EF4444]" />
-                </span>
-                Watch the winner selection live on Facebook
-                <Icon.ArrowRight className="h-3.5 w-3.5 text-[#6356E5]" />
-              </a>
-            </div>
-          )}
 
           {/* Optional rich content — single collapsed details element with balanced layout */}
           {hasRichContent && (
