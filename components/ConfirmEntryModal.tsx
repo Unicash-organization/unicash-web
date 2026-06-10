@@ -405,7 +405,8 @@ export default function ConfirmEntryModal({
               )}
             </div>
 
-            {/* Free Entry success — conversion panel ("golden moment") */}
+            {/* Free Entry success — conversion panel for Free accounts,
+                plain congratulations for paid Members (no pointless upsell) */}
             {success && isFreeEntryDraw ? (
               <div className="px-6 pb-7 pt-6 text-center sm:px-7 sm:pb-8">
                 <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#ECFDF5] ring-1 ring-[#A7F3D0]">
@@ -414,32 +415,69 @@ export default function ConfirmEntryModal({
                 <h3 className="mt-4 text-[22px] font-extrabold tracking-tight text-[#0F1222]">
                   You&apos;re in!
                 </h3>
-                <p className="mx-auto mt-2 max-w-xs text-[13.5px] leading-relaxed text-[#4B5563]">
-                  Members get entries in every Major Draw automatically.
-                </p>
-                <div className="mt-6 flex flex-col gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      router.push('/#membership-plans');
-                    }}
-                    className="inline-flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[14.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2"
-                  >
-                    Join Now
-                    <ArrowRight className="h-4 w-4 shrink-0" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onSuccess?.();
-                    }}
-                    className="inline-flex h-11 w-full items-center justify-center whitespace-nowrap rounded-full px-5 text-[13.5px] font-semibold text-[#667085] transition-colors hover:text-[#0F1222] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2"
-                  >
-                    Maybe later
-                  </button>
-                </div>
+                {(() => {
+                  const isPaidMember =
+                    !!(user as any)?.state && (user as any).state !== 'free';
+                  return isPaidMember ? (
+                    <>
+                      <p className="mx-auto mt-2 max-w-xs text-[13.5px] leading-relaxed text-[#4B5563]">
+                        Good luck — the winner is selected live on Facebook.
+                      </p>
+                      <div className="mt-6 flex flex-col gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            router.push('/dashboard/entries');
+                          }}
+                          className="inline-flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[14.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2"
+                        >
+                          View My Entries
+                          <ArrowRight className="h-4 w-4 shrink-0" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            onSuccess?.();
+                          }}
+                          className="inline-flex h-11 w-full items-center justify-center whitespace-nowrap rounded-full px-5 text-[13.5px] font-semibold text-[#667085] transition-colors hover:text-[#0F1222] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="mx-auto mt-2 max-w-xs text-[13.5px] leading-relaxed text-[#4B5563]">
+                        Members get entries in every Major Draw automatically.
+                      </p>
+                      <div className="mt-6 flex flex-col gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            router.push('/#membership-plans');
+                          }}
+                          className="inline-flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-gradient-to-r from-[#6356E5] to-[#8B7BFF] px-5 text-[14.5px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(99,86,229,0.65)] transition-all hover:from-[#5346D6] hover:to-[#7867EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2"
+                        >
+                          Join Now
+                          <ArrowRight className="h-4 w-4 shrink-0" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            onSuccess?.();
+                          }}
+                          className="inline-flex h-11 w-full items-center justify-center whitespace-nowrap rounded-full px-5 text-[13.5px] font-semibold text-[#667085] transition-colors hover:text-[#0F1222] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6356E5] focus-visible:ring-offset-2"
+                        >
+                          Maybe later
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             ) : (
             <div className="px-6 pb-6 pt-5 sm:px-7 sm:pb-7 sm:pt-6">
