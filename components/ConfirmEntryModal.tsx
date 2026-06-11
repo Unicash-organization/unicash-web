@@ -80,6 +80,7 @@ export default function ConfirmEntryModal({
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false); // Brief success state before close (Solution 3)
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [membership, setMembership] = useState<any>(null);
@@ -127,6 +128,7 @@ export default function ConfirmEntryModal({
   useEffect(() => {
     if (!isOpen) {
       setError(null);
+      setErrorCode(null);
       setShowToast(false);
       setSuccess(false); // Reset success state when modal closes
     } else if (draw.requiresMembership && user) {
@@ -253,6 +255,7 @@ export default function ConfirmEntryModal({
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to enter draw';
       setError(errorMessage);
+      setErrorCode(err.response?.data?.code || null);
       setLoading(false);
     }
   };
@@ -630,12 +633,40 @@ export default function ConfirmEntryModal({
                 </div>
               )}
 
-              {/* Error */}
+              {/* Error — eligibility codes include a direct "fix it" action */}
               {error && (
                 <div className="mt-4 rounded-2xl bg-[#FEF2F2] p-4 ring-1 ring-[#FCA5A5]/60">
                   <div className="flex items-start gap-2.5">
                     <AlertIcon className="mt-0.5 h-5 w-5 shrink-0 text-[#EF4444]" />
-                    <p className="text-[13px] leading-relaxed text-[#991B1B]">{error}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] leading-relaxed text-[#991B1B]">{error}</p>
+                      {errorCode === 'EMAIL_VERIFICATION_REQUIRED' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            router.push('/dashboard/security-billing');
+                          }}
+                          className="mt-2.5 inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#6356E5] px-4 text-[12.5px] font-bold text-white transition hover:bg-[#5346D6]"
+                        >
+                          Verify my email
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {errorCode === 'APPROVED_RECEIPT_REQUIRED' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            router.push('/dashboard/receipts');
+                          }}
+                          className="mt-2.5 inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#6356E5] px-4 text-[12.5px] font-bold text-white transition hover:bg-[#5346D6]"
+                        >
+                          Scan a receipt
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
