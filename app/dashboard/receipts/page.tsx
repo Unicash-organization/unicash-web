@@ -204,7 +204,13 @@ function formatRejectReason(reason: string): string {
 ======================================================================= */
 export default function MyReceiptsPage() {
   const { user } = useAuth();
-  const isActiveMember = user?.state === 'memberActive';
+  /* Scan Receipts is available to active Members AND Free accounts — the
+     Free loop (scan → Points → gift cards) is the core Free benefit.
+     Mirrors the API ActiveMemberGuard. */
+  const canScanReceipts =
+    user?.state === 'memberActive' ||
+    user?.state === 'free' ||
+    user?.state === 'nonMember';
 
   /* -------- modal state -------- */
   const [scanModalOpen, setScanModalOpen] = useState(false);
@@ -222,7 +228,7 @@ export default function MyReceiptsPage() {
   /* -------- fetch helper -------- */
   const fetchReceipts = useCallback(
     async (opts: { filterKey: FilterKey; page: number; append: boolean }) => {
-      if (!isActiveMember) return;
+      if (!canScanReceipts) return;
       const myReqId = ++reqIdRef.current;
       setLoading(true);
       setError(null);
@@ -246,7 +252,7 @@ export default function MyReceiptsPage() {
         if (myReqId === reqIdRef.current) setLoading(false);
       }
     },
-    [isActiveMember],
+    [canScanReceipts],
   );
 
   /* -------- initial + filter change -------- */
@@ -264,7 +270,7 @@ export default function MyReceiptsPage() {
 
   /* -------- "Scan a receipt" CTA -------- */
   const handleOpenScan = () => {
-    if (!isActiveMember) {
+    if (!canScanReceipts) {
       setMemberModalOpen(true);
       return;
     }
@@ -314,7 +320,7 @@ export default function MyReceiptsPage() {
             Track scanned receipts and Points earned.
           </p>
         </div>
-        {isActiveMember && (
+        {canScanReceipts && (
           <button
             type="button"
             onClick={handleOpenScan}
@@ -327,7 +333,7 @@ export default function MyReceiptsPage() {
       </header>
 
       {/* ============== NON-MEMBER GATE ============== */}
-      {!isActiveMember && (
+      {!canScanReceipts && (
         <article className="overflow-hidden rounded-3xl border border-[#E0DAFF] bg-white shadow-[0_18px_50px_-30px_rgba(99,86,229,0.20)]">
           <div className="px-5 py-6 sm:px-7 sm:py-7">
             <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F4F1FB] text-[#6356E5] ring-1 ring-[#E0DAFF]">
@@ -359,7 +365,7 @@ export default function MyReceiptsPage() {
       )}
 
       {/* ============== STATS SUMMARY ============== */}
-      {isActiveMember && (
+      {canScanReceipts && (
         <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-6">
           <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6356E5]">
             Receipts overview
@@ -396,7 +402,7 @@ export default function MyReceiptsPage() {
       )}
 
       {/* ============== FILTER PILLS + LIST ============== */}
-      {isActiveMember && (
+      {canScanReceipts && (
         <article className="rounded-3xl border border-[#E7E9F2] bg-white p-5 shadow-[0_1px_2px_rgba(15,18,34,.04)] sm:p-6">
           {/* Filter pills — -mb-1/pb-1 give the active pill's shadow vertical room
               so the overflow-x scroll container doesn't clip it. */}
