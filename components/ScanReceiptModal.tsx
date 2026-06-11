@@ -351,9 +351,19 @@ export default function ScanReceiptModal({ isOpen, onClose, onComplete }: ScanRe
     [onComplete, refreshUser],
   );
 
-  /* -------- close handler — guard against close-during-upload -------- */
+  /* -------- close handlers --------
+     Backdrop clicks are ignored during uploading AND processing — an
+     accidental click on the dimmed area used to silently kill the modal
+     mid-scan, leaving the member unsure whether the receipt went through.
+     The explicit X stays available during processing (the receipt is
+     already uploaded server-side; closing just stops watching it). */
   const safeClose = () => {
-    if (state.kind === 'uploading') return; // don't allow close mid-upload
+    if (state.kind === 'uploading' || state.kind === 'processing') return;
+    onClose();
+  };
+
+  const explicitClose = () => {
+    if (state.kind === 'uploading') return; // upload must finish first
     onClose();
   };
 
@@ -390,7 +400,7 @@ export default function ScanReceiptModal({ isOpen, onClose, onComplete }: ScanRe
         {/* Close button */}
         <button
           type="button"
-          onClick={safeClose}
+          onClick={explicitClose}
           aria-label="Close"
           disabled={state.kind === 'uploading'}
           className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white/85 backdrop-blur transition-colors hover:bg-white/25 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:opacity-40"
@@ -428,7 +438,13 @@ export default function ScanReceiptModal({ isOpen, onClose, onComplete }: ScanRe
           )}
 
           {state.kind === 'processing' && (
-            <ScanProgress label="Reading your receipt…" sub="This usually takes a few seconds." previewUrl={state.previewUrl} />
+            <>
+              <ScanProgress label="Reading your receipt…" sub="This usually takes a few seconds." previewUrl={state.previewUrl} />
+              <p className="mt-3 text-center text-[11.5px] leading-relaxed text-[#9CA0B3]">
+                Your receipt is uploaded — closing this window won&apos;t cancel it.
+                You can track it anytime in My Receipts.
+              </p>
+            </>
           )}
 
           {state.kind === 'result' && (
