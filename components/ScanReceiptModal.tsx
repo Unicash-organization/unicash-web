@@ -171,7 +171,7 @@ type InternalState =
   | { kind: 'idle' }
   | { kind: 'preview'; file: File; previewUrl: string }
   | { kind: 'uploading'; file: File; previewUrl: string }
-  | { kind: 'processing'; receiptId: string; previewUrl: string; pollStartedAt: number }
+  | { kind: 'processing'; receiptId: string; previewUrl: string; pollStartedAt: number; fileName?: string }
   | { kind: 'result'; receipt: ReceiptDto; previewUrl?: string }
   | { kind: 'error'; message: string; previewUrl?: string };
 
@@ -294,7 +294,7 @@ export default function ScanReceiptModal({ isOpen, onClose, onComplete }: ScanRe
       // Begin polling.
       pollAbortRef.current = false;
       const pollStartedAt = Date.now();
-      setState({ kind: 'processing', receiptId, previewUrl, pollStartedAt });
+      setState({ kind: 'processing', receiptId, previewUrl, pollStartedAt, fileName: file.name });
       pollReceipt(receiptId, previewUrl, pollStartedAt);
     } catch (err: any) {
       const code = err?.response?.data?.code;
@@ -434,12 +434,12 @@ export default function ScanReceiptModal({ isOpen, onClose, onComplete }: ScanRe
           )}
 
           {state.kind === 'uploading' && (
-            <ScanProgress label="Uploading receipt…" sub="Don't close this window." previewUrl={state.previewUrl} />
+            <ScanProgress label="Uploading receipt…" sub="Don't close this window." previewUrl={state.previewUrl} fileName={state.file.name} />
           )}
 
           {state.kind === 'processing' && (
             <>
-              <ScanProgress label="Reading your receipt…" sub="This usually takes a few seconds." previewUrl={state.previewUrl} />
+              <ScanProgress label="Reading your receipt…" sub="This usually takes a few seconds." previewUrl={state.previewUrl} fileName={state.fileName} />
               <p className="mt-3 text-center text-[11.5px] leading-relaxed text-[#9CA0B3]">
                 Your receipt is uploaded — closing this window won&apos;t cancel it.
                 You can track it anytime in My Receipts.
@@ -715,13 +715,45 @@ function ScanPreview({
 }
 
 /* ============== PROGRESS (uploading + processing) ============== */
-function ScanProgress({ label, sub, previewUrl }: { label: string; sub: string; previewUrl?: string }) {
+function ScanProgress({
+  label,
+  sub,
+  previewUrl,
+  fileName,
+}: {
+  label: string;
+  sub: string;
+  previewUrl?: string;
+  fileName?: string;
+}) {
+  // HEIC can't render in <img> — show a neutral placeholder band instead of a
+  // broken/blank image with a scanline shimmering over nothing.
+  const isHeic = /\.(heic|heif)$/i.test(fileName || '');
+  const [imgFailed, setImgFailed] = useState(false);
+  const showImage = previewUrl && !isHeic && !imgFailed;
   return (
     <div className="flex flex-col items-center py-2">
       {previewUrl && (
         <div className="relative mb-5 w-full overflow-hidden rounded-2xl border border-[#E0DAFF] bg-[#FBFAFF]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={previewUrl} alt="" className="h-auto max-h-[180px] w-full object-contain opacity-90" />
+          {showImage ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={previewUrl}
+              alt=""
+              onError={() => setImgFailed(true)}
+              className="h-auto max-h-[180px] w-full object-contain opacity-90"
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-1.5 px-4 py-7 text-center">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0EDFB] text-[#6356E5]">
+                <Icon.Image className="h-5 w-5" />
+              </span>
+              {fileName && (
+                <p className="max-w-[16rem] truncate text-[12px] font-semibold text-[#0F1222]">{fileName}</p>
+              )}
+              <p className="text-[11px] text-[#667085]">Preview not available for this format</p>
+            </div>
+          )}
           {/* Scan-line shimmer over preview */}
           <div className="uc-srm-scanline pointer-events-none absolute inset-x-2 top-0 h-1 rounded-full bg-gradient-to-r from-transparent via-[#6356E5] to-transparent shadow-[0_0_24px_#6356E5]" aria-hidden />
           <style dangerouslySetInnerHTML={{ __html: `
