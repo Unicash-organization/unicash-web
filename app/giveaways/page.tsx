@@ -19,6 +19,7 @@ export const metadata: Metadata = {
     siteName: 'UNICASH',
     locale: 'en_AU',
     type: 'website',
+    images: [{ url: '/og-default.png', width: 1200, height: 630, alt: 'UNICASH' }],
   },
 };
 
