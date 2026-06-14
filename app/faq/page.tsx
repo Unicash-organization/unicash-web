@@ -1,12 +1,10 @@
 import type { Metadata } from 'next';
 import FAQClient from './FAQClient';
+import { FAQ_SCHEMA_ENTRIES } from './faq-data';
 
 /**
- * FE-03 — /faq server shell. FAQPage JSON-LD is intentionally lean here
- * (the client renders the full Q&A list); a follow-up TICK-XXX can hoist
- * the static FAQ array into a shared module and emit the questions
- * inside the JSON-LD for rich SERP results. For launch we ship a stub
- * schema so SERP recognises the page is FAQ-shaped.
+ * FE-03 — /faq server shell. FAQPage JSON-LD is emitted server-side with the
+ * full Q&A (from FAQ_SCHEMA_ENTRIES) so Google/AI ingest it for rich results.
  */
 export const metadata: Metadata = {
   title: 'FAQs — UNICASH',
@@ -29,7 +27,11 @@ const FAQ_SCHEMA = {
   '@type': 'FAQPage',
   url: 'https://unicash.com.au/faq',
   name: 'UNICASH FAQs',
-  // mainEntity array intentionally omitted at launch — see file comment above.
+  mainEntity: FAQ_SCHEMA_ENTRIES.map(({ q, a }) => ({
+    '@type': 'Question',
+    name: q,
+    acceptedAnswer: { '@type': 'Answer', text: a },
+  })),
 };
 
 export default function FAQPage() {

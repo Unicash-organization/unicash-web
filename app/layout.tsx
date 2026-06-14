@@ -5,8 +5,21 @@ import ToastProvider from '@/components/ToastProvider'
 import { AuthProvider } from '@/contexts/AuthContext'
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://unicash.com.au'),
+  // Default title for pages without their own. NOT using a `template` here:
+  // existing per-page titles are absolute ("FAQs — UNICASH" etc.), so a
+  // `%s — UNICASH` template would double-suffix them. (If we later switch to
+  // bare per-page titles, reintroduce the template then.)
   title: 'UNICASH — Premium Australian Membership rewards',
   description: 'Earn Points from eligible receipts, top up with Point Boosters, and access member-only Bonus Draws. A premium Australian Membership rewards platform.',
+  openGraph: {
+    type: 'website',
+    siteName: 'UNICASH',
+    url: 'https://unicash.com.au',
+    images: [{ url: '/og-default.png', width: 1200, height: 630, alt: 'UNICASH' }],
+  },
+  twitter: { card: 'summary_large_image' },
+  alternates: { canonical: '/' },
 }
 
 /**

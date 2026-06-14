@@ -39,7 +39,7 @@ const ORGANIZATION_SCHEMA = {
   name: 'UNICASH',
   legalName: 'UNICASH Pty Ltd',
   url: 'https://unicash.com.au',
-  logo: 'https://unicash.com.au/images/logo.svg',
+  logo: 'https://unicash.com.au/email-assets/logo.png',
   email: 'support@unicash.com.au',
   address: {
     '@type': 'PostalAddress',

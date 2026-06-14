@@ -1,0 +1,29 @@
+# UNICASH
+
+> UNICASH is a premium Australian membership rewards platform. Members scan eligible
+> receipts to earn Points and Fuel Rewards, then redeem Points for gift cards. A paid
+> Membership unlocks additional benefits. Operated by UNICASH Pty Ltd (ABN 90 693 062 538),
+> Perth, Western Australia.
+
+## What UNICASH offers
+- Membership: a recurring subscription with member benefits.
+- Points: the core reward unit, earned by scanning eligible receipts.
+- Fuel Rewards: earned on eligible fuel receipts.
+- Point Boosters: one-time purchases for extra Points.
+- Redeem Gift Cards: exchange Points for gift cards.
+- Scan Receipts: upload receipts to earn Points and Fuel Rewards.
+- Bonus Draws and Major Draws: member draws entered with Points.
+
+## Key pages
+- Home: https://unicash.com.au/
+- About: https://unicash.com.au/about
+- How scanning works: https://unicash.com.au/scan-receipts
+- Gift cards: https://unicash.com.au/rewards/gift-cards
+- Point Boosters: https://unicash.com.au/point-boosters
+- Bonus Draws: https://unicash.com.au/giveaways
+- FAQ: https://unicash.com.au/faq
+- Contact: https://unicash.com.au/contact
+
+## Notes
+- UNICASH is a rewards and benefits platform, not a gambling product.
+- Pricing is in AUD. Terms: https://unicash.com.au/terms · Privacy: https://unicash.com.au/privacy
